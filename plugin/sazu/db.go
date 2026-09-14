@@ -42,6 +42,21 @@ CREATE TABLE IF NOT EXISTS rrs (
 	rr     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rrs_zone_name_type ON rrs(zone, name, rrtype);
+
+-- §12 audit trail: one row per UPDATE transaction this server decided on,
+-- accepted or rejected. zone is NOT a foreign key into zones(origin) --
+-- unlike every other table here, an audit entry is written for a zone
+-- that was refused at first contact and so never got a zones row at all,
+-- which is exactly the kind of attempt an audit trail exists to remember.
+CREATE TABLE IF NOT EXISTS audit_log (
+	id          TEXT PRIMARY KEY,
+	zone        TEXT NOT NULL,
+	remote_addr TEXT NOT NULL,
+	rcode       TEXT NOT NULL,
+	status      TEXT NOT NULL,
+	at          INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS audit_log_zone_at ON audit_log(zone, at);
 `
 
 // DB is SAZU's SQLite persistence backend, via modernc.org/sqlite -- a
@@ -310,4 +325,48 @@ func (db *DB) LoadAll() (*Store, *KeyRegistry, *ContactRegistry, error) {
 	}
 
 	return store, keys, contacts, nil
+}
+
+// RecordTransaction appends one row to the §12 audit trail: entry.ID must
+// be unique (it's the primary key), which newTransactionID's randomness
+// already guarantees in practice. A write here is independent of, and
+// never rolled back by, CommitUpdate's own transaction -- the audit
+// record is written by the caller (serveUpdate) after that transaction
+// has already succeeded or failed, and is deliberately never itself the
+// reason an UPDATE fails: see handler.go's own comment where this is
+// called for why a logging error here only gets logged, not surfaced to
+// the client.
+func (db *DB) RecordTransaction(entry AuditEntry) error {
+	_, err := db.sql.Exec(
+		`INSERT INTO audit_log (id, zone, remote_addr, rcode, status, at) VALUES (?, ?, ?, ?, ?, ?)`,
+		entry.ID, entry.Zone, entry.RemoteAddr, entry.Rcode, entry.Status, entry.At.Unix(),
+	)
+	return err
+}
+
+// RecentTransactions returns up to limit audit-log entries for zone,
+// newest first -- the read side of the §12 audit trail, for an operator
+// (or a future admin surface) asking "what happened to this zone's
+// pushes recently."
+func (db *DB) RecentTransactions(zone string, limit int) ([]AuditEntry, error) {
+	rows, err := db.sql.Query(
+		`SELECT id, zone, remote_addr, rcode, status, at FROM audit_log WHERE zone = ? ORDER BY at DESC, rowid DESC LIMIT ?`,
+		zone, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []AuditEntry
+	for rows.Next() {
+		var e AuditEntry
+		var at int64
+		if err := rows.Scan(&e.ID, &e.Zone, &e.RemoteAddr, &e.Rcode, &e.Status, &at); err != nil {
+			return nil, err
+		}
+		e.At = time.Unix(at, 0)
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }

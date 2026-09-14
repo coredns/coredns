@@ -183,14 +183,27 @@ func isDNSSECRequested(r *dns.Msg) bool {
 }
 
 func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, error) {
-	reply := func(rcode int) (int, error) {
-		m := new(dns.Msg)
-		m.SetReply(r)
-		m.Rcode = rcode
-		return writeMsg(w, m)
+	txID := newTransactionID()
+	remoteAddr := w.RemoteAddr().String()
+	// reply is the sole exit point for this function: every response,
+	// accepted or refused, goes through it, so the §12 audit trail (when
+	// s.DB is configured) sees every transaction this server decided on,
+	// not just the successful ones -- an operator investigating "why did
+	// my push fail" needs the rejected attempts at least as much as the
+	// accepted ones. A logging failure here is deliberately never the
+	// reason an UPDATE itself fails: it's just logged, since the audit
+	// trail is a record of what happened, not a gate on whether it can.
+	reply := func(rcode int, status string) (int, error) {
+		if s.DB != nil {
+			entry := AuditEntry{ID: txID, Zone: zone, RemoteAddr: remoteAddr, Rcode: dns.RcodeToString[rcode], Status: status, At: time.Now()}
+			if err := s.DB.RecordTransaction(entry); err != nil {
+				log.Errorf("update for %s: recording audit entry %s: %v", zone, txID, err)
+			}
+		}
+		return replyWithStatus(w, r, rcode, status)
 	}
 
-	log.Debugf("update for %s from %s: %d prerequisite(s), %d op(s)", zone, w.RemoteAddr(), len(r.Answer), len(r.Ns))
+	log.Debugf("update for %s from %s: transaction %s, %d prerequisite(s), %d op(s)", zone, remoteAddr, txID, len(r.Answer), len(r.Ns))
 
 	raw, ok := s.Capture.Take(w.RemoteAddr(), r.Id)
 	if !ok {
@@ -198,7 +211,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		// nothing to verify a SIG(0) signature against. Fail closed
 		// rather than trust a re-encoding of the parsed message.
 		log.Warningf("update for %s from %s: no raw bytes captured for id %d, refusing", zone, w.RemoteAddr(), r.Id)
-		return reply(dns.RcodeServerFailure)
+		return reply(dns.RcodeServerFailure, "")
 	}
 
 	log.Debugf("update for %s: waiting for updateMu (serializes all zones on this instance)", zone)
@@ -215,12 +228,12 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		candidate, ferr = findCandidateKey(r.Ns, zone)
 		if ferr != nil {
 			log.Debugf("update for %s: no candidate DNSKEY found in a first-contact push: %v", zone, ferr)
-			return reply(dns.RcodeRefused)
+			return reply(dns.RcodeRefused, "")
 		}
 		log.Debugf("update for %s: first-contact candidate key tag %d algorithm %d", zone, candidate.KeyTag(), candidate.Algorithm)
 		if !algorithmMeetsFloor(candidate.Algorithm) {
 			log.Debugf("update for %s: candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, candidate.Algorithm)
-			return replyWithStatus(w, r, dns.RcodeRefused, statusErrWeakAlgorithm)
+			return reply(dns.RcodeRefused, statusErrWeakAlgorithm)
 		}
 	}
 
@@ -253,7 +266,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 				// trust -- same "cheap check first" reasoning as first
 				// contact's own floor check above.
 				log.Debugf("update for %s: rollover candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, other.Algorithm)
-				return replyWithStatus(w, r, dns.RcodeRefused, statusErrWeakAlgorithm)
+				return reply(dns.RcodeRefused, statusErrWeakAlgorithm)
 			}
 			if verr := VerifySIG0(raw, other); verr == nil {
 				candidate, isRollover, sigErr = other, true, nil
@@ -262,7 +275,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	}
 	if sigErr != nil {
 		log.Debugf("update for %s: SIG(0) verification failed: %v", zone, sigErr)
-		return reply(dns.RcodeNotAuth)
+		return reply(dns.RcodeNotAuth, "")
 	}
 	log.Debugf("update for %s: SIG(0) verified (rollover=%v)", zone, isRollover)
 
@@ -275,7 +288,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	zoneOps, contactUpdate, err := splitContactOps(r.Ns, zone)
 	if err != nil {
 		log.Debugf("update for %s: invalid contact directive: %v", zone, err)
-		return reply(dns.RcodeFormatError)
+		return reply(dns.RcodeFormatError, "")
 	}
 
 	if s.RateLimiter != nil {
@@ -290,7 +303,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		isFull := !alreadyPinned || containsAPEXDNSKEY(zoneOps, zone)
 		if !s.RateLimiter.Allow(zone, isFull) {
 			log.Debugf("update for %s: rejected, quota exceeded (full=%v)", zone, isFull)
-			return replyWithStatus(w, r, dns.RcodeRefused, statusErrQuotaExceeded)
+			return reply(dns.RcodeRefused, statusErrQuotaExceeded)
 		}
 	}
 
@@ -325,7 +338,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 						status = statusErrUnknownSigner
 					}
 				}
-				return replyWithStatus(w, r, dns.RcodeRefused, status)
+				return reply(dns.RcodeRefused, status)
 			}
 		}
 		if !alreadyPinned && !containsAPEXSOA(zoneOps, zone) {
@@ -335,14 +348,14 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 			// rollover: the zone already has real content and a real SOA
 			// from before, and a rollover push may legitimately carry
 			// nothing but the new key itself.
-			return reply(dns.RcodeFormatError)
+			return reply(dns.RcodeFormatError, "")
 		}
 	}
 
 	z := s.Store.GetOrCreate(zone)
 	if rcode, status, err := EvaluatePrerequisites(z, r.Answer, dns.ClassINET); err != nil {
 		log.Debugf("update for %s: prerequisite failed: %v", zone, err)
-		return replyWithStatus(w, r, rcode, status)
+		return reply(rcode, status)
 	}
 
 	if s.RequireValidRRSIGs {
@@ -357,7 +370,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 			if status == "" {
 				status = statusErrSigInvalid
 			}
-			return replyWithStatus(w, r, dns.RcodeNotAuth, status)
+			return reply(dns.RcodeNotAuth, status)
 		}
 	}
 
@@ -371,7 +384,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		}
 		if err := s.DB.CommitUpdate(zone, keyToPin, zoneOps, dns.ClassINET, contactUpdate); err != nil {
 			log.Errorf("update for %s: DB.CommitUpdate failed: %v", zone, err)
-			return reply(dns.RcodeServerFailure)
+			return reply(dns.RcodeServerFailure, "")
 		}
 		log.Debugf("update for %s: committed to DB", zone)
 	}
@@ -383,7 +396,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	z.PurgeNSEC()
 	if err := ApplyUpdateOps(z, zoneOps, dns.ClassINET); err != nil {
 		log.Errorf("update for %s: ApplyUpdateOps failed: %v", zone, err)
-		return reply(dns.RcodeFormatError)
+		return reply(dns.RcodeFormatError, "")
 	}
 
 	if !alreadyPinned {
@@ -398,7 +411,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		log.Debugf("update for %s: contact registration updated (%d address(es))", zone, len(contactUpdate.Addresses))
 	}
 	log.Debugf("update for %s: accepted", zone)
-	return reply(dns.RcodeSuccess)
+	return reply(dns.RcodeSuccess, "")
 }
 
 // candidateKindLabel names what kind of candidate-key event this is, for

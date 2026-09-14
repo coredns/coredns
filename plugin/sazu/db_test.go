@@ -4,6 +4,7 @@ import (
 	"net"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -268,5 +269,48 @@ func TestDBCommitUpdatePersistsAndClearsContact(t *testing.T) {
 	}
 	if _, ok := contacts.Get("example.org."); ok {
 		t.Fatalf("expected the cleared contact to not survive a round trip")
+	}
+}
+
+// TestDBRecordTransactionAndRecentTransactions proves §12's audit trail
+// persistence: entries survive, come back newest first, and a zone with
+// no entries at all (rather than an error) just gets an empty result --
+// exactly what a never-onboarded zone's first, rejected attempt would
+// look like before any later ones exist.
+func TestDBRecordTransactionAndRecentTransactions(t *testing.T) {
+	db := openTestDB(t)
+
+	base := time.Now()
+	entries := []AuditEntry{
+		{ID: "tx-1", Zone: "example.org.", RemoteAddr: "203.0.113.1:5353", Rcode: "REFUSED", Status: "ERR_NO_DS_PUBLISHED", At: base},
+		{ID: "tx-2", Zone: "example.org.", RemoteAddr: "203.0.113.1:5353", Rcode: "NOERROR", Status: "", At: base.Add(time.Minute)},
+		{ID: "tx-3", Zone: "other.example.", RemoteAddr: "203.0.113.2:5353", Rcode: "NOERROR", Status: "", At: base.Add(2 * time.Minute)},
+	}
+	for _, e := range entries {
+		if err := db.RecordTransaction(e); err != nil {
+			t.Fatalf("RecordTransaction(%s): %v", e.ID, err)
+		}
+	}
+
+	got, err := db.RecentTransactions("example.org.", 10)
+	if err != nil {
+		t.Fatalf("RecentTransactions: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 entries for example.org., got %d: %+v", len(got), got)
+	}
+	if got[0].ID != "tx-2" || got[1].ID != "tx-1" {
+		t.Fatalf("expected newest-first order (tx-2, tx-1), got (%s, %s)", got[0].ID, got[1].ID)
+	}
+	if got[1].Status != "ERR_NO_DS_PUBLISHED" {
+		t.Fatalf("expected the rejected attempt's status to survive, got %q", got[1].Status)
+	}
+
+	if got, err := db.RecentTransactions("never-touched.example.", 10); err != nil || len(got) != 0 {
+		t.Fatalf("expected no entries (not an error) for an untouched zone, got %+v err=%v", got, err)
+	}
+
+	if limited, err := db.RecentTransactions("example.org.", 1); err != nil || len(limited) != 1 || limited[0].ID != "tx-2" {
+		t.Fatalf("expected limit to cap results to the single newest entry, got %+v err=%v", limited, err)
 	}
 }

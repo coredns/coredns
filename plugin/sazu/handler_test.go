@@ -779,6 +779,61 @@ func TestRateLimiterExceededRejectsFurtherDifferentialPushes(t *testing.T) {
 	}
 }
 
+// TestServeUpdateRecordsAuditTrailForAcceptedAndRejectedTransactions
+// proves §12's audit trail actually captures both outcomes an operator
+// would want to investigate later: a successful onboarding, and a
+// rejected first-contact attempt (no SOA) that never got far enough to
+// even create a zones row -- exactly the case audit_log's schema is
+// deliberately not foreign-keyed against zones(origin) to still capture.
+func TestServeUpdateRecordsAuditTrailForAcceptedAndRejectedTransactions(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.DB = openTestDB(t)
+	addr := serveThroughRealServer(t, s)
+
+	// A rejected attempt: a candidate DNSKEY but no SOA.
+	badKey, badPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	bad := new(dns.Msg)
+	bad.SetQuestion("example.org.", dns.TypeSOA)
+	bad.Opcode = dns.OpcodeUpdate
+	bad.Insert([]dns.RR{
+		&dns.DNSKEY{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+			Flags: badKey.Flags, Protocol: badKey.Protocol, Algorithm: badKey.Algorithm, PublicKey: badKey.PublicKey},
+	})
+	now := time.Now()
+	badWire, err := SignUpdate(bad, badKey, badPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, badWire); resp.Rcode == dns.RcodeSuccess {
+		t.Fatalf("expected the no-SOA push to be rejected")
+	}
+
+	// A successful onboarding.
+	key := onboardExampleOrg(t, addr, s)
+	_ = key
+
+	entries, err := s.DB.RecentTransactions("example.org.", 10)
+	if err != nil {
+		t.Fatalf("RecentTransactions: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 audit entries (one rejected, one accepted), got %d: %+v", len(entries), entries)
+	}
+	// Newest first: the successful onboarding, then the earlier rejection.
+	if entries[0].Rcode != "NOERROR" {
+		t.Fatalf("expected the newest entry to be the accepted onboarding, got %+v", entries[0])
+	}
+	if entries[1].Rcode == "NOERROR" {
+		t.Fatalf("expected the older entry to be the rejected attempt, got %+v", entries[1])
+	}
+	if entries[0].ID == entries[1].ID {
+		t.Fatalf("expected distinct transaction IDs, got the same one twice: %s", entries[0].ID)
+	}
+}
+
 // TestOrdinaryPartialPushAfterOnboarding is the second half of the whole
 // chain: once a zone is onboarded, an ordinary push signed by the same
 // (already-pinned) key -- carrying no DNSKEY at all -- can add and

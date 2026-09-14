@@ -472,6 +472,30 @@ for a manually verified real-binary walkthrough.
   one means "re-sign and re-push," the other means something is actually
   wrong with the key or the content.
 
+- **Audit trail: transaction UUID, persistent log (§12).** Every §12
+  status code from the design doc's list is now implemented except
+  `ERR_RATE_LIMITED` (a distinct, faster-timescale flood throttle, not the
+  same thing as the daily quota, and still genuinely outstanding).
+  `serveUpdate` now generates a fresh transaction ID (`audit.go`'s
+  `newTransactionID`, a hand-rolled RFC 4122 v4 UUID -- no dependency
+  needed for something this simple) and, when `db` is configured, writes
+  one `audit_log` row per transaction *regardless of outcome* -- accepted
+  or rejected, via a single exit point (`serveUpdate`'s local `reply`
+  closure) so every one of its dozen-plus return paths is covered
+  uniformly rather than needing its own explicit logging call. `zone` in
+  `audit_log` is deliberately not a foreign key into `zones(origin)`,
+  unlike every other table: a rejected first-contact attempt never
+  creates a zones row at all, and that is exactly the kind of attempt an
+  audit trail exists to remember. `DB.RecentTransactions` is the read
+  side (newest first, optionally limited) for an operator asking "what
+  happened to this zone's pushes recently." Deliberately server-side
+  only for now: the transaction ID is not (yet) surfaced to the client
+  on the wire, since doing so risked changing the Additional-section
+  status-TXT contract `TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic`
+  depends on (no diagnostic TXT at all for a bare, generic rejection) --
+  worth revisiting alongside the HTTPS/JSON carrier below, which has more
+  room to carry this without that constraint.
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -480,17 +504,6 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Audit trail: transaction UUID, persistent log (§12).** Every §12
-  status code is now implemented (`ERR_NO_DS_PUBLISHED`,
-  `ERR_UNKNOWN_SIGNER`, `ERR_SIG_INVALID`, `ERR_WEAK_ALGORITHM`,
-  `ERR_QUOTA_EXCEEDED`, `ERR_STALE_SERIAL`, `ERR_EXPIRED_SIGNATURE` -- see
-  Done, above) except `ERR_RATE_LIMITED` (a distinct, faster-timescale
-  flood throttle, not the same thing as the daily quota, and not yet
-  built). Still missing: a per-transaction UUID, and a persistent audit
-  log of accepted/rejected transactions (who pushed what, when, and with
-  what outcome) -- today's diagnostics are surfaced only in the response
-  itself and, if `debug` is loaded, the log stream; nothing is queryable
-  after the fact.
 - [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP wire format only today.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different
