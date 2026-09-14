@@ -1,6 +1,7 @@
 package sazu
 
 import (
+	"database/sql"
 	"net"
 	"path/filepath"
 	"testing"
@@ -38,7 +39,7 @@ func TestDBCommitUpdateThenLoadAllReproducesOnboarding(t *testing.T) {
 		rr.Header().Class = dns.ClassINET
 	}
 
-	if err := db.CommitUpdate("example.org.", key, ops, dns.ClassINET, nil); err != nil {
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, ops, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate: %v", err)
 	}
 
@@ -48,7 +49,7 @@ func TestDBCommitUpdateThenLoadAllReproducesOnboarding(t *testing.T) {
 	}
 
 	pinned, ok := keys.Get("example.org.")
-	if !ok || pinned.PublicKey != key.PublicKey {
+	if !ok || pinned.KSK.DNSKEY.PublicKey != key.PublicKey {
 		t.Fatalf("expected the pinned key to survive a round trip")
 	}
 
@@ -88,7 +89,7 @@ func TestDBCommitUpdatePurgesStaleNSECOnNextUpdate(t *testing.T) {
 	for _, rr := range firstOps {
 		rr.Header().Class = dns.ClassINET
 	}
-	if err := db.CommitUpdate("example.org.", key, firstOps, dns.ClassINET, nil); err != nil {
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, firstOps, dns.ClassINET, nil); err != nil {
 		t.Fatalf("first CommitUpdate: %v", err)
 	}
 
@@ -130,7 +131,7 @@ func TestDBPersistsAcrossReopen(t *testing.T) {
 	}
 	soa := testSOA(1)
 	soa.Hdr.Class = dns.ClassINET
-	if err := db1.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET, nil); err != nil {
+	if err := db1.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, []dns.RR{soa}, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate: %v", err)
 	}
 	if err := db1.Close(); err != nil {
@@ -170,7 +171,7 @@ func TestDBCommitUpdateAppliesAllFourOpForms(t *testing.T) {
 	a2.Hdr.Class = dns.ClassINET
 	mx := &dns.MX{Hdr: dns.RR_Header{Name: "mail.example.org.", Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: 300}, Preference: 10, Mx: "mx.example.org."}
 
-	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa, a1, a2, mx}, dns.ClassINET, nil); err != nil {
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, []dns.RR{soa, a1, a2, mx}, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate (onboard): %v", err)
 	}
 
@@ -216,7 +217,7 @@ func TestDBCommitUpdateRollsBackOnMalformedOp(t *testing.T) {
 	bad := testA("bad.example.org.", net.IPv4(203, 0, 113, 99))
 	bad.Hdr.Class = dns.ClassCHAOS
 
-	err = db.CommitUpdate("example.org.", key, []dns.RR{soa, good, bad}, dns.ClassINET, nil)
+	err = db.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, []dns.RR{soa, good, bad}, dns.ClassINET, nil)
 	if err == nil {
 		t.Fatalf("expected CommitUpdate to fail on a malformed op")
 	}
@@ -246,7 +247,7 @@ func TestDBCommitUpdatePersistsAndClearsContact(t *testing.T) {
 	soa := testSOA(1)
 	soa.Hdr.Class = dns.ClassINET
 
-	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET,
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, []dns.RR{soa}, dns.ClassINET,
 		&ContactUpdate{Addresses: []string{"mailto:ops@example.org", "https://hooks.example.org/sazu"}}); err != nil {
 		t.Fatalf("CommitUpdate with contact: %v", err)
 	}
@@ -283,7 +284,7 @@ func TestDBListZonesLoadKeyLoadContact(t *testing.T) {
 	}
 	soa := testSOA(1)
 	soa.Hdr.Class = dns.ClassINET
-	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET,
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: key}, []dns.RR{soa}, dns.ClassINET,
 		&ContactUpdate{Addresses: []string{"mailto:ops@example.org"}}); err != nil {
 		t.Fatalf("CommitUpdate: %v", err)
 	}
@@ -353,5 +354,182 @@ func TestDBRecordTransactionAndRecentTransactions(t *testing.T) {
 
 	if limited, err := db.RecentTransactions("example.org.", 1); err != nil || len(limited) != 1 || limited[0].ID != "tx-2" {
 		t.Fatalf("expected limit to cap results to the single newest entry, got %+v err=%v", limited, err)
+	}
+}
+
+// TestDBCommitUpdateAddsAndRetiresZSK proves the optional ZSK split
+// (keys.go's KeyRole) persists correctly and independently of the KSK:
+// registering one, then retiring it, both survive a round trip through
+// LoadZoneKeys, and the KSK itself is untouched throughout.
+func TestDBCommitUpdateAddsAndRetiresZSK(t *testing.T) {
+	db := openTestDB(t)
+	ksk, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating KSK: %v", err)
+	}
+	soa := testSOA(1)
+	soa.Hdr.Class = dns.ClassINET
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: ksk}, []dns.RR{soa}, dns.ClassINET, nil); err != nil {
+		t.Fatalf("onboarding CommitUpdate: %v", err)
+	}
+
+	zsk, _, err := GenerateEd25519Key("example.org.", false)
+	if err != nil {
+		t.Fatalf("generating ZSK: %v", err)
+	}
+	mk := &ManagedKey{DNSKEY: zsk, Role: RoleZSK, CanAuthenticateTx: true}
+	if err := db.CommitUpdate("example.org.", &KeyChange{AddZSK: mk}, nil, dns.ClassINET, nil); err != nil {
+		t.Fatalf("AddZSK CommitUpdate: %v", err)
+	}
+
+	zk, ok, err := db.LoadZoneKeys("example.org.")
+	if err != nil || !ok {
+		t.Fatalf("LoadZoneKeys: ok=%v err=%v", ok, err)
+	}
+	if zk.KSK.DNSKEY.PublicKey != ksk.PublicKey {
+		t.Fatalf("expected the KSK to survive unaffected, got %+v", zk.KSK)
+	}
+	if len(zk.ZSKs) != 1 || zk.ZSKs[0].DNSKEY.PublicKey != zsk.PublicKey || !zk.ZSKs[0].CanAuthenticateTx {
+		t.Fatalf("expected the registered ZSK to survive a round trip, got %+v", zk.ZSKs)
+	}
+
+	// LoadKey (the lighter-weight accessor sazu-watchd uses) must still
+	// return only the KSK, never a ZSK -- a ZSK is never DS-anchored, so
+	// it has nothing for a chain-of-trust re-check to verify.
+	kskOnly, ok, err := db.LoadKey("example.org.")
+	if err != nil || !ok || kskOnly.PublicKey != ksk.PublicKey {
+		t.Fatalf("LoadKey: got %+v ok=%v err=%v", kskOnly, ok, err)
+	}
+
+	tag := zsk.KeyTag()
+	if err := db.CommitUpdate("example.org.", &KeyChange{RetireZSK: &tag}, nil, dns.ClassINET, nil); err != nil {
+		t.Fatalf("RetireZSK CommitUpdate: %v", err)
+	}
+	zk, ok, err = db.LoadZoneKeys("example.org.")
+	if err != nil || !ok {
+		t.Fatalf("LoadZoneKeys after retire: ok=%v err=%v", ok, err)
+	}
+	if len(zk.ZSKs) != 0 {
+		t.Fatalf("expected no ZSKs left after retiring the only one, got %+v", zk.ZSKs)
+	}
+	if zk.KSK.DNSKEY.PublicKey != ksk.PublicKey {
+		t.Fatalf("expected the KSK to remain untouched by retiring a ZSK, got %+v", zk.KSK)
+	}
+}
+
+// TestDBCommitUpdateKSKRolloverReplacesRowNotAdds proves a KSK rollover
+// (PinKSK with a *different* key tag than the one already on file)
+// replaces that zone's sole KSK row rather than leaving the old one
+// behind as a stale second "KSK" -- PRIMARY KEY (zone, keytag) means the
+// two key tags would otherwise coexist as two separate rows.
+func TestDBCommitUpdateKSKRolloverReplacesRowNotAdds(t *testing.T) {
+	db := openTestDB(t)
+	oldKSK, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating first KSK: %v", err)
+	}
+	soa := testSOA(1)
+	soa.Hdr.Class = dns.ClassINET
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: oldKSK}, []dns.RR{soa}, dns.ClassINET, nil); err != nil {
+		t.Fatalf("onboarding CommitUpdate: %v", err)
+	}
+
+	newKSK, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating second KSK: %v", err)
+	}
+	if err := db.CommitUpdate("example.org.", &KeyChange{PinKSK: newKSK}, nil, dns.ClassINET, nil); err != nil {
+		t.Fatalf("rollover CommitUpdate: %v", err)
+	}
+
+	zk, ok, err := db.LoadZoneKeys("example.org.")
+	if err != nil || !ok {
+		t.Fatalf("LoadZoneKeys: ok=%v err=%v", ok, err)
+	}
+	if zk.KSK.DNSKEY.PublicKey != newKSK.PublicKey {
+		t.Fatalf("expected the KSK to be the new one, got %+v", zk.KSK)
+	}
+
+	var kskRowCount int
+	if err := db.sql.QueryRow(`SELECT COUNT(*) FROM keys WHERE zone = ? AND role = 'KSK'`, "example.org.").Scan(&kskRowCount); err != nil {
+		t.Fatalf("counting KSK rows: %v", err)
+	}
+	if kskRowCount != 1 {
+		t.Fatalf("expected exactly one KSK row after a rollover, got %d", kskRowCount)
+	}
+}
+
+// TestDBOpenMigratesPreZSKKeysTable proves a database written before ZSK
+// support existed (the old keys table shape: zone as its sole primary
+// key, no keytag/role/can_auth_tx columns) is transparently upgraded in
+// place the first time it's opened with this version -- an existing
+// deployment's zones and keys survive the upgrade with no operator
+// action, and every pre-existing key becomes that zone's KSK.
+func TestDBOpenMigratesPreZSKKeysTable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sazu.db")
+
+	// Build a database in the pre-ZSK shape directly via SQL, bypassing
+	// Open (which would create the current-shape table from the start).
+	raw, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("sql.Open: %v", err)
+	}
+	if _, err := raw.Exec(`
+		CREATE TABLE zones (origin TEXT PRIMARY KEY, created_at INTEGER NOT NULL);
+		CREATE TABLE keys (
+			zone       TEXT PRIMARY KEY REFERENCES zones(origin),
+			flags      INTEGER NOT NULL,
+			protocol   INTEGER NOT NULL,
+			algorithm  INTEGER NOT NULL,
+			public_key TEXT NOT NULL,
+			pinned_at  INTEGER NOT NULL
+		);
+	`); err != nil {
+		t.Fatalf("creating pre-ZSK schema: %v", err)
+	}
+
+	key, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO zones (origin, created_at) VALUES (?, ?)`, "example.org.", 1000); err != nil {
+		t.Fatalf("inserting pre-ZSK zone row: %v", err)
+	}
+	if _, err := raw.Exec(
+		`INSERT INTO keys (zone, flags, protocol, algorithm, public_key, pinned_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"example.org.", key.Flags, key.Protocol, key.Algorithm, key.PublicKey, 1000,
+	); err != nil {
+		t.Fatalf("inserting pre-ZSK key row: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("closing raw handle: %v", err)
+	}
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open (expected to migrate transparently): %v", err)
+	}
+	defer db.Close()
+
+	zk, ok, err := db.LoadZoneKeys("example.org.")
+	if err != nil || !ok {
+		t.Fatalf("LoadZoneKeys after migration: ok=%v err=%v", ok, err)
+	}
+	if zk.KSK.DNSKEY.PublicKey != key.PublicKey || zk.KSK.Role != RoleKSK || !zk.KSK.CanAuthenticateTx {
+		t.Fatalf("expected the pre-existing key to become the zone's KSK, got %+v", zk.KSK)
+	}
+	if len(zk.ZSKs) != 0 {
+		t.Fatalf("expected no ZSKs from a migrated pre-ZSK database, got %+v", zk.ZSKs)
+	}
+
+	// A second Open (simulating a restart) must be a no-op migration --
+	// the table is already current-shape.
+	db2, err := Open(path)
+	if err != nil {
+		t.Fatalf("second Open: %v", err)
+	}
+	defer db2.Close()
+	if zk2, ok, err := db2.LoadZoneKeys("example.org."); err != nil || !ok || zk2.KSK.DNSKEY.PublicKey != key.PublicKey {
+		t.Fatalf("expected the migrated data to still be there after a second Open: ok=%v err=%v zk=%+v", ok, err, zk2)
 	}
 }

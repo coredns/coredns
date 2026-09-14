@@ -1,0 +1,10 @@
+{{define "registrar-key-fields.txt"}}     Some registrars (e.g. AWS Route 53) instead ask you to enter the key's
+     own fields by hand and compute the DS themselves. If that's what you're
+     looking at, enter:
+
+       public key type: {{.KeyTypeValue}} ({{.KeyTypeLabel}})
+       algorithm:       {{.Algorithm}} ({{.AlgorithmName}})
+       key tag:         {{.KeyTag}}
+       public key (base64): {{.PublicKeyB64}}
+
+{{end}}

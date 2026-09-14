@@ -1,0 +1,53 @@
+{{define "unknown-signer.txt"}}
+Onboarding denied: a DS record is already published for {{.Zone}}, but not for
+this key.
+
+This is not necessarily a problem with this key, and not necessarily an
+attack -- it most likely means DNSSEC is already enabled for this domain
+under a different key, quite possibly its current host's own (e.g. if you
+followed the migration guidance to enable DNSSEC there first). Check what's
+actually publishing that DS before doing anything about it:
+
+  dig DS {{.Zone}} +short
+
+You can still get this key onboarded now, without disturbing that one. Most
+registrars accept more than one DS record for the same domain at once --
+this is exactly how a DNSSEC key or algorithm rollover works (RFC 6781
+§4.1.4) -- so:
+
+  1. Give your registrar this DS record IN ADDITION TO the one already
+     there -- do not remove or replace the existing one yet:
+
+       {{.Owner}} IN DS {{.KeyTag}} {{.Algorithm}} {{.DigestType}} {{.Digest}}
+
+{{template "registrar-key-fields.txt" .}}     See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for
+     registrar-specific instructions, including how to add a second DS/key
+     record rather than replacing the one already there.
+
+  2. Wait for it to propagate, then confirm both digests are visible:
+
+       dig DS {{.Zone}} +short
+
+  3. Re-run this same command once that shows both. Onboarding succeeds as
+     soon as this key's own DS is visible -- the other, coexisting DS
+     record doesn't block it.
+
+  4. Only once you are actually ready to cut authoritative service over to
+     this server, remove the OTHER DS record (the one that was already
+     there before this key's). Leaving it in place until then is harmless:
+     this server only cares that its own key's DS is among whatever is
+     published, not that it's the only one.
+
+If your registrar's DNSSEC panel only accepts a single DS record and won't
+let you add a second one, you can't do the above safely: replacing the sole
+DS record before you're ready for cutover breaks the domain the same way
+publishing a DS too early does on a domain with no DNSSEC at all (see the
+no-DS-published guidance for why). In that case, wait until cutover, then
+replace the existing DS with this one at the same time you switch
+delegation to this server.
+
+If you don't recognize the existing DS at all -- it isn't your current
+host's own DNSSEC and nothing you set up -- treat it as a real incident:
+stop and investigate with your registrar before proceeding.
+
+{{end}}

@@ -1,0 +1,39 @@
+{{define "rotate-key-choice.txt"}}
+Rotating a key for {{.Zone}} -- you need to choose which kind:
+
+  ZSK rotation (cheap, no registrar step)
+  ----------------------------------------
+  Rotates the zone-signing key that signs day-to-day zone content. This
+  server never anchors a ZSK to a parent DS record, so rotating it needs
+  no registrar interaction and no waiting for DNS propagation -- it takes
+  effect the moment your push is accepted. Choose this for routine,
+  frequent key hygiene.
+{{if .HasZSK}}
+  This zone already has a registered ZSK (key tag {{.ZSKKeyTag}}). Run:
+
+    sazuctl rotate-key -zone {{.Zone}} -role zsk -key <your KSK> \
+      -current-zsk-key <path to the current ZSK> -new-zsk-key <path to a new one>
+{{else}}
+  This zone has no ZSK registered yet -- there is nothing to rotate. Register
+  one first:
+
+    sazuctl add-zsk -zone {{.Zone}} -ksk-key <your KSK> -zsk-key <path for a new ZSK>
+{{end}}
+  KSK rotation (requires a registrar DS update)
+  ----------------------------------------------
+  Rotates the key-signing key itself -- the one and only key this server
+  ever anchors to a parent DS record. This ALWAYS requires you to publish
+  a new DS record at your registrar and wait for it to propagate before
+  the rotation can complete (exactly like first onboarding this zone did);
+  see the no-DS-published guidance this same tool prints during onboarding
+  for why that step can't be skipped. Choose this only when you actually
+  need to change the DS-anchored key itself (suspected compromise,
+  moving to a different algorithm, or routine long-interval hygiene for
+  this specific key).
+
+    sazuctl rotate-key -zone {{.Zone}} -role ksk -key <your current KSK> -new-key <path for a new KSK>
+
+Re-run this command with -role ksk or -role zsk to proceed with one of the
+above. Neither has been done yet -- this message is informational only.
+
+{{end}}

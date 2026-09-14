@@ -16,14 +16,34 @@ CREATE TABLE IF NOT EXISTS zones (
 	created_at INTEGER NOT NULL
 );
 
+-- One row per key currently trusted for a zone: exactly one role='KSK'
+-- row (first contact and every §10.4 rollover replace it, never add a
+-- second) plus zero or more role='ZSK' rows (see keys.go's KeyRole doc
+-- comment for what the optional ZSK split is for). can_auth_tx mirrors
+-- ManagedKey.CanAuthenticateTx -- always 1 for a KSK, customer's choice
+-- for a ZSK. A DB created before ZSKs existed has an older-shaped
+-- version of this table (zone as its sole primary key, no keytag/role/
+-- can_auth_tx columns); see migrateKeysTableIfNeeded for how that gets
+-- upgraded in place the first time such a database is opened.
 CREATE TABLE IF NOT EXISTS keys (
-	zone       TEXT PRIMARY KEY REFERENCES zones(origin),
-	flags      INTEGER NOT NULL,
-	protocol   INTEGER NOT NULL,
-	algorithm  INTEGER NOT NULL,
-	public_key TEXT NOT NULL,
-	pinned_at  INTEGER NOT NULL
+	zone        TEXT NOT NULL REFERENCES zones(origin),
+	keytag      INTEGER NOT NULL,
+	role        TEXT NOT NULL,
+	flags       INTEGER NOT NULL,
+	protocol    INTEGER NOT NULL,
+	algorithm   INTEGER NOT NULL,
+	public_key  TEXT NOT NULL,
+	can_auth_tx INTEGER NOT NULL,
+	pinned_at   INTEGER NOT NULL,
+	PRIMARY KEY (zone, keytag)
 );
+-- keys_zone_role is deliberately NOT created here: on a database
+-- created before ZSK support existed, the keys table above is a no-op
+-- (IF NOT EXISTS -- the old-shape table already exists) and has no
+-- role column yet for an index to reference, which would make this
+-- entire schema script fail before migrateKeysTableIfNeeded ever gets a
+-- chance to run. Open creates this index separately, after migration
+-- has guaranteed the column exists either way.
 
 -- §10.6 registration record: a zone's registered contact address(es),
 -- newline-joined when there is more than one (see ContactUpdate/
@@ -92,19 +112,164 @@ func Open(path string) (*DB, error) {
 		sqlDB.Close()
 		return nil, fmt.Errorf("creating schema in %s: %w", path, err)
 	}
-	return &DB{sql: sqlDB}, nil
+	db := &DB{sql: sqlDB}
+	if err := db.migrateKeysTableIfNeeded(); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("migrating keys table in %s: %w", path, err)
+	}
+	// See the schema constant's comment on why this index is created
+	// here rather than as part of schema itself: by this point the keys
+	// table is guaranteed to have a role column either way (a fresh
+	// table always did; migrateKeysTableIfNeeded just added it to an
+	// old one), so this is always safe.
+	if _, err := sqlDB.Exec(`CREATE INDEX IF NOT EXISTS keys_zone_role ON keys(zone, role)`); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("creating keys_zone_role index in %s: %w", path, err)
+	}
+	return db, nil
+}
+
+// migrateKeysTableIfNeeded upgrades a keys table written before ZSK
+// support existed (one row per zone: zone TEXT PRIMARY KEY, no keytag/
+// role/can_auth_tx columns) to the current shape (one row per key,
+// PRIMARY KEY (zone, keytag)) in place. A fresh database, or one already
+// on the current schema, has nothing to do here -- schema's own
+// CREATE TABLE IF NOT EXISTS already gave it the current shape, and this
+// detects that via the keytag column's presence before touching
+// anything. Every pre-existing row becomes that zone's KSK
+// (can_auth_tx=1) -- exactly what it always was before ZSKs existed, so
+// no existing deployment needs to change anything to keep working.
+func (db *DB) migrateKeysTableIfNeeded() error {
+	hasKeytag, err := db.columnExists("keys", "keytag")
+	if err != nil {
+		return fmt.Errorf("inspecting keys table: %w", err)
+	}
+	if hasKeytag {
+		return nil
+	}
+
+	rows, err := db.sql.Query(`SELECT zone, flags, protocol, algorithm, public_key, pinned_at FROM keys`)
+	if err != nil {
+		return fmt.Errorf("reading pre-ZSK keys table: %w", err)
+	}
+	type oldRow struct {
+		zone                       string
+		flags, protocol, algorithm int64
+		publicKey                  string
+		pinnedAt                   int64
+	}
+	var old []oldRow
+	for rows.Next() {
+		var r oldRow
+		if err := rows.Scan(&r.zone, &r.flags, &r.protocol, &r.algorithm, &r.publicKey, &r.pinnedAt); err != nil {
+			rows.Close()
+			return err
+		}
+		old = append(old, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	tx, err := db.sql.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after a successful Commit
+
+	if _, err := tx.Exec(`ALTER TABLE keys RENAME TO keys_pre_zsk`); err != nil {
+		return fmt.Errorf("renaming old keys table: %w", err)
+	}
+	if _, err := tx.Exec(`
+		CREATE TABLE keys (
+			zone        TEXT NOT NULL REFERENCES zones(origin),
+			keytag      INTEGER NOT NULL,
+			role        TEXT NOT NULL,
+			flags       INTEGER NOT NULL,
+			protocol    INTEGER NOT NULL,
+			algorithm   INTEGER NOT NULL,
+			public_key  TEXT NOT NULL,
+			can_auth_tx INTEGER NOT NULL,
+			pinned_at   INTEGER NOT NULL,
+			PRIMARY KEY (zone, keytag)
+		)`); err != nil {
+		return fmt.Errorf("creating current-shape keys table: %w", err)
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS keys_zone_role ON keys(zone, role)`); err != nil {
+		return fmt.Errorf("creating keys_zone_role index: %w", err)
+	}
+	for _, r := range old {
+		dnskey := &dns.DNSKEY{
+			Hdr:       dns.RR_Header{Name: dns.Fqdn(r.zone), Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET},
+			Flags:     uint16(r.flags),
+			Protocol:  uint8(r.protocol),
+			Algorithm: uint8(r.algorithm),
+			PublicKey: r.publicKey,
+		}
+		if _, err := tx.Exec(
+			`INSERT INTO keys (zone, keytag, role, flags, protocol, algorithm, public_key, can_auth_tx, pinned_at)
+			 VALUES (?, ?, 'KSK', ?, ?, ?, ?, 1, ?)`,
+			r.zone, dnskey.KeyTag(), r.flags, r.protocol, r.algorithm, r.publicKey, r.pinnedAt,
+		); err != nil {
+			return fmt.Errorf("migrating key for %s: %w", r.zone, err)
+		}
+	}
+	if _, err := tx.Exec(`DROP TABLE keys_pre_zsk`); err != nil {
+		return fmt.Errorf("dropping old keys table: %w", err)
+	}
+	return tx.Commit()
+}
+
+// columnExists reports whether table has a column named column, via
+// SQLite's PRAGMA table_info introspection.
+func (db *DB) columnExists(table, column string) (bool, error) {
+	rows, err := db.sql.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notNull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // Close closes the underlying database connection.
 func (db *DB) Close() error { return db.sql.Close() }
 
+// KeyChange describes a KeyRegistry mutation for CommitUpdate to persist
+// alongside the rest of an UPDATE transaction, atomically -- at most one
+// field is normally set per real transaction (that's what serveUpdate's
+// own logic guarantees: a single push is either first contact, a KSK
+// rollover, a ZSK registration, a ZSK retirement, or none of those), but
+// CommitUpdate itself doesn't assume that; it just applies whichever are
+// non-nil.
+type KeyChange struct {
+	// PinKSK is set on first contact or a successful §10.4 KSK rollover.
+	PinKSK *dns.DNSKEY
+	// AddZSK is set when this push registers a new optional ZSK.
+	AddZSK *ManagedKey
+	// RetireZSK, if non-nil, is the key tag of a ZSK this push removed.
+	RetireZSK *uint16
+}
+
 // CommitUpdate persists one accepted UPDATE transactionally: optionally
-// pinning newKey (first contact only -- pass nil for an ordinary push to
-// an already-pinned zone) and applying every op in ops, all in one SQLite
-// transaction so a failure partway through leaves no partial state on
-// disk. Mirrors ApplyUpdateOps' RFC 2136 §2.5 classification exactly, so
-// the two stay in lockstep for the same input.
-func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass uint16, contact *ContactUpdate) error {
+// applying keyChange (pass nil for an ordinary push that changes no
+// key) and applying every op in ops, all in one SQLite transaction so a
+// failure partway through leaves no partial state on disk. Mirrors
+// ApplyUpdateOps' RFC 2136 §2.5 classification exactly, so the two stay
+// in lockstep for the same input.
+func (db *DB) CommitUpdate(zone string, keyChange *KeyChange, ops []dns.RR, zclass uint16, contact *ContactUpdate) error {
 	tx, err := db.sql.Begin()
 	if err != nil {
 		return err
@@ -116,12 +281,42 @@ func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass
 		return fmt.Errorf("ensuring zone row: %w", err)
 	}
 
-	if newKey != nil {
-		if _, err := tx.Exec(
-			`INSERT OR REPLACE INTO keys (zone, flags, protocol, algorithm, public_key, pinned_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			zone, newKey.Flags, newKey.Protocol, newKey.Algorithm, newKey.PublicKey, now,
-		); err != nil {
-			return fmt.Errorf("pinning key: %w", err)
+	if keyChange != nil {
+		if newKSK := keyChange.PinKSK; newKSK != nil {
+			// A rollover's new KSK usually has a different key tag than
+			// the one it replaces -- PRIMARY KEY (zone, keytag) would
+			// leave the old row behind as a second, stale "KSK" unless
+			// it's explicitly cleared first. There is always at most one
+			// role='KSK' row per zone by construction, so this is safe
+			// to do unconditionally.
+			if _, err := tx.Exec(`DELETE FROM keys WHERE zone = ? AND role = 'KSK'`, zone); err != nil {
+				return fmt.Errorf("clearing previous KSK: %w", err)
+			}
+			if _, err := tx.Exec(
+				`INSERT INTO keys (zone, keytag, role, flags, protocol, algorithm, public_key, can_auth_tx, pinned_at)
+				 VALUES (?, ?, 'KSK', ?, ?, ?, ?, 1, ?)`,
+				zone, newKSK.KeyTag(), newKSK.Flags, newKSK.Protocol, newKSK.Algorithm, newKSK.PublicKey, now,
+			); err != nil {
+				return fmt.Errorf("pinning KSK: %w", err)
+			}
+		}
+		if zsk := keyChange.AddZSK; zsk != nil {
+			canAuth := 0
+			if zsk.CanAuthenticateTx {
+				canAuth = 1
+			}
+			if _, err := tx.Exec(
+				`INSERT OR REPLACE INTO keys (zone, keytag, role, flags, protocol, algorithm, public_key, can_auth_tx, pinned_at)
+				 VALUES (?, ?, 'ZSK', ?, ?, ?, ?, ?, ?)`,
+				zone, zsk.KeyTag(), zsk.DNSKEY.Flags, zsk.DNSKEY.Protocol, zsk.DNSKEY.Algorithm, zsk.DNSKEY.PublicKey, canAuth, now,
+			); err != nil {
+				return fmt.Errorf("registering ZSK: %w", err)
+			}
+		}
+		if keytag := keyChange.RetireZSK; keytag != nil {
+			if _, err := tx.Exec(`DELETE FROM keys WHERE zone = ? AND keytag = ? AND role = 'ZSK'`, zone, *keytag); err != nil {
+				return fmt.Errorf("retiring ZSK: %w", err)
+			}
 		}
 	}
 
@@ -282,11 +477,16 @@ func (db *DB) LoadAll() (*Store, *KeyRegistry, *ContactRegistry, error) {
 		}
 		rrRows.Close()
 
-		switch key, ok, err := db.LoadKey(origin); {
+		switch zk, ok, err := db.LoadZoneKeys(origin); {
 		case err != nil:
-			return nil, nil, nil, fmt.Errorf("loading key for %s: %w", origin, err)
+			return nil, nil, nil, fmt.Errorf("loading keys for %s: %w", origin, err)
 		case ok:
-			keys.Pin(origin, key)
+			keys.PinKSK(origin, zk.KSK.DNSKEY)
+			for _, zsk := range zk.ZSKs {
+				if err := keys.AddZSK(origin, zsk.DNSKEY, zsk.CanAuthenticateTx); err != nil {
+					return nil, nil, nil, fmt.Errorf("restoring ZSK for %s: %w", origin, err)
+				}
+			}
 		default:
 			// A zone row with no pinned key shouldn't normally happen
 			// (CommitUpdate always pins one at first contact), but isn't
@@ -327,12 +527,15 @@ func (db *DB) ListZones() ([]string, error) {
 	return origins, rows.Err()
 }
 
-// LoadKey returns the pinned DNSKEY for zone, if any -- a lighter-weight
-// alternative to LoadAll for a caller that only needs one zone's key.
+// LoadKey returns zone's KSK, if any -- a lighter-weight alternative to
+// LoadAll/LoadZoneKeys for a caller (like sazu-watchd, §11) that only
+// needs the one key its chain-of-trust re-check actually cares about:
+// a ZSK is never DS-anchored, so it has nothing for that check to verify
+// in the first place.
 func (db *DB) LoadKey(zone string) (*dns.DNSKEY, bool, error) {
 	var flags, protocol, algorithm int64
 	var publicKey string
-	switch err := db.sql.QueryRow(`SELECT flags, protocol, algorithm, public_key FROM keys WHERE zone = ?`, zone).
+	switch err := db.sql.QueryRow(`SELECT flags, protocol, algorithm, public_key FROM keys WHERE zone = ? AND role = 'KSK'`, zone).
 		Scan(&flags, &protocol, &algorithm, &publicKey); err {
 	case nil:
 		return &dns.DNSKEY{
@@ -347,6 +550,49 @@ func (db *DB) LoadKey(zone string) (*dns.DNSKEY, bool, error) {
 	default:
 		return nil, false, err
 	}
+}
+
+// LoadZoneKeys returns zone's full key set -- its KSK plus every
+// registered ZSK -- for hydrating a KeyRegistry (LoadAll) or for a
+// caller that needs more than LoadKey's KSK-only view.
+func (db *DB) LoadZoneKeys(zone string) (*ZoneKeys, bool, error) {
+	rows, err := db.sql.Query(
+		`SELECT keytag, role, flags, protocol, algorithm, public_key, can_auth_tx FROM keys WHERE zone = ?`, zone)
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+
+	zk := &ZoneKeys{}
+	for rows.Next() {
+		var keytag int64
+		var role string
+		var flags, protocol, algorithm, canAuth int64
+		var publicKey string
+		if err := rows.Scan(&keytag, &role, &flags, &protocol, &algorithm, &publicKey, &canAuth); err != nil {
+			return nil, false, err
+		}
+		dnskey := &dns.DNSKEY{
+			Hdr:       dns.RR_Header{Name: dns.Fqdn(zone), Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET},
+			Flags:     uint16(flags),
+			Protocol:  uint8(protocol),
+			Algorithm: uint8(algorithm),
+			PublicKey: publicKey,
+		}
+		switch role {
+		case "KSK":
+			zk.KSK = &ManagedKey{DNSKEY: dnskey, Role: RoleKSK, CanAuthenticateTx: true}
+		case "ZSK":
+			zk.ZSKs = append(zk.ZSKs, &ManagedKey{DNSKEY: dnskey, Role: RoleZSK, CanAuthenticateTx: canAuth != 0})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, err
+	}
+	if zk.KSK == nil {
+		return nil, false, nil
+	}
+	return zk, true, nil
 }
 
 // LoadContact returns the registered §10.6 contact addresses for zone, if

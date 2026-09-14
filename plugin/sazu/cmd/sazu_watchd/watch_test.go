@@ -45,7 +45,7 @@ func onboardTestZone(t *testing.T, db *sazu.DB, zone string, contacts ...string)
 	if len(contacts) > 0 {
 		contactUpdate = &sazu.ContactUpdate{Addresses: contacts}
 	}
-	if err := db.CommitUpdate(zone, key, []dns.RR{soa}, dns.ClassINET, contactUpdate); err != nil {
+	if err := db.CommitUpdate(zone, &sazu.KeyChange{PinKSK: key}, []dns.RR{soa}, dns.ClassINET, contactUpdate); err != nil {
 		t.Fatalf("CommitUpdate: %v", err)
 	}
 }

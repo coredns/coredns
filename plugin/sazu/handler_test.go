@@ -364,7 +364,7 @@ func TestOnboardFullPushThenQuery(t *testing.T) {
 		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
 	}
 
-	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.PublicKey != key.PublicKey {
+	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.KSK.DNSKEY.PublicKey != key.PublicKey {
 		t.Fatalf("expected the candidate key to be pinned after a successful first-contact push")
 	}
 
@@ -1215,7 +1215,7 @@ func TestKeyRolloverSwitchesToNewKey(t *testing.T) {
 	}
 
 	pinnedNow, ok := s.Keys.Get("example.org.")
-	if !ok || pinnedNow.PublicKey != newKey.PublicKey {
+	if !ok || pinnedNow.KSK.DNSKEY.PublicKey != newKey.PublicKey {
 		t.Fatalf("expected the zone to now be pinned to the new key, got %+v", pinnedNow)
 	}
 
@@ -1307,7 +1307,7 @@ func TestKeyRolloverFailsWithoutADSForTheNewKey(t *testing.T) {
 	}
 
 	pinnedNow, ok := s.Keys.Get("example.org.")
-	if !ok || pinnedNow.PublicKey != oldKey.PublicKey {
+	if !ok || pinnedNow.KSK.DNSKEY.PublicKey != oldKey.PublicKey {
 		t.Fatalf("expected the zone to remain pinned to the old key after a failed rollover, got %+v", pinnedNow)
 	}
 }
@@ -1370,7 +1370,7 @@ func TestKeyRolloverRejectedForWeakAlgorithm(t *testing.T) {
 	if status, ok := diagnosticStatus(resp); !ok || status != statusErrWeakAlgorithm {
 		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrWeakAlgorithm, status, ok)
 	}
-	if pinnedNow, ok := s.Keys.Get("example.org."); !ok || pinnedNow.PublicKey != oldKey.PublicKey {
+	if pinnedNow, ok := s.Keys.Get("example.org."); !ok || pinnedNow.KSK.DNSKEY.PublicKey != oldKey.PublicKey {
 		t.Fatalf("expected the zone to remain pinned to the old key, got %+v", pinnedNow)
 	}
 }

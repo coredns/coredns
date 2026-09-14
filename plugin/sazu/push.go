@@ -87,6 +87,20 @@ func LoadZoneFile(path, origin string) (soa *dns.SOA, rrs []dns.RR, err error) {
 // before applying a push that doesn't include one (see
 // ZoneData.PurgeNSEC); this one always does.
 func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dns.DNSKEY, signer crypto.Signer, previousSOA *dns.SOA) (*dns.Msg, error) {
+	return BuildFullZonePushSplit(zone, soa, rrs, candidateKey, signer, nil, nil, previousSOA)
+}
+
+// BuildFullZonePushSplit is BuildFullZonePush's optional-ZSK
+// generalization: ksk is always added as a DNSKEY at the apex and always
+// signs the DNSKEY RRset (RFC 4034's own convention -- the key-signing
+// key signs the key set). If zsk is non-nil, it is *also* added as a
+// DNSKEY at the apex (so the DNSKEY RRset this push asserts reflects the
+// zone's whole current key state, not just its KSK) and signs every
+// *other* RRset -- the zone's actual content -- instead of ksk. Passing
+// zsk as nil reproduces BuildFullZonePush's original single-key behavior
+// exactly (byte-for-byte: it's the same code path with the same key
+// signing everything), which is what BuildFullZonePush itself now does.
+func BuildFullZonePushSplit(zone string, soa *dns.SOA, rrs []dns.RR, ksk *dns.DNSKEY, kskSigner crypto.Signer, zsk *dns.DNSKEY, zskSigner crypto.Signer, previousSOA *dns.SOA) (*dns.Msg, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(zone), dns.TypeSOA)
 	m.Opcode = dns.OpcodeUpdate
@@ -95,20 +109,34 @@ func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dn
 		m.Used([]dns.RR{previousSOA})
 	}
 
-	dnskeyRR := &dns.DNSKEY{
+	kskRR := &dns.DNSKEY{
 		Hdr:       dns.RR_Header{Name: dns.Fqdn(zone), Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: soa.Hdr.Ttl},
-		Flags:     candidateKey.Flags,
-		Protocol:  candidateKey.Protocol,
-		Algorithm: candidateKey.Algorithm,
-		PublicKey: candidateKey.PublicKey,
+		Flags:     ksk.Flags,
+		Protocol:  ksk.Protocol,
+		Algorithm: ksk.Algorithm,
+		PublicKey: ksk.PublicKey,
 	}
-	adds := make([]dns.RR, 0, len(rrs)+2)
-	adds = append(adds, dnskeyRR, soa)
+	contentKeyRR, contentSigner := kskRR, kskSigner
+
+	adds := make([]dns.RR, 0, len(rrs)+3)
+	adds = append(adds, kskRR)
+	if zsk != nil {
+		zskRR := &dns.DNSKEY{
+			Hdr:       dns.RR_Header{Name: dns.Fqdn(zone), Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: soa.Hdr.Ttl},
+			Flags:     zsk.Flags,
+			Protocol:  zsk.Protocol,
+			Algorithm: zsk.Algorithm,
+			PublicKey: zsk.PublicKey,
+		}
+		adds = append(adds, zskRR)
+		contentKeyRR, contentSigner = zskRR, zskSigner
+	}
+	adds = append(adds, soa)
 	adds = append(adds, rrs...)
 	adds = append(adds, BuildNSECChain(soa, adds)...)
 
 	now := time.Now()
-	signed, err := SignZoneContent(adds, dnskeyRR, signer, now.Add(-DefaultSignatureInceptionSkew), now.Add(DefaultSignatureValidity))
+	signed, err := SignZoneContentSplit(adds, kskRR, kskSigner, contentKeyRR, contentSigner, now.Add(-DefaultSignatureInceptionSkew), now.Add(DefaultSignatureValidity))
 	if err != nil {
 		return nil, err
 	}

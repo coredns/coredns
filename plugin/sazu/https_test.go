@@ -129,7 +129,7 @@ func TestOnboardOverHTTPSRawWireBytes(t *testing.T) {
 	if resp.Rcode != dns.RcodeSuccess {
 		t.Fatalf("onboarding push over HTTPS rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
 	}
-	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.PublicKey != key.PublicKey {
+	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.KSK.DNSKEY.PublicKey != key.PublicKey {
 		t.Fatalf("expected the candidate key to be pinned after a successful HTTPS push")
 	}
 }
@@ -168,7 +168,7 @@ func TestOnboardOverHTTPSJSONWireEnvelope(t *testing.T) {
 	if resp.Rcode != dns.RcodeSuccess {
 		t.Fatalf("onboarding push over the JSON wire envelope rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
 	}
-	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.PublicKey != key.PublicKey {
+	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.KSK.DNSKEY.PublicKey != key.PublicKey {
 		t.Fatalf("expected the candidate key to be pinned after a successful HTTPS push")
 	}
 }

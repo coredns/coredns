@@ -1,0 +1,42 @@
+{{define "no-ds.txt"}}
+Onboarding denied: no DS record published for {{.Zone}} yet.
+
+Your registrar doesn't know about this key. To fix this:
+
+  0. If this domain is CURRENTLY LIVE and serving real traffic, and its
+     current host has never published DNSSEC for it before (which is why
+     you're seeing this message), read this first:
+
+     Publishing the DS record below makes every DNSSEC-validating resolver
+     in the world expect signed answers for this domain immediately -- not
+     only once this server is actually authoritative for it. Until the
+     cutover to this server is complete, the domain's *current* host is
+     still the one answering, and if it isn't serving matching signatures,
+     the entire domain (not just DNSSEC-specific lookups) breaks --
+     SERVFAIL for every validating resolver -- for as long as that mismatch
+     lasts. A brand-new domain with no live traffic yet has no such risk.
+
+     If your current host supports enabling its own DNSSEC signing, turn
+     that on there FIRST and confirm the domain still resolves correctly
+     everywhere -- that keeps it validly signed throughout the migration,
+     under its own key, right up until you actually cut over to this
+     server (at which point its DS gets replaced by the one below). If
+     your current host has no way to enable DNSSEC at all, consider moving
+     this domain's hosting to one that does (e.g. AWS Route 53) before
+     publishing anything below.
+
+  1. Give your registrar this DS record:
+
+       {{.Owner}} IN DS {{.KeyTag}} {{.Algorithm}} {{.DigestType}} {{.Digest}}
+
+{{template "registrar-key-fields.txt" .}}     See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for
+     registrar-specific instructions -- not every registrar is covered yet;
+     if yours isn't, search their support site for "DS record" or "DNSSEC."
+
+  2. Wait for it to propagate (minutes to a few hours is typical):
+
+       dig DS {{.Zone}} +short
+
+  3. Re-run this same command once that shows your digest.
+
+{{end}}

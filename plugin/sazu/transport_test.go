@@ -239,7 +239,7 @@ func TestKeyRolloverOverUDPIsRefused(t *testing.T) {
 	if status, ok := diagnosticStatus(resp); !ok || status != statusErrTransportNotAllowed {
 		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrTransportNotAllowed, status, ok)
 	}
-	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.PublicKey != oldKey.PublicKey {
+	if pinned, ok := s.Keys.Get("example.org."); !ok || pinned.KSK.DNSKEY.PublicKey != oldKey.PublicKey {
 		t.Fatalf("expected the zone to remain pinned to the old key after a rejected UDP rollover attempt")
 	}
 }

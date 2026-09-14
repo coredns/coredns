@@ -551,17 +551,110 @@ for a manually verified real-binary walkthrough.
   contact) -- the zone already has real content from before, and a
   rollover may legitimately carry nothing but the new key itself.
 
-  This also resolves the KSK/ZSK question this item used to carry
-  alongside it: given rollover now exists, the argument for splitting
-  the two (avoiding a DS/registrar update on every rotation) has a
-  place to land, but SAZU's threat model -- the private key only ever
-  signs offline, on the customer's own machine, never held by an
-  always-on server -- still doesn't need the *other* traditional reason
-  for the split (limiting exposure of a frequently-used online key).
-  Decision: keep the single-key model (§9.1's own deliberate choice) for
-  now; a KSK/ZSK split remains straightforward to add later on top of the
-  rollover machinery built here, if a real customer workflow ever needs
-  independent, more-frequent content re-signing without a registrar step.
+- **Optional KSK/ZSK split.** §9.1's single-key model (one Ed25519 key
+  doing both SIG(0) authentication and DNSSEC signing) remains the
+  default -- a zone that never registers a ZSK behaves exactly as SAZU
+  always has, byte-for-byte, with nothing new to configure or reason
+  about. What changed: a customer MAY now additionally register one or
+  more optional ZSKs on top of their zone's mandatory KSK, specifically
+  to avoid a registrar DS update every time they want to re-sign content
+  with a fresh key. The KSK itself keeps its one job unchanged and
+  unavoidable: it is the only key ever anchored to a parent DS record,
+  so rotating *it* still requires exactly what it always has (publish a
+  new DS, wait for propagation) -- there was never a way around that,
+  and this work doesn't try to remove it.
+
+  `KeyRegistry` (`keys.go`) changed from a single pinned key per zone to
+  a `ZoneKeys{KSK, ZSKs}` set: exactly one `ManagedKey` role `RoleKSK`
+  (mandatory, DS-anchored, unchanged) plus zero or more role `RoleZSK`
+  entries, each carrying its own `CanAuthenticateTx` bit (whether that
+  key's own SIG(0) may authenticate a transaction on its own, not just
+  sign content under someone else's). A ZSK is never chain-of-trust
+  verified against the parent -- it is trusted purely transitively,
+  because an already-trusted key's SIG(0) authenticated the ordinary push
+  that introduced it, exactly the same trust `serveUpdate` already
+  extends to any other content an authenticated push carries.
+
+  Two new op shapes `serveUpdate` recognizes, both only on an ordinary
+  push that is neither first contact nor a KSK rollover (so neither ever
+  competes with, or needs to be told apart expensively from, either of
+  those): a ZSK is *registered* by an Add-shaped, non-SEP-flagged DNSKEY
+  at the apex (`findNewZSKCandidate`) -- the cheap path, no chain-of-trust
+  network walk at all, just the existing algorithm-floor check -- and
+  *retired* by an RFC 2136 §2.5.4 "delete one RR" DNSKEY op naming a
+  currently-registered ZSK's key tag (`findRetiredZSKKeytag`; a "delete
+  RRset" op is deliberately not treated as retirement, since that shape
+  would remove the KSK too). `KeyRegistry.PinKSK` (first contact and KSK
+  rollover alike) leaves any already-registered ZSKs untouched --
+  rolling the KSK never invalidates a ZSK registered under the old one,
+  matching real DNSSEC practice (a ZSK's trust was never actually tied to
+  a *specific* KSK).
+
+  A first-contact candidate must now be SEP-flagged (a real KSK) --
+  refused otherwise with a new, dedicated diagnostic
+  (`ERR_FIRST_CONTACT_REQUIRES_KSK`) rather than falling through to a
+  bare, less actionable NOTAUTH -- since a ZSK can never be what
+  establishes a zone's initial trust in the first place.
+
+  Content signing/verification became key-set-aware rather than
+  single-key: `SignZoneContent` is preserved exactly as it always was
+  (a thin wrapper, zero behavior change, so every existing single-key
+  caller and test needed no changes at all) on top of a new
+  `SignZoneContentSplit`, which signs the DNSKEY RRset with the KSK (RFC
+  4034's own convention) and every other RRset with a separately
+  designated content key -- the active ZSK, when one exists.
+  `VerifySignedRRsets` now takes the whole current content-signer set
+  (`ZoneKeys.ContentSigners()`, KSK plus every registered ZSK) rather
+  than one fixed key, so content signed by whichever key a customer
+  designated still verifies under §4's "Level 2" mode.
+
+  Persistence (`db.go`): the `keys` table moved from one row per zone to
+  one row per key (`PRIMARY KEY (zone, keytag)`, a `role` column, a
+  `can_auth_tx` column), with a `KeyChange` type (`PinKSK`/`AddZSK`/
+  `RetireZSK`) replacing `CommitUpdate`'s old single-`*dns.DNSKEY`
+  parameter. A database written before this change has the old table
+  shape (`zone` as its own sole primary key); `Open` detects that via
+  `PRAGMA table_info` and transparently migrates it in place the first
+  time it's opened with this version -- every pre-existing key becomes
+  that zone's KSK, no operator action needed, no forced re-onboarding.
+  `LoadKey` (the lighter-weight accessor `sazu-watchd` depends on) keeps
+  returning only the KSK, unchanged -- a ZSK is never DS-anchored, so it
+  has nothing for a chain-of-trust re-check to verify; a new
+  `LoadZoneKeys` returns the full set for `LoadAll` and any caller that
+  needs more than that.
+
+  `sazuctl` gained three new subcommands -- `add-zsk`, `retire-zsk`, and
+  a `rotate-key` decision-support entry point -- plus a `-role ksk|zsk`
+  flag on `keygen` and an optional `-zsk-key` flag on `push-zone`/
+  `push-update` (sign content with a registered ZSK while `-key`, the
+  KSK, still authenticates the transaction). `rotate-key`, run with no
+  `-role`, makes no change and instead prints an explanation of the
+  ZSK-vs-KSK tradeoff and asks the operator to choose explicitly -- this
+  and the two onboarding-denied diagnostics (`ERR_NO_DS_PUBLISHED`/
+  `ERR_UNKNOWN_SIGNER`) are long enough, and edited often enough on their
+  own, that their text now lives in separate template files
+  (`cmd/sazuctl/guidance/*.txt`, `text/template` + `go:embed`) rather
+  than as long `fmt.Println` chains in `main.go` -- still fully compiled
+  into the `sazuctl` binary (nothing extra to ship), just kept legible
+  and independently editable.
+
+  Verified end to end against a real, separately built `coredns` +
+  `sazuctl` pair: a zone onboarded with a KSK, a ZSK registered over
+  plain UDP with no chain-of-trust network activity at all, `rotate-key`
+  with no `-role` printing the tradeoff (correctly reporting the
+  existing ZSK's key tag), a full ZSK rotation (register new, retire
+  old) via `rotate-key -role zsk`, and `rotate-key -role ksk` correctly
+  routing into the existing (unchanged) DS-guidance/rollover machinery.
+  Deliberately out of scope for this pass, and left for a real need to
+  justify: independent per-instance authorized-pusher identities for
+  HA/multi-signer deployments (a genuinely different, authorization-not-
+  DNSSEC-role problem -- see the KSK/ZSK design discussion this item
+  grew out of for why it shouldn't be conflated with this one), and a
+  `sazu-watchd` check for a ZSK's continued presence in a zone's served
+  DNSKEY RRset (WATCH's chain-of-trust re-check already covers the KSK,
+  which is the thing that actually breaks silently; a ZSK-presence check
+  would need new live-query infrastructure `sazu-watchd` doesn't have
+  today).
 
 - **Key custody hardening (§10.8), client-side.** `sazuctl` writes a plain
   BIND-format key file by default, unchanged -- but every subcommand that
@@ -721,10 +814,22 @@ for a manually verified real-binary walkthrough.
 
 ## Outstanding
 
-Nothing. Every item the architectural review that led to this document
-identified -- CoreDNS-plugin, client-side, and the one separate-server
-item -- is implemented; see **Done**, above. Most recently: the global
-per-source-IP flood/scan throttle (`ERR_RATE_LIMITED`) and the
-connection-oriented-transport requirement for first contact/rollover
-that closes a spoofing bypass of it, both found and fixed in the same
-pass while hardening the HTTPS/JSON carrier (§7.3) area.
+Every item the architectural review that led to this document identified
+-- CoreDNS-plugin, client-side, and the one separate-server item -- is
+implemented; see **Done**, above. Two items were identified but
+deliberately not implemented in the optional-KSK/ZSK-split pass, each
+noted there with its own reasoning:
+
+- Independent per-instance authorized-pusher identities for HA/
+  multi-signer deployments (each signer instance holding its own key,
+  none of them required to be a DNSSEC KSK or ZSK at all) -- a real but
+  materially different problem (authorization, not a DNSSEC key role)
+  from the KSK/ZSK split, worth its own pass rather than folding into
+  this one.
+- A `sazu-watchd` check for a ZSK's continued presence in a zone's
+  served DNSKEY RRset -- WATCH's existing chain-of-trust re-check
+  already covers the KSK (the thing that actually breaks silently); a
+  ZSK-presence check would need new live-query infrastructure the daemon
+  doesn't have today, for a failure mode (a customer's own full-zone
+  re-push accidentally dropping a ZSK) that is far lower-stakes than
+  what the KSK check already guards.

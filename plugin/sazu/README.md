@@ -124,11 +124,14 @@ go build -o sazuctl ./plugin/sazu/cmd/sazuctl
 
 Subcommands:
 
-* `sazuctl keygen -out <path> [-zone <owner>]` — generate a new Ed25519
-  SIG(0)/zone key, saved in BIND9's private-key-file format.
+* `sazuctl keygen -out <path> [-zone <owner>] [-role ksk|zsk]` — generate a
+  new Ed25519 key, saved in BIND9's private-key-file format. `-role`
+  defaults to `ksk` — every zone needs exactly one, and this is what
+  every version of this tool before the optional ZSK split always
+  generated, so omitting it changes nothing.
 * `sazuctl ds -zone <zone> -key <path>` — print the DS record for a key,
   ready to hand to a registrar. Generates the key first if it doesn't exist.
-* `sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port|url] [-json]` —
+* `sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-zsk-key <path>] [-previous-serial N] [-target host:port|url] [-json]` —
   build, sign, and (optionally) send a **full-zone** push: every record in a
   BIND-format zone file, plus the signing key as a DNSKEY. This is what
   onboards a zone (first contact) and what re-publishes a whole zone
@@ -137,10 +140,10 @@ Subcommands:
   `-zonefile` is required — author a small BIND-format zone file (SOA plus
   whatever records you're onboarding) even for a brand-new domain; there is
   no synthesized-SOA shortcut.
-* `sazuctl push-update -zone <zone> -key <path> [-add "rr"]... [-del "rr"]... [-del-rrset "name TYPE"]... [-target host:port|url] [-json]` —
+* `sazuctl push-update -zone <zone> -key <path> [-zsk-key <path>] [-add "rr"]... [-del "rr"]... [-del-rrset "name TYPE"]... [-target host:port|url] [-json]` —
   build, sign, and (optionally) send a **partial** push: individual
   add/delete operations against an already-onboarded zone. No DNSKEY is
-  included — the server verifies against the key it already pinned.
+  included — the server verifies against a key it already trusts.
 * `sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-target host:port|url] [-json]` —
   the original minimal single-record demo, kept for quick protocol
   smoke-testing. It does **not** include a SOA, so it cannot by itself
@@ -152,6 +155,25 @@ Subcommands:
   can repeat. This rides an ordinary authenticated push at a reserved owner
   name (`_sazu-contact.<zone>`) — it is never itself DNSSEC-signed or
   servable DNS content, just metadata carried alongside a real update.
+* `sazuctl add-zsk -zone <zone> -ksk-key <path> -zsk-key <path> [-target host:port|url] [-json]` —
+  register a new, **optional** ZSK on top of a zone's existing KSK: an
+  ordinary push, authenticated by `-ksk-key`, that adds `-zsk-key`'s DNSKEY
+  record. Generates `-zsk-key` if it doesn't exist yet. No chain-of-trust
+  network walk and no registrar step — see **KSK, and the optional ZSK
+  split** below for what this is for.
+* `sazuctl retire-zsk -zone <zone> -ksk-key <path> -zsk-key <path> [-target host:port|url] [-json]` —
+  the reverse: remove a previously registered ZSK. `-zsk-key` must already
+  exist (never generated here).
+* `sazuctl rotate-key -zone <zone> [-role ksk|zsk] ...` — the decision-support
+  entry point for rotating *some* key when you're not sure which kind. Run
+  with no `-role` at all, it makes no change and instead explains the
+  ZSK-vs-KSK tradeoff (and, if you already have a ZSK, names its key tag) —
+  see `sazuctl rotate-key -zone <zone> -current-zsk-key <path to your existing ZSK>`
+  for a concrete example. Re-run with `-role zsk` (registers a new ZSK, then
+  retires the old one — needs `-key`, `-current-zsk-key`, `-new-zsk-key`) or
+  `-role ksk` (performs an ordinary §10.4 KSK rollover — needs `-key`,
+  `-new-key` — printing a reminder that this always requires a new DS
+  record at your registrar).
 
 Every subcommand without `-target` just prints the signed wire bytes and
 self-verifies — safe to run with nothing listening yet.
@@ -461,6 +483,57 @@ working normally. Once switched, remove the old DS at your registrar
 whenever you're ready; there's no rush, since a dangling extra DS
 alongside the real one is safe (see `REGISTRARS.md`).
 
+This is a **KSK rollover**: the rotation above always requires a new DS
+record at your registrar and always requires waiting for it to
+propagate, because the key you're rotating is the one and only key this
+server ever anchors to a parent DS. There is no way around that step for
+this specific key — see the next section for the one alternative that
+exists.
+
+### KSK, and the optional ZSK split
+
+Every zone has exactly one **KSK** (key-signing key) — the key rollover
+above rotates it, and it's what first contact pins in the first place.
+It is also, by default, the *only* key: §9.1's original design has one
+Ed25519 key doing both jobs (SIG(0) transaction authentication and
+DNSSEC content signing), so a zone that never runs any of the commands
+below behaves exactly as this plugin always has, with nothing new to
+configure or think about.
+
+The KSK's one unavoidable property: it's the only key ever anchored to a
+parent DS record, so rotating it always means a registrar step. If you
+want to re-sign zone content on your own schedule — more often than you
+want to touch your registrar, or from an automation box you'd rather not
+hand your KSK to at all — register an optional **ZSK** (zone-signing
+key) on top of it instead:
+
+```
+./sazuctl add-zsk -zone yourdomain.example -ksk-key client.private \
+    -zsk-key zsk.private -target 127.0.0.1:15353
+```
+
+This is an ordinary push, authenticated by the KSK, that adds the ZSK's
+DNSKEY record — **no chain-of-trust network walk, no registrar
+interaction at all**, since a ZSK is never DS-anchored; it's trusted
+purely because an already-trusted key vouched for it. Once registered, a
+ZSK's own SIG(0) can authenticate further pushes on its own:
+
+```
+./sazuctl push-update -zone yourdomain.example -key zsk.private \
+    -add "www.yourdomain.example. 300 IN A 203.0.113.20" -target 127.0.0.1:15353
+```
+
+— or, to keep authenticating with the KSK while only *signing content*
+with the ZSK, add `-zsk-key <path>` to `push-zone`/`push-update` instead
+of switching `-key`. Retire a ZSK the same way you registered it, in
+reverse (`sazuctl retire-zsk`); rolling the KSK over never invalidates
+an existing ZSK, so the two rotate completely independently.
+
+Not sure which one you actually want to rotate? `sazuctl rotate-key
+-zone yourdomain.example` (no `-role`) prints the tradeoff above and
+tells you exactly which flags to add for whichever you pick — see the
+subcommand list further up for both forms.
+
 ## Known limitations
 
 Worth being explicit about what this proof of concept does *not* cover, so
@@ -484,3 +557,12 @@ a real-world test isn't mistaken for a production trial run:
   chain instead of just discarding it. Negative answers still work
   correctly in between, they just carry no DNSSEC denial-of-existence
   proof until the next full push.
+* **No independent per-instance authorized-pusher identities.** The
+  optional ZSK split (above) is about DNSSEC key *roles*, not about
+  authorizing several independent signer machines to push under their
+  own separate identities for HA — a real but different problem,
+  deliberately not addressed by it; see SAZU-PLAN.md's KSK/ZSK section.
+* **`sazu-watchd` doesn't check a ZSK's continued presence** in a zone's
+  served DNSKEY RRset — only the KSK's chain of trust, which is the
+  thing that actually breaks silently. A ZSK accidentally dropped by a
+  customer's own full-zone re-push goes unremarked by the watch daemon.

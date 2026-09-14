@@ -269,10 +269,65 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	defer s.updateMu.Unlock()
 	log.Debugf("update for %s: acquired updateMu", zone)
 
-	pinned, alreadyPinned := s.Keys.Get(zone)
+	zk, alreadyPinned := s.Keys.Get(zone)
 	var candidate *dns.DNSKEY
+	isRollover := false
+	var sigErr error
 	if alreadyPinned {
-		candidate = pinned
+		// Ordinary push: try every key currently trusted to authenticate
+		// a transaction for this zone -- the KSK, plus any optional ZSK
+		// registered with CanAuthenticateTx (see keys.go's KeyRole doc
+		// comment for what that split is for). The overwhelming common
+		// case is exactly one authenticator (a zone that never
+		// registered a ZSK), so this is a single VerifySIG0 call just
+		// like before that feature existed.
+		for _, auth := range zk.Authenticators() {
+			if err := VerifySIG0(raw, auth.DNSKEY); err == nil {
+				candidate, sigErr = auth.DNSKEY, nil
+				break
+			} else {
+				sigErr = err
+			}
+		}
+		if candidate == nil {
+			// §10.4 KSK rollover: none of today's authenticators signed
+			// this transaction -- before giving up, check whether a
+			// *different*, KSK-shaped (SEP-flagged) candidate DNSKEY
+			// also present in these ops does. If so, this zone already
+			// has a pinned key presenting a new one it can prove current
+			// possession of; the caller still has to run the exact same
+			// chain-of-trust recheck first contact requires (a matching
+			// DS at the parent) before this actually takes effect.
+			// Reusing first contact's whole trust model rather than also
+			// requiring the *old* key's signature is deliberate: whoever
+			// can get a DS published at the registrar already fully
+			// controls the delegation regardless (the root of trust
+			// first contact itself already rests on), so requiring only
+			// that same proof here doesn't introduce a new attack
+			// surface beyond what first contact already accepts.
+			//
+			// A candidate DNSKEY that is present but NOT SEP-flagged is
+			// not a KSK rollover attempt at all -- see the separate,
+			// much cheaper ZSK-registration path below, reached only
+			// once a push has already authenticated successfully by
+			// some other means (a ZSK is never itself trusted until an
+			// already-trusted key vouches for it).
+			if other, ferr := findCandidateKey(r.Ns, zone); ferr == nil && other.Flags&dns.SEP != 0 &&
+				other.KeyTag() != zk.KSK.KeyTag() {
+				log.Debugf("update for %s: rollover candidate key tag %d algorithm %d", zone, other.KeyTag(), other.Algorithm)
+				if !algorithmMeetsFloor(other.Algorithm) {
+					// Checked before spending any effort verifying its
+					// signature or (further down) walking the chain of
+					// trust -- same "cheap check first" reasoning as
+					// first contact's own floor check below.
+					log.Debugf("update for %s: rollover candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, other.Algorithm)
+					return reply(dns.RcodeRefused, statusErrWeakAlgorithm)
+				}
+				if verr := VerifySIG0(raw, other); verr == nil {
+					candidate, isRollover, sigErr = other, true, nil
+				}
+			}
+		}
 	} else {
 		var ferr error
 		candidate, ferr = findCandidateKey(r.Ns, zone)
@@ -285,43 +340,22 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			log.Debugf("update for %s: candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, candidate.Algorithm)
 			return reply(dns.RcodeRefused, statusErrWeakAlgorithm)
 		}
-	}
-
-	isRollover := false
-	sigErr := VerifySIG0(raw, candidate)
-	if sigErr != nil && alreadyPinned {
-		// §10.4 key rollover: the pinned key didn't authenticate this
-		// transaction -- before giving up, check whether a *different*
-		// candidate DNSKEY also present in these ops does. If so, this
-		// zone already has a pinned key presenting a new one it can prove
-		// current possession of; the caller still has to run the exact
-		// same chain-of-trust recheck first contact requires (a matching
-		// DS at the parent) before this actually takes effect. Reusing
-		// first contact's whole trust model rather than also requiring
-		// the *old* key's signature is deliberate: whoever can get a DS
-		// published at the registrar already fully controls the
-		// delegation regardless (the root of trust first contact itself
-		// already rests on), so requiring only that same proof here
-		// doesn't introduce a new attack surface beyond what first
-		// contact already accepts. An ordinary push's failure mode is
-		// unchanged: if there's no distinct, self-verifying candidate,
-		// sigErr stays exactly what VerifySIG0 against the pinned key
-		// returned.
-		if other, ferr := findCandidateKey(r.Ns, zone); ferr == nil &&
-			!(other.PublicKey == pinned.PublicKey && other.Algorithm == pinned.Algorithm) {
-			log.Debugf("update for %s: rollover candidate key tag %d algorithm %d", zone, other.KeyTag(), other.Algorithm)
-			if !algorithmMeetsFloor(other.Algorithm) {
-				// Checked before spending any effort verifying its
-				// signature or (further down) walking the chain of
-				// trust -- same "cheap check first" reasoning as first
-				// contact's own floor check above.
-				log.Debugf("update for %s: rollover candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, other.Algorithm)
-				return reply(dns.RcodeRefused, statusErrWeakAlgorithm)
-			}
-			if verr := VerifySIG0(raw, other); verr == nil {
-				candidate, isRollover, sigErr = other, true, nil
-			}
+		if candidate.Flags&dns.SEP == 0 {
+			// First contact establishes a zone's KSK -- the one and
+			// only key ever anchored to a parent DS. A candidate
+			// presented without the SEP (KSK) flag can never become
+			// that; it can only ever be an optional ZSK, which by
+			// definition doesn't exist until a KSK already does (see
+			// keys.go's KeyRole doc comment). Refusing this cheaply,
+			// before spending a SIG(0) verification or any chain-of-
+			// trust effort on it, also gives a much clearer diagnostic
+			// than the generic NOTAUTH a failed VerifySIG0 would produce
+			// for what is actually a configuration mistake, not a
+			// forged or malicious push.
+			log.Debugf("update for %s: first-contact candidate key tag %d is not SEP-flagged (not a KSK), refusing", zone, candidate.KeyTag())
+			return reply(dns.RcodeRefused, statusErrFirstContactNeedsKSK)
 		}
+		sigErr = VerifySIG0(raw, candidate)
 	}
 	if sigErr != nil {
 		log.Debugf("update for %s: SIG(0) verification failed: %v", zone, sigErr)
@@ -423,6 +457,36 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 	}
 
+	// A push that neither onboards (!alreadyPinned) nor rolls over the
+	// KSK (isRollover) may still be about key management: registering a
+	// new optional ZSK, or retiring one already registered -- see
+	// keys.go's KeyRole doc comment for what that split is for. Checked
+	// only here, never for first contact or a KSK rollover: those two
+	// already fully establish this transaction's key state on their own,
+	// and combining either with a ZSK change in the same push isn't a
+	// combination this package needs to support (a customer can always
+	// register a ZSK in a follow-up push once first contact or a
+	// rollover has already succeeded).
+	var newZSK *dns.DNSKEY
+	var retiredZSKTag uint16
+	var hasRetiredZSK bool
+	if alreadyPinned && !isRollover {
+		var zerr error
+		newZSK, zerr = findNewZSKCandidate(r.Ns, zone, zk)
+		if zerr != nil {
+			log.Debugf("update for %s: %v", zone, zerr)
+			return reply(dns.RcodeFormatError, "")
+		}
+		if newZSK != nil {
+			log.Debugf("update for %s: new ZSK candidate key tag %d algorithm %d", zone, newZSK.KeyTag(), newZSK.Algorithm)
+			if !algorithmMeetsFloor(newZSK.Algorithm) {
+				log.Debugf("update for %s: new ZSK candidate algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, newZSK.Algorithm)
+				return reply(dns.RcodeRefused, statusErrWeakAlgorithm)
+			}
+		}
+		retiredZSKTag, hasRetiredZSK = findRetiredZSKKeytag(r.Ns, zone, zk)
+	}
+
 	z := s.Store.GetOrCreate(zone)
 	if rcode, status, err := EvaluatePrerequisites(z, r.Answer, dns.ClassINET); err != nil {
 		log.Debugf("update for %s: prerequisite failed: %v", zone, err)
@@ -436,7 +500,25 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		// ("Level 0 -- trust the pipe") is still a supported, simpler
 		// mode -- but this is what actually determines whether a zone
 		// will validate for real DNSSEC resolvers once served.
-		if status, err := VerifySignedRRsets(candidate, zoneOps, dns.ClassINET, time.Now()); err != nil {
+		//
+		// The candidate set is every key currently trusted to sign
+		// content: for first contact, just the brand-new KSK (nothing
+		// else exists yet); for a KSK rollover, the new KSK plus any
+		// ZSKs that already existed under the old one (a rollover never
+		// invalidates them -- see KeyRegistry.PinKSK); otherwise, zone's
+		// unchanged existing content-signer set. A newly registered ZSK
+		// in *this* push is deliberately not added to its own candidate
+		// set -- see findNewZSKCandidate's caller comment above for why
+		// that combination isn't supported.
+		contentCandidates := []*dns.DNSKEY{candidate}
+		if isRollover {
+			for _, zsk := range zk.ZSKs {
+				contentCandidates = append(contentCandidates, zsk.DNSKEY)
+			}
+		} else if alreadyPinned {
+			contentCandidates = zk.ContentSigners()
+		}
+		if status, err := VerifySignedRRsets(contentCandidates, zoneOps, dns.ClassINET, time.Now()); err != nil {
 			log.Debugf("update for %s: RequireValidRRSIGs check failed: %v", zone, err)
 			if status == "" {
 				status = statusErrSigInvalid
@@ -448,12 +530,26 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	// Persist before mutating memory: if the disk write fails, memory
 	// stays exactly as it was before this request, rather than the two
 	// disagreeing about whether the update actually happened.
+	var keyChange *KeyChange
+	switch {
+	case !alreadyPinned, isRollover:
+		keyChange = &KeyChange{PinKSK: candidate}
+	case newZSK != nil:
+		// CanAuthenticateTx is fixed true for a ZSK registered this way:
+		// the DNSKEY wire format has no field to signal otherwise (only
+		// the ZONE and SEP bits are defined; every other bit is reserved
+		// must-be-zero per RFC 4034 §2.1.1), so there is no channel for
+		// a push to ask for false here. See ManagedKey's doc comment --
+		// the field still exists for a future, out-of-band way to
+		// register one (an admin API, say) that isn't limited to what
+		// the wire format itself can express.
+		keyChange = &KeyChange{AddZSK: &ManagedKey{DNSKEY: newZSK, Role: RoleZSK, CanAuthenticateTx: true}}
+	case hasRetiredZSK:
+		tag := retiredZSKTag
+		keyChange = &KeyChange{RetireZSK: &tag}
+	}
 	if s.DB != nil {
-		var keyToPin *dns.DNSKEY
-		if !alreadyPinned || isRollover {
-			keyToPin = candidate
-		}
-		if err := s.DB.CommitUpdate(zone, keyToPin, zoneOps, dns.ClassINET, contactUpdate); err != nil {
+		if err := s.DB.CommitUpdate(zone, keyChange, zoneOps, dns.ClassINET, contactUpdate); err != nil {
 			log.Errorf("update for %s: DB.CommitUpdate failed: %v", zone, err)
 			return reply(dns.RcodeServerFailure, "")
 		}
@@ -470,12 +566,26 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return reply(dns.RcodeFormatError, "")
 	}
 
-	if !alreadyPinned {
-		s.Keys.Pin(zone, candidate)
-		log.Infof("update for %s: onboarded and pinned to key tag %d", zone, candidate.KeyTag())
-	} else if isRollover {
-		s.Keys.Pin(zone, candidate)
-		log.Infof("update for %s: rolled over, now pinned to key tag %d (was %d)", zone, candidate.KeyTag(), pinned.KeyTag())
+	switch {
+	case !alreadyPinned:
+		s.Keys.PinKSK(zone, candidate)
+		log.Infof("update for %s: onboarded and pinned to KSK key tag %d", zone, candidate.KeyTag())
+	case isRollover:
+		s.Keys.PinKSK(zone, candidate)
+		log.Infof("update for %s: KSK rolled over, now pinned to key tag %d (was %d)", zone, candidate.KeyTag(), zk.KSK.KeyTag())
+	case newZSK != nil:
+		if err := s.Keys.AddZSK(zone, newZSK, true); err != nil {
+			// Shouldn't happen -- findNewZSKCandidate already excluded
+			// any key tag already registered -- but AddZSK is the single
+			// source of truth for that invariant, so defer to it rather
+			// than duplicate its check here.
+			log.Errorf("update for %s: %v", zone, err)
+			return reply(dns.RcodeServerFailure, "")
+		}
+		log.Infof("update for %s: registered new ZSK key tag %d", zone, newZSK.KeyTag())
+	case hasRetiredZSK:
+		s.Keys.RetireZSK(zone, retiredZSKTag)
+		log.Infof("update for %s: retired ZSK key tag %d", zone, retiredZSKTag)
 	}
 	if contactUpdate != nil && s.Contacts != nil {
 		s.Contacts.Set(zone, contactUpdate.Addresses)
@@ -543,6 +653,72 @@ func findCandidateKey(updateOps []dns.RR, zone string) (*dns.DNSKEY, error) {
 		return nil, fmt.Errorf("no candidate DNSKEY found for %s", zone)
 	}
 	return found, nil
+}
+
+// findNewZSKCandidate looks for exactly one Add-shaped, ZSK-shaped (not
+// SEP-flagged) DNSKEY at zone's apex among updateOps that isn't already
+// registered in zk -- the shape an ordinary, already-authenticated push
+// uses to register a new optional ZSK (see keys.go's KeyRole doc
+// comment). zk may be nil (treated as "no zone keys yet," so nothing is
+// ever already registered); returns ok with a nil key, no error, when
+// no such candidate is present, which is the overwhelmingly common case
+// for a push that isn't about key management at all.
+func findNewZSKCandidate(updateOps []dns.RR, zone string, zk *ZoneKeys) (*dns.DNSKEY, error) {
+	zoneLower := strings.ToLower(dns.Fqdn(zone))
+	var found *dns.DNSKEY
+	for _, rr := range updateOps {
+		key, ok := rr.(*dns.DNSKEY)
+		if !ok {
+			continue
+		}
+		h := key.Header()
+		if h.Rdlength == 0 || h.Class != dns.ClassINET || !strings.EqualFold(h.Name, zoneLower) {
+			continue // not an Add-shaped DNSKEY at the apex
+		}
+		if key.Flags&dns.SEP != 0 {
+			continue // KSK-shaped -- the rollover path handles this, not this one
+		}
+		if zk != nil {
+			if _, already := zk.FindZSK(key.KeyTag()); already {
+				continue // already registered -- not a new candidate
+			}
+		}
+		if found != nil {
+			return nil, fmt.Errorf("more than one new ZSK candidate in update")
+		}
+		found = key
+	}
+	return found, nil
+}
+
+// findRetiredZSKKeytag looks for an RFC 2136 §2.5.4 "delete one RR"
+// DNSKEY op (Class NONE, full rdata) at zone's apex among updateOps
+// whose key tag matches a ZSK currently registered in zk, and returns
+// that key tag. A "delete RRset" op (Class ANY, empty rdata) is
+// deliberately not treated as a ZSK retirement here -- it
+// would remove the *entire* DNSKEY RRset, the KSK included, which is
+// never what retiring one specific ZSK means; RFC 2136's delete-one-RR
+// form exists precisely so one record can be removed from a multi-
+// record RRset without disturbing the others, which is what this needs.
+func findRetiredZSKKeytag(updateOps []dns.RR, zone string, zk *ZoneKeys) (uint16, bool) {
+	if zk == nil {
+		return 0, false
+	}
+	zoneLower := strings.ToLower(dns.Fqdn(zone))
+	for _, rr := range updateOps {
+		key, ok := rr.(*dns.DNSKEY)
+		if !ok {
+			continue
+		}
+		h := key.Header()
+		if h.Class != dns.ClassNONE || !strings.EqualFold(h.Name, zoneLower) {
+			continue
+		}
+		if _, isZSK := zk.FindZSK(key.KeyTag()); isZSK {
+			return key.KeyTag(), true
+		}
+	}
+	return 0, false
 }
 
 // containsAPEXSOA reports whether updateOps adds a real SOA record at
@@ -644,6 +820,16 @@ const statusErrTransportNotAllowed = "ERR_TRANSPORT_NOT_ALLOWED"
 // was rejected because the zone's current SOA no longer matches what the
 // push was built against -- see EvaluatePrerequisites.
 const statusErrStaleSerial = "ERR_STALE_SERIAL"
+
+// statusErrFirstContactNeedsKSK is not one of §12's original status
+// codes (the design doc predates the optional KSK/ZSK split) but follows
+// its same diagnostic-TXT convention: a first-contact candidate DNSKEY
+// was presented without the SEP (KSK) flag set. See keys.go's KeyRole
+// doc comment for why a ZSK can never be what establishes a zone's
+// initial trust -- only a KSK can, so first contact refuses anything
+// else with this specific diagnostic rather than a bare, uninformative
+// REFUSED.
+const statusErrFirstContactNeedsKSK = "ERR_FIRST_CONTACT_REQUIRES_KSK"
 
 // statusErrExpiredSignature is another of §12's status codes: distinct
 // from the more general statusErrSigInvalid -- emitted only when
