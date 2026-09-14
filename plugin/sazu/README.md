@@ -145,7 +145,7 @@ root — see the next two sections for how to actually test that.
 
 ### sazu-watchd: §11 delegation-change monitoring
 
-`plugin/sazu/cmd/sazu-watchd` is a separate, standalone daemon -- never runs
+`plugin/sazu/cmd/sazu_watchd` is a separate, standalone daemon -- never runs
 inside CoreDNS -- that periodically re-checks every onboarded zone's chain
 of trust (the same "does a DS matching this zone's pinned key exist at the
 parent" check first contact and a key rollover already perform) and alerts
@@ -155,7 +155,7 @@ registrar, without anyone re-pushing anything to this server, is exactly
 the kind of drift nothing else here would ever notice.
 
 ```
-go build -o sazu-watchd ./plugin/sazu/cmd/sazu-watchd
+go build -o sazu-watchd ./plugin/sazu/cmd/sazu_watchd
 ./sazu-watchd -db /path/to/the/same/sazu.db/CoreDNS/uses \
     -interval 5m \
     -smtp-addr smtp.example.org:587 -smtp-from alerts@example.org \

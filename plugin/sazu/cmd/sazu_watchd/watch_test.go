@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin/sazu"
+
 	"github.com/miekg/dns"
 )
 

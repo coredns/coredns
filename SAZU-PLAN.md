@@ -497,7 +497,7 @@ for a manually verified real-binary walkthrough.
   room to carry this without that constraint.
 
 - **§11 Delegation-change monitoring & alerting: `sazu-watchd`.** A
-  standalone daemon (`plugin/sazu/cmd/sazu-watchd`), kept out of CoreDNS
+  standalone daemon (`plugin/sazu/cmd/sazu_watchd`), kept out of CoreDNS
   exactly as this document always intended: it's a periodic background
   job, not request-driven, and its own failure mode (a slow/flaky query
   to some TLD server) must never add latency to actual DNS answers or
