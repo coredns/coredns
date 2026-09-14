@@ -27,13 +27,9 @@ var log = clog.NewWithPlugin("sazu")
 // Sazu is the CoreDNS plugin implementing SAZU (Self-Authenticated Zone
 // Update): a customer's own signer pushes DNSSEC-signed zone content,
 // authenticated purely by SIG(0) (RFC 2931) riding on an RFC 2136 dynamic
-// UPDATE, with no separate account/API-key handshake (§10.1/§10.2). See
-// sazu-protocol.md for the full design; this implements enough of it --
-// first-contact chain-of-trust bootstrap, full and partial pushes,
-// in-memory serving -- to exercise the whole chain end to end. It does
-// not implement the operational surface the design doc treats as
-// separate concerns: rate limiting/quotas (§12), the §11 watch loop, key
-// rollover (§10.4), or the HTTPS carrier (§7.3).
+// UPDATE, with no separate account/API-key handshake (§10.1/§10.2), over
+// UDP, TCP, or HTTPS (§7.3). See sazu-protocol.md for the full design;
+// see SAZU-PLAN.md for exactly what of it this port implements today.
 type Sazu struct {
 	Next plugin.Handler
 

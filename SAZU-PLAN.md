@@ -492,9 +492,11 @@ for a manually verified real-binary walkthrough.
   only for now: the transaction ID is not (yet) surfaced to the client
   on the wire, since doing so risked changing the Additional-section
   status-TXT contract `TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic`
-  depends on (no diagnostic TXT at all for a bare, generic rejection) --
-  worth revisiting alongside the HTTPS/JSON carrier below, which has more
-  room to carry this without that constraint.
+  depends on (no diagnostic TXT at all for a bare, generic rejection).
+  The HTTPS/JSON carrier (below) would have more room to carry this --
+  e.g. a `txid` field alongside the JSON wire envelope's response -- if
+  this is ever revisited, but that's a distinct, smaller enhancement on
+  top of an already-complete carrier, not a blocker for it.
 
 - **§11 Delegation-change monitoring & alerting: `sazu-watchd`.** A
   standalone daemon (`plugin/sazu/cmd/sazu_watchd`), kept out of CoreDNS
@@ -539,63 +541,61 @@ for a manually verified real-binary walkthrough.
   unit tests (a fake `ChainValidator` for the state-transition logic,
   `httptest`/an unconfigured `Notifier` for alert dispatch).
 
+- **HTTPS/JSON carrier, RFC 8427 (§7.3).** A push now works identically
+  over HTTPS/HTTP3 as it already does over UDP/TCP, with two related
+  CoreDNS-core gaps fixed first (`core/dnsserver`, its own commit,
+  rebased in from a branch off `master` per this document's established
+  workflow for pure-CoreDNS fixes):
+
+  - `Config.AllowOpcode` reached UDP, TCP, and DNS-over-TLS only --
+    HTTPS/HTTP3's `ServeHTTP` called `doh.RequestToMsgWire` unconditionally,
+    which hardcodes the default, query-only accept policy (RFC 2136
+    UPDATE is explicitly rejected by it, plus tight section-count limits
+    meant for ordinary queries) with no way to honor a server's own
+    opted-in opcodes. Fixed by threading an accept func through
+    (`dnsutil.UnpackRequestWithAcceptFunc`, `doh.RequestToMsgWireWithAccept`),
+    and having both `ServerHTTPS`/`ServerHTTPS3` pass their own
+    `s.msgAcceptFunc()` -- the exact same one UDP/TCP/TLS already use --
+    instead of `nil`.
+  - Even with that fixed, `doh.RequestToMsgWire` extracts the raw wire
+    bytes internally but never handed them to a plugin -- unlike UDP/TCP,
+    which do via `UDPDecorateReaderFunc`/`TCPDecorateReaderFunc`. Fixed by
+    a new `core/dnsserver.RawRequestKey` context value, set by both
+    `ServeHTTP` methods alongside the existing `HTTPRequestKey`.
+  - Also added, in the same core change: `doh.JSONWireEnvelope`
+    (`{"wire": "<base64>"}`, `Content-Type: application/dns-message+json`
+    or generic `application/json`) as an explicitly-scoped, non-RFC-8484
+    extension -- deliberately *not* a structural (RFC 8427) translation
+    of the message's fields, since SIG(0) signs literal wire bytes and
+    there is no lossless mapping back from parsed JSON fields to that
+    exact byte sequence. Wrapping the same raw bytes in base64 has no
+    such problem. `RawRequestKey` carries the *decoded* bytes either way,
+    so a plugin never needs to know which carrier a request used.
+
+  On the sazu side, this needed exactly one change: `serveUpdate` now
+  falls back to `ctx.Value(dnsserver.RawRequestKey{})` when
+  `s.Capture.Take` finds nothing (i.e., the request didn't arrive over
+  UDP/TCP at all). Everything downstream -- SIG(0) verification, chain of
+  trust, prerequisites, RRSIG checks, persistence, the audit trail -- is
+  the exact same code every other transport already shares; `setup.go`
+  needed no changes at all, since it already calls
+  `config.AllowOpcode(dns.OpcodeUpdate)` on whatever transport's `Config`
+  a Corefile's server block hands it. `sazuctl` gained matching client
+  support: every push-capable subcommand sends over HTTPS instead of
+  UDP/TCP when `-target` is an `http(s)://` URL, with `-json` selecting
+  the JSON envelope over raw bytes.
+
+  Verified two ways: a real `dnsserver.ServerHTTPS` driven directly in
+  this package's own tests (a genuine SIG(0)-signed first-contact push,
+  in both raw-bytes and JSON-envelope form, plus an ordinary
+  already-pinned-key push afterward), and a real, separately-built
+  `coredns` binary with a real `https://` server block (self-signed
+  cert, real TLS handshake) pushed to by a real `sazuctl` binary in both
+  forms.
+
 ## Outstanding
 
-Just one item left, per the architectural review that led to this
-document (which originally split outstanding work by where it belongs --
-CoreDNS-plugin, client-side, or a separate server -- now moot with only
-a single CoreDNS-side item remaining):
-
-- [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP/TCP wire format only
-  today. Investigated this session what "plug into CoreDNS's existing
-  DoH transport" actually requires, since it's less of a drop-in than it
-  first looks:
-
-  - **Full RFC 8427 structural JSON (parsed fields, not raw bytes) is
-    the wrong shape for this protocol specifically, not just more work.**
-    SIG(0) (RFC 2931) signs the literal wire bytes of the UPDATE message
-    (see `SignUpdate`'s own doc comment) -- there is no defined, lossless
-    mapping back from a structural JSON representation to the exact byte
-    sequence a client actually signed (name compression, casing, and
-    field ordering are all wire-level concerns RFC 8427 doesn't
-    preserve). Reconstructing wire bytes from parsed JSON fields server-
-    side and verifying SIG(0) against *that* reconstruction, rather than
-    against what the client actually signed, would quietly weaken
-    exactly the property this whole design depends on. The correct
-    carrier shape is therefore "raw wire bytes over HTTPS" (mirroring
-    RFC 8484 DoH's own `application/dns-message`), optionally wrapped in
-    a thin `{"wire": "<base64>"}` JSON envelope for clients that prefer
-    JSON -- never a structural translation.
-  - **CoreDNS's DoH transport (`core/dnsserver/server_https.go`) does not
-    hand plugins the raw request bytes at all.** `ServeHTTP` calls
-    `doh.RequestToMsgWire(r)`, which parses `raw []byte` internally, but
-    only the parsed `*dns.Msg` reaches `ServeDNS` (via a `DoHWriter`) --
-    `raw` itself is never propagated into the request context the way
-    `HTTPRequestKey` already propagates the original `*http.Request`.
-    Since `serveUpdate`'s `s.Capture.Take(w.RemoteAddr(), r.Id)` (fed by
-    `UDPDecorateReaderFunc`/`TCPDecorateReaderFunc`) is what supplies raw
-    bytes for every other transport, and DoH's request path never goes
-    through a `dns.Server`'s `DecorateReader` hook at all, a SAZU push
-    arriving over today's DoH transport would have no raw bytes to verify
-    SIG(0) against -- `serveUpdate` would just fail closed
-    (`RcodeServerFailure`, "no raw bytes captured"), not silently accept
-    something unverified.
-  - **The fix is a small, well-scoped CoreDNS core change, not a
-    workaround**: add a context key (a `RawRequestKey`, alongside the
-    existing `HTTPRequestKey`) that `ServeHTTP` populates with the `raw`
-    bytes `doh.RequestToMsgWire` already extracted, so `serveUpdate` can
-    fall back to reading it from `ctx` when `s.Capture.Take` finds
-    nothing (i.e., when the request didn't arrive over UDP/TCP at all).
-    This is the same shape of change as `TCPDecorateReaderFunc` earlier
-    this session (`feat/tcp-decorate-reader`, rebased in) -- a new branch
-    from `master`, fixed and tested there in isolation, then rebased onto
-    this branch -- and should follow that same workflow rather than being
-    bolted on here directly.
-  - Once that plumbing exists, the sazu-side work is comparatively small:
-    accept `application/dns-message` (raw bytes, matching DoH's own
-    convention) and the JSON envelope above on the zone's existing
-    UPDATE path, both feeding the exact same `serveUpdate` pipeline every
-    other transport already shares -- no separate authorization or zone-
-    state logic needed, which is exactly the "same authorization and zone
-    state, just a different wire encoding" this item was always meant to
-    be.
+Nothing. Every item the architectural review that led to this document
+identified -- CoreDNS-plugin, client-side, and the one separate-server
+item -- is implemented; see **Done**, above, most recently the
+HTTPS/JSON carrier (§7.3).

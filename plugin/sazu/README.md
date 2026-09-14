@@ -9,12 +9,12 @@ account or API-key handshake. The server never holds a private key.
 
 See the design document (`sazu-protocol.md` in
 [github.com/mrwiora/sazu](https://github.com/mrwiora/sazu), the separate
-repo this port was built against) for the full protocol. This plugin
-implements enough of it — first-contact chain-of-trust bootstrap, full and
-partial pushes, in-memory serving — to exercise the whole chain end to end.
-It does **not** implement the operational surface the design treats as
-separate concerns: rate limiting/quotas (§12), the §11 watch loop, key
-rollover (§10.4), or the HTTPS carrier (§7.3). Treat this as a working proof
+repo this port was built against) for the full protocol; see this repo's
+own `SAZU-PLAN.md` for exactly what of it this port implements today,
+including chain-of-trust bootstrap, full and partial pushes, key
+rollover, rate limiting, persistence, an audit trail, the §11
+delegation-change watch daemon, and pushing over UDP, TCP, or HTTPS
+(§7.3, raw wire bytes or a JSON envelope). Treat this as a working proof
 of concept for testing the mechanism, not a production-ready deployment.
 
 ## Description
@@ -103,7 +103,7 @@ Subcommands:
   SIG(0)/zone key, saved in BIND9's private-key-file format.
 * `sazuctl ds -zone <zone> -key <path>` — print the DS record for a key,
   ready to hand to a registrar. Generates the key first if it doesn't exist.
-* `sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port]` —
+* `sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port|url] [-json]` —
   build, sign, and (optionally) send a **full-zone** push: every record in a
   BIND-format zone file, plus the signing key as a DNSKEY. This is what
   onboards a zone (first contact) and what re-publishes a whole zone
@@ -112,17 +112,17 @@ Subcommands:
   `-zonefile` is required — author a small BIND-format zone file (SOA plus
   whatever records you're onboarding) even for a brand-new domain; there is
   no synthesized-SOA shortcut.
-* `sazuctl push-update -zone <zone> -key <path> [-add "rr"]... [-del "rr"]... [-del-rrset "name TYPE"]... [-target host:port]` —
+* `sazuctl push-update -zone <zone> -key <path> [-add "rr"]... [-del "rr"]... [-del-rrset "name TYPE"]... [-target host:port|url] [-json]` —
   build, sign, and (optionally) send a **partial** push: individual
   add/delete operations against an already-onboarded zone. No DNSKEY is
   included — the server verifies against the key it already pinned.
-* `sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-target host:port]` —
+* `sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-target host:port|url] [-json]` —
   the original minimal single-record demo, kept for quick protocol
   smoke-testing. It does **not** include a SOA, so it cannot by itself
   onboard a zone against this server (see `push-zone` for that).
-* `sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port]` —
+* `sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port|url] [-json]` —
   register (or, with `-clear`, remove) the zone's §10.6 contact address(es):
-  where a future delegation-change alert (§11, `sazu-watchd`) gets sent.
+  where `sazu-watchd`'s (§11) delegation-change alerts get sent.
   `-address` accepts `mailto:` for email or `http(s)://` for a webhook, and
   can repeat. This rides an ordinary authenticated push at a reserved owner
   name (`_sazu-contact.<zone>`) — it is never itself DNSSEC-signed or
@@ -130,6 +130,20 @@ Subcommands:
 
 Every subcommand without `-target` just prints the signed wire bytes and
 self-verifies — safe to run with nothing listening yet.
+
+`-target` accepts either `host:port` (sent over UDP, or TCP automatically
+for anything too large for a single UDP datagram) or an `http://`/`https://`
+URL — §7.3's HTTPS carrier, POSTed to `<url>/dns-query` exactly like a DoH
+client would, reusing the RFC 8484 convention as-is: no separate account or
+authorization step, the same SIG(0)-signed push either way. `-json` sends a
+small JSON envelope (`{"wire": "<base64>"}`) instead of a raw
+`application/dns-message` body when pushing over HTTPS — the exact same
+wire bytes either way, never a structural re-encoding of the message (see
+`plugin/pkg/doh`'s own doc comments for why: SIG(0) signs literal wire
+bytes, and a structural JSON translation has no lossless way back to
+them). A Corefile only needs an `https://` (or `https3://`) server block
+with a `sazu` directive in it to accept these — see **Syntax** above,
+nothing carrier-specific to configure.
 
 Every subcommand that reads or writes a key file (`keygen`'s `-out`, every
 other subcommand's `-key`) also accepts `-key-passphrase-file <path>`
