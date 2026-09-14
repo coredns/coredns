@@ -113,6 +113,13 @@ Subcommands:
   the original minimal single-record demo, kept for quick protocol
   smoke-testing. It does **not** include a SOA, so it cannot by itself
   onboard a zone against this server (see `push-zone` for that).
+* `sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port]` —
+  register (or, with `-clear`, remove) the zone's §10.6 contact address(es):
+  where a future delegation-change alert (§11, `sazu-watchd`) gets sent.
+  `-address` accepts `mailto:` for email or `http(s)://` for a webhook, and
+  can repeat. This rides an ordinary authenticated push at a reserved owner
+  name (`_sazu-contact.<zone>`) — it is never itself DNSSEC-signed or
+  servable DNS content, just metadata carried alongside a real update.
 
 Every subcommand without `-target` just prints the signed wire bytes and
 self-verifies — safe to run with nothing listening yet.

@@ -26,6 +26,7 @@ func newTestSazu(zone string) *Sazu {
 		Zones:                       []string{dns.Fqdn(zone)},
 		Store:                       NewStore(),
 		Keys:                        NewKeyRegistry(),
+		Contacts:                    NewContactRegistry(),
 		Validator:                   NewValidator(),
 		Capture:                     NewRawCapture(5*time.Second, 64),
 		InsecureSkipChainValidation: true,
@@ -971,6 +972,82 @@ func TestWildcardScopeFallsThroughForNeverOnboardedNames(t *testing.T) {
 	query(t, addr, "www.never-onboarded.example.", dns.TypeA)
 	if !fallback.called.Load() {
 		t.Fatalf("expected a query for a never-onboarded name to fall through to the next plugin")
+	}
+}
+
+// TestContactRegistrationRidesOrdinaryPushAndIsNeverServed proves §10.6's
+// registration record: a contact address travels inside an otherwise
+// ordinary, already-authenticated push (no separate protocol/transport of
+// its own), ends up in s.Contacts, and -- unlike a DNSKEY -- is never
+// itself servable DNS content, since a customer's contact address has no
+// reason to be public.
+func TestContactRegistrationRidesOrdinaryPushAndIsNeverServed(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	rrs := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
+	onboardPush, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
+	now := time.Now()
+	wire, err := SignUpdate(onboardPush, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing onboarding push: %v", err)
+	}
+	if resp := sendRaw(t, addr, wire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	// A follow-up push carrying only a contact registration -- no zone
+	// content at all.
+	contactPush := new(dns.Msg)
+	contactPush.SetQuestion("example.org.", dns.TypeSOA)
+	contactPush.Opcode = dns.OpcodeUpdate
+	contactPush.Insert([]dns.RR{contactTXT("example.org.", dns.ClassINET, "mailto:ops@example.org", "https://hooks.example.org/sazu")})
+	now = time.Now()
+	contactWire, err := SignUpdate(contactPush, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing contact push: %v", err)
+	}
+	resp := sendRaw(t, addr, contactWire)
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("contact push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	got, ok := s.Contacts.Get("example.org.")
+	if !ok || len(got) != 2 {
+		t.Fatalf("expected the pushed contact addresses registered, got %+v ok=%v", got, ok)
+	}
+
+	// Never itself servable: unlike zone content, no amount of DNSSEC (DO
+	// bit or otherwise) should make this queryable.
+	answer := queryDO(t, addr, contactOwnerName("example.org."), dns.TypeTXT)
+	if answer.Rcode != dns.RcodeNameError || len(answer.Answer) != 0 {
+		t.Fatalf("expected the contact record to be unservable (NXDOMAIN), got rcode=%s answer=%+v",
+			dns.RcodeToString[answer.Rcode], answer.Answer)
+	}
+
+	// A delete-shaped push clears it.
+	clearPush := new(dns.Msg)
+	clearPush.SetQuestion("example.org.", dns.TypeSOA)
+	clearPush.Opcode = dns.OpcodeUpdate
+	clearPush.Remove([]dns.RR{&dns.TXT{Hdr: dns.RR_Header{Name: contactOwnerName("example.org."), Rrtype: dns.TypeTXT, Class: dns.ClassINET}}})
+	now = time.Now()
+	clearWire, err := SignUpdate(clearPush, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing clearing push: %v", err)
+	}
+	if resp := sendRaw(t, addr, clearWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("clearing push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+	if _, ok := s.Contacts.Get("example.org."); ok {
+		t.Fatalf("expected the contact registration to be cleared")
 	}
 }
 

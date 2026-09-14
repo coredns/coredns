@@ -344,6 +344,28 @@ for a manually verified real-binary walkthrough.
   those were real findings, but this was the actual root cause a strict
   validating resolver was reacting to the whole time.
 
+- **Registration record: key + contact address together (§10.6).**
+  A zone's contact address (used to alert on delegation changes, §11) rides
+  an ordinary, already-authenticated UPDATE as a TXT RRset at a reserved
+  owner name (`_sazu-contact.<zone>`), rather than a new wire-format field
+  -- SIG(0) on the containing message already authenticates it, so no
+  separate signature, transport, or protocol version bump was needed.
+  `contact.go`'s `splitContactOps` strips it out of the ops before
+  anything downstream (prerequisites, RRSIG verification, `ApplyUpdateOps`,
+  the served zone) ever sees it as zone content: unlike a DNSKEY, a
+  contact address has no reason to be public, queryable DNS data, and
+  unlike zone content it is never itself DNSSEC-signed. Addresses are
+  validated to a closed scheme set (`mailto:`, `http://`, `https://`) so
+  `sazu-watchd` can later dispatch on scheme alone. Persisted in the
+  existing (previously unused) `contacts` SQLite table, transactionally
+  with the rest of `CommitUpdate`, and rehydrated by `LoadAll` into a new
+  in-memory `ContactRegistry` alongside `Store`/`KeyRegistry`. `sazuctl
+  contact` is the sanctioned client path (`-address`/`-clear`); it
+  deliberately does *not* run the TXT through `SignZoneContent`, since a
+  contact record needs no RRSIG of its own -- and `splitContactOps`
+  defensively drops one anyway if a naively-built client sends it,
+  so an orphan signature can never leak into served zone content.
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -352,10 +374,6 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Registration record: key + contact address together (§10.6).** No
-  contact field exists anywhere yet. Needed both for its own sake and
-  because the separate watch daemon (below) needs to read it. Depends on
-  persistence landing first.
 - [ ] **Algorithm policy / weak-algorithm floor (§10.7).** No rejection of
   weak algorithms (e.g. SHA-1-only DS digests) anywhere in the Go port today
   — the Rust/rDNS port had `meets_minimum_floor()` checks (RFC 8624); it

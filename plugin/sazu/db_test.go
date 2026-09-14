@@ -37,11 +37,11 @@ func TestDBCommitUpdateThenLoadAllReproducesOnboarding(t *testing.T) {
 		rr.Header().Class = dns.ClassINET
 	}
 
-	if err := db.CommitUpdate("example.org.", key, ops, dns.ClassINET); err != nil {
+	if err := db.CommitUpdate("example.org.", key, ops, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate: %v", err)
 	}
 
-	store, keys, err := db.LoadAll()
+	store, keys, _, err := db.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -87,17 +87,17 @@ func TestDBCommitUpdatePurgesStaleNSECOnNextUpdate(t *testing.T) {
 	for _, rr := range firstOps {
 		rr.Header().Class = dns.ClassINET
 	}
-	if err := db.CommitUpdate("example.org.", key, firstOps, dns.ClassINET); err != nil {
+	if err := db.CommitUpdate("example.org.", key, firstOps, dns.ClassINET, nil); err != nil {
 		t.Fatalf("first CommitUpdate: %v", err)
 	}
 
 	secondOps := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
 	secondOps[0].Header().Class = dns.ClassINET
-	if err := db.CommitUpdate("example.org.", nil, secondOps, dns.ClassINET); err != nil {
+	if err := db.CommitUpdate("example.org.", nil, secondOps, dns.ClassINET, nil); err != nil {
 		t.Fatalf("second CommitUpdate: %v", err)
 	}
 
-	store, _, err := db.LoadAll()
+	store, _, _, err := db.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestDBPersistsAcrossReopen(t *testing.T) {
 	}
 	soa := testSOA(1)
 	soa.Hdr.Class = dns.ClassINET
-	if err := db1.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET); err != nil {
+	if err := db1.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate: %v", err)
 	}
 	if err := db1.Close(); err != nil {
@@ -142,7 +142,7 @@ func TestDBPersistsAcrossReopen(t *testing.T) {
 	}
 	defer db2.Close()
 
-	store, keys, err := db2.LoadAll()
+	store, keys, _, err := db2.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll after reopen: %v", err)
 	}
@@ -169,24 +169,24 @@ func TestDBCommitUpdateAppliesAllFourOpForms(t *testing.T) {
 	a2.Hdr.Class = dns.ClassINET
 	mx := &dns.MX{Hdr: dns.RR_Header{Name: "mail.example.org.", Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: 300}, Preference: 10, Mx: "mx.example.org."}
 
-	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa, a1, a2, mx}, dns.ClassINET); err != nil {
+	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa, a1, a2, mx}, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate (onboard): %v", err)
 	}
 
 	// §2.5.4 delete one RR
 	del := testA("www.example.org.", net.IPv4(203, 0, 113, 10))
 	del.Hdr.Class = dns.ClassNONE
-	if err := db.CommitUpdate("example.org.", nil, []dns.RR{del}, dns.ClassINET); err != nil {
+	if err := db.CommitUpdate("example.org.", nil, []dns.RR{del}, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate (delete one RR): %v", err)
 	}
 
 	// §2.5.2 delete an RRset
 	delRRset := &dns.MX{Hdr: dns.RR_Header{Name: "mail.example.org.", Rrtype: dns.TypeMX, Class: dns.ClassANY, Ttl: 0}}
-	if err := db.CommitUpdate("example.org.", nil, []dns.RR{delRRset}, dns.ClassINET); err != nil {
+	if err := db.CommitUpdate("example.org.", nil, []dns.RR{delRRset}, dns.ClassINET, nil); err != nil {
 		t.Fatalf("CommitUpdate (delete rrset): %v", err)
 	}
 
-	store, _, err := db.LoadAll()
+	store, _, _, err := db.LoadAll()
 	if err != nil {
 		t.Fatalf("LoadAll: %v", err)
 	}
@@ -215,12 +215,12 @@ func TestDBCommitUpdateRollsBackOnMalformedOp(t *testing.T) {
 	bad := testA("bad.example.org.", net.IPv4(203, 0, 113, 99))
 	bad.Hdr.Class = dns.ClassCHAOS
 
-	err = db.CommitUpdate("example.org.", key, []dns.RR{soa, good, bad}, dns.ClassINET)
+	err = db.CommitUpdate("example.org.", key, []dns.RR{soa, good, bad}, dns.ClassINET, nil)
 	if err == nil {
 		t.Fatalf("expected CommitUpdate to fail on a malformed op")
 	}
 
-	store, keys, loadErr := db.LoadAll()
+	store, keys, _, loadErr := db.LoadAll()
 	if loadErr != nil {
 		t.Fatalf("LoadAll: %v", loadErr)
 	}
@@ -229,5 +229,44 @@ func TestDBCommitUpdateRollsBackOnMalformedOp(t *testing.T) {
 	}
 	if _, ok := store.Get("example.org."); ok {
 		t.Fatalf("expected nothing to be committed after a rolled-back transaction, but the zone exists")
+	}
+}
+
+// TestDBCommitUpdatePersistsAndClearsContact proves §10.6's registration
+// record survives a restart (LoadAll rehydrates ContactRegistry, not just
+// Store/KeyRegistry) and that a later clearing update actually removes the
+// row rather than leaving stale contact data behind.
+func TestDBCommitUpdatePersistsAndClearsContact(t *testing.T) {
+	db := openTestDB(t)
+	key, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	soa.Hdr.Class = dns.ClassINET
+
+	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET,
+		&ContactUpdate{Addresses: []string{"mailto:ops@example.org", "https://hooks.example.org/sazu"}}); err != nil {
+		t.Fatalf("CommitUpdate with contact: %v", err)
+	}
+
+	_, _, contacts, err := db.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	got, ok := contacts.Get("example.org.")
+	if !ok || len(got) != 2 || got[0] != "mailto:ops@example.org" || got[1] != "https://hooks.example.org/sazu" {
+		t.Fatalf("expected the registered contact to survive a round trip, got %+v ok=%v", got, ok)
+	}
+
+	if err := db.CommitUpdate("example.org.", nil, nil, dns.ClassINET, &ContactUpdate{}); err != nil {
+		t.Fatalf("CommitUpdate clearing contact: %v", err)
+	}
+	_, _, contacts, err = db.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll after clearing: %v", err)
+	}
+	if _, ok := contacts.Get("example.org."); ok {
+		t.Fatalf("expected the cleared contact to not survive a round trip")
 	}
 }

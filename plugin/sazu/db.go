@@ -3,6 +3,7 @@ package sazu
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -24,10 +25,9 @@ CREATE TABLE IF NOT EXISTS keys (
 	pinned_at  INTEGER NOT NULL
 );
 
--- Ready for the §10.6 registration record, not yet written to or read from:
--- the wire format a customer uses to actually submit a contact address is
--- still an open design question (see SAZU-PLAN.md), so this table exists
--- but CommitUpdate never touches it yet.
+-- §10.6 registration record: a zone's registered contact address(es),
+-- newline-joined when there is more than one (see ContactUpdate/
+-- splitContactOps in contact.go for the wire-side convention).
 CREATE TABLE IF NOT EXISTS contacts (
 	zone          TEXT PRIMARY KEY REFERENCES zones(origin),
 	address       TEXT NOT NULL,
@@ -89,7 +89,7 @@ func (db *DB) Close() error { return db.sql.Close() }
 // transaction so a failure partway through leaves no partial state on
 // disk. Mirrors ApplyUpdateOps' RFC 2136 §2.5 classification exactly, so
 // the two stay in lockstep for the same input.
-func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass uint16) error {
+func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass uint16, contact *ContactUpdate) error {
 	tx, err := db.sql.Begin()
 	if err != nil {
 		return err
@@ -107,6 +107,19 @@ func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass
 			zone, newKey.Flags, newKey.Protocol, newKey.Algorithm, newKey.PublicKey, now,
 		); err != nil {
 			return fmt.Errorf("pinning key: %w", err)
+		}
+	}
+
+	if contact != nil {
+		if len(contact.Addresses) == 0 {
+			if _, err := tx.Exec(`DELETE FROM contacts WHERE zone = ?`, zone); err != nil {
+				return fmt.Errorf("clearing contact: %w", err)
+			}
+		} else if _, err := tx.Exec(
+			`INSERT OR REPLACE INTO contacts (zone, address, registered_at) VALUES (?, ?, ?)`,
+			zone, strings.Join(contact.Addresses, "\n"), now,
+		); err != nil {
+			return fmt.Errorf("registering contact: %w", err)
 		}
 	}
 
@@ -219,22 +232,24 @@ func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass
 	return tx.Commit()
 }
 
-// LoadAll reads every persisted zone and key back into fresh in-memory
-// Store/KeyRegistry instances, for hydrating a plugin instance at startup.
-func (db *DB) LoadAll() (*Store, *KeyRegistry, error) {
+// LoadAll reads every persisted zone, key, and registered contact back
+// into fresh in-memory Store/KeyRegistry/ContactRegistry instances, for
+// hydrating a plugin instance at startup.
+func (db *DB) LoadAll() (*Store, *KeyRegistry, *ContactRegistry, error) {
 	store := NewStore()
 	keys := NewKeyRegistry()
+	contacts := NewContactRegistry()
 
 	zoneRows, err := db.sql.Query(`SELECT origin FROM zones`)
 	if err != nil {
-		return nil, nil, fmt.Errorf("loading zones: %w", err)
+		return nil, nil, nil, fmt.Errorf("loading zones: %w", err)
 	}
 	var origins []string
 	for zoneRows.Next() {
 		var origin string
 		if err := zoneRows.Scan(&origin); err != nil {
 			zoneRows.Close()
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		origins = append(origins, origin)
 	}
@@ -245,18 +260,18 @@ func (db *DB) LoadAll() (*Store, *KeyRegistry, error) {
 
 		rrRows, err := db.sql.Query(`SELECT rr FROM rrs WHERE zone = ? ORDER BY id ASC`, origin)
 		if err != nil {
-			return nil, nil, fmt.Errorf("loading records for %s: %w", origin, err)
+			return nil, nil, nil, fmt.Errorf("loading records for %s: %w", origin, err)
 		}
 		for rrRows.Next() {
 			var text string
 			if err := rrRows.Scan(&text); err != nil {
 				rrRows.Close()
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			rr, err := dns.NewRR(text)
 			if err != nil {
 				rrRows.Close()
-				return nil, nil, fmt.Errorf("parsing stored record %q for %s: %w", text, origin, err)
+				return nil, nil, nil, fmt.Errorf("parsing stored record %q for %s: %w", text, origin, err)
 			}
 			z.Insert(rr)
 		}
@@ -280,9 +295,19 @@ func (db *DB) LoadAll() (*Store, *KeyRegistry, error) {
 			// fatal to loading -- the zone just won't accept further
 			// pushes until an operator intervenes.
 		default:
-			return nil, nil, fmt.Errorf("loading key for %s: %w", origin, err)
+			return nil, nil, nil, fmt.Errorf("loading key for %s: %w", origin, err)
+		}
+
+		var address string
+		switch err := db.sql.QueryRow(`SELECT address FROM contacts WHERE zone = ?`, origin).Scan(&address); err {
+		case nil:
+			contacts.Set(origin, strings.Split(address, "\n"))
+		case sql.ErrNoRows:
+			// No contact registered for this zone -- fine, §10.6 is optional.
+		default:
+			return nil, nil, nil, fmt.Errorf("loading contact for %s: %w", origin, err)
 		}
 	}
 
-	return store, keys, nil
+	return store, keys, contacts, nil
 }

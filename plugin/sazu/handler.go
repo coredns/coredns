@@ -39,6 +39,7 @@ type Sazu struct {
 	Zones     []string
 	Store     *Store
 	Keys      *KeyRegistry
+	Contacts  *ContactRegistry
 	Validator ChainValidator
 	Capture   *RawCapture
 
@@ -225,6 +226,18 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	}
 	log.Debugf("update for %s: SIG(0) verified", zone)
 
+	// §10.6 registration record: a contact address (if this push carries
+	// one) rides the same authenticated UPDATE as everything else, at a
+	// reserved owner name -- see contact.go. Stripped out here, before
+	// anything below treats r.Ns as zone content: it needs SIG(0)'s
+	// authentication (already checked above) but none of DNSSEC's, since
+	// it is never served.
+	zoneOps, contactUpdate, err := splitContactOps(r.Ns, zone)
+	if err != nil {
+		log.Debugf("update for %s: invalid contact directive: %v", zone, err)
+		return reply(dns.RcodeFormatError)
+	}
+
 	if !alreadyPinned {
 		if !s.InsecureSkipChainValidation {
 			log.Infof("update for %s: first contact, starting chain-of-trust walk to the DNS root (this makes real outbound DNS queries and can take a while on a restricted network)", zone)
@@ -259,7 +272,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 				return replyWithStatus(w, r, dns.RcodeRefused, status)
 			}
 		}
-		if !containsAPEXSOA(r.Ns, zone) {
+		if !containsAPEXSOA(zoneOps, zone) {
 			// A first-contact push that doesn't establish a real SOA
 			// would pin a key for a zone with nothing servable behind
 			// it. Reject before pinning anything.
@@ -280,7 +293,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		// ("Level 0 -- trust the pipe") is still a supported, simpler
 		// mode -- but this is what actually determines whether a zone
 		// will validate for real DNSSEC resolvers once served.
-		if err := VerifySignedRRsets(candidate, r.Ns, dns.ClassINET, time.Now()); err != nil {
+		if err := VerifySignedRRsets(candidate, zoneOps, dns.ClassINET, time.Now()); err != nil {
 			log.Debugf("update for %s: RequireValidRRSIGs check failed: %v", zone, err)
 			return replyWithStatus(w, r, dns.RcodeNotAuth, statusErrSigInvalid)
 		}
@@ -294,7 +307,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		if !alreadyPinned {
 			keyToPin = candidate
 		}
-		if err := s.DB.CommitUpdate(zone, keyToPin, r.Ns, dns.ClassINET); err != nil {
+		if err := s.DB.CommitUpdate(zone, keyToPin, zoneOps, dns.ClassINET, contactUpdate); err != nil {
 			log.Errorf("update for %s: DB.CommitUpdate failed: %v", zone, err)
 			return reply(dns.RcodeServerFailure)
 		}
@@ -306,7 +319,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	// own freshly signed NSEC records are among the ops ApplyUpdateOps is
 	// about to insert, so they repopulate the chain immediately after.
 	z.PurgeNSEC()
-	if err := ApplyUpdateOps(z, r.Ns, dns.ClassINET); err != nil {
+	if err := ApplyUpdateOps(z, zoneOps, dns.ClassINET); err != nil {
 		log.Errorf("update for %s: ApplyUpdateOps failed: %v", zone, err)
 		return reply(dns.RcodeFormatError)
 	}
@@ -314,6 +327,10 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	if !alreadyPinned {
 		s.Keys.Pin(zone, candidate)
 		log.Infof("update for %s: onboarded and pinned to key tag %d", zone, candidate.KeyTag())
+	}
+	if contactUpdate != nil && s.Contacts != nil {
+		s.Contacts.Set(zone, contactUpdate.Addresses)
+		log.Debugf("update for %s: contact registration updated (%d address(es))", zone, len(contactUpdate.Addresses))
 	}
 	log.Debugf("update for %s: accepted", zone)
 	return reply(dns.RcodeSuccess)

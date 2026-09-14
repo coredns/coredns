@@ -65,6 +65,8 @@ func main() {
 		err = runPushZone(os.Args[2:])
 	case "push-update":
 		err = runPushUpdate(os.Args[2:])
+	case "contact":
+		err = runContact(os.Args[2:])
 	default:
 		usage()
 		os.Exit(1)
@@ -82,6 +84,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port]")
 	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port]")
 	fmt.Fprintln(os.Stderr, "  sazuctl push-update -zone <zone> -key <path> [-add \"rr\"]... [-del \"rr\"]... [-del-rrset \"name TYPE\"]... [-target host:port]")
+	fmt.Fprintln(os.Stderr, "  sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port]")
 }
 
 // stringSliceFlag collects a repeatable -flag value1 -flag value2 ... into
@@ -326,6 +329,63 @@ func runPushUpdate(args []string) error {
 			return err
 		}
 		m.RemoveRRset(rrs)
+	}
+
+	now := time.Now()
+	wire, err := sazu.SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		return err
+	}
+	return signSelfVerifyAndSend(*zone, wire, key, *target)
+}
+
+// runContact registers or clears a zone's §10.6 registration-contact
+// address(es) -- the address(es) sazu-watchd (§11) alerts on delegation
+// changes. A separate subcommand from push-update, rather than telling
+// users to reach for -add themselves, specifically so nobody accidentally
+// runs the contact TXT through the zone-content signing path (see
+// sazu.BuildContactOp's doc comment for why that would silently do the
+// wrong thing).
+func runContact(args []string) error {
+	fs := flag.NewFlagSet("contact", flag.ExitOnError)
+	zone := fs.String("zone", "", "zone to register a contact for")
+	keyPath := fs.String("key", "", "path to the Ed25519 key already pinned at the server for this zone")
+	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	clear := fs.Bool("clear", false, "clear the zone's registered contact instead of setting one")
+	var addresses stringSliceFlag
+	fs.Var(&addresses, "address", "contact address: mailto:you@example.org, or https://... for a webhook (repeatable)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *zone == "" || *keyPath == "" {
+		return fmt.Errorf("-zone and -key are required")
+	}
+	if *clear == (len(addresses) > 0) {
+		return fmt.Errorf("specify exactly one of -clear or one or more -address")
+	}
+
+	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	if err != nil {
+		return err
+	}
+	if generated {
+		fmt.Fprintf(os.Stderr, "No key found at %s -- generated a new one. This only succeeds if the "+
+			"server already pinned this exact key for %s.\n", *keyPath, *zone)
+	}
+	printKeyInfo(*keyPath, key)
+
+	m := new(dns.Msg)
+	m.SetQuestion(dns.Fqdn(*zone), dns.TypeSOA)
+	m.Opcode = dns.OpcodeUpdate
+
+	if *clear {
+		m.Remove([]dns.RR{&dns.TXT{Hdr: dns.RR_Header{Name: sazu.ContactOwnerName(*zone), Rrtype: dns.TypeTXT, Class: dns.ClassINET}}})
+	} else {
+		op, err := sazu.BuildContactOp(*zone, addresses)
+		if err != nil {
+			return err
+		}
+		m.Insert([]dns.RR{op})
 	}
 
 	now := time.Now()

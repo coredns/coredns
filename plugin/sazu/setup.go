@@ -49,7 +49,7 @@ func setup(c *caddy.Controller) error {
 		if err != nil {
 			return plugin.Error("sazu", err)
 		}
-		store, keys, err := db.LoadAll()
+		store, keys, contacts, err := db.LoadAll()
 		if err != nil {
 			db.Close()
 			return plugin.Error("sazu", err)
@@ -57,10 +57,12 @@ func setup(c *caddy.Controller) error {
 		s.DB = db
 		s.Store = store
 		s.Keys = keys
+		s.Contacts = contacts
 		c.OnShutdown(db.Close)
 	} else {
 		s.Store = NewStore()
 		s.Keys = NewKeyRegistry()
+		s.Contacts = NewContactRegistry()
 	}
 
 	config.AddPlugin(func(next plugin.Handler) plugin.Handler {
