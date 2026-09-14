@@ -80,6 +80,20 @@ sazu ZONES... {
   successfully authenticated attempts. An exceeded limit is refused with
   the `ERR_RATE_LIMITED` diagnostic. Not persisted across a restart.
 
+  A first-contact or key-rollover attempt (the only operations expensive
+  enough to be worth this) is additionally required to arrive over a
+  connection-oriented transport — TCP, or HTTPS/HTTP3 — never plain UDP:
+  a single forged UDP packet can claim any source address with nothing
+  to disprove it, which would otherwise let an attacker bypass this
+  quota entirely by spoofing a fresh address on every attempt. This
+  never affects a real push in practice — a real signed push routinely
+  exceeds a single UDP datagram's worth of content already (`sazuctl`
+  already sends anything that large over TCP automatically, see
+  `-target` above) — or an ordinary push to an already-pinned zone, which
+  never triggers
+  the chain-of-trust walk this protects. Refused with the
+  `ERR_TRANSPORT_NOT_ALLOWED` diagnostic.
+
 ## Examples
 
 Building the server and client, then onboarding a zone locally, verifying

@@ -344,6 +344,27 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	if !alreadyPinned || isRollover {
+		// A first-contact or rollover attempt is the one operation in
+		// this package expensive enough to be worth protecting against a
+		// spoofed-source-address flood specifically: it triggers a real
+		// outbound network walk (VerifyChainOfTrust, below). IPRateLimiter
+		// already bounds attempt volume per apparent source address, but
+		// that protection is only meaningful over a transport where an
+		// attacker can't just forge a fresh source address on every
+		// packet with zero proof of controlling it -- true of plain UDP,
+		// not of TCP or HTTPS/HTTP3 (both TLS-over-TCP and QUIC require
+		// their own handshake-based address validation before any real
+		// work happens). Without this, an attacker could spoof a
+		// different source address on every UDP packet, each one still
+		// getting IPRateLimiter's full per-address budget and each still
+		// costing this server a real outbound query to the DNS root/TLD
+		// infrastructure -- turning a rate limiter meant to bound that
+		// exact cost into no protection at all.
+		if !connectionOriented(ctx, w) {
+			log.Debugf("update for %s: refusing a %s attempt over a connectionless transport (spoofable source address) from %s",
+				zone, candidateKindLabel(isRollover), remoteAddr)
+			return reply(dns.RcodeRefused, statusErrTransportNotAllowed)
+		}
 		if !s.InsecureSkipChainValidation {
 			log.Infof("update for %s: %s, starting chain-of-trust walk to the DNS root (this makes real outbound DNS queries and can take a while on a restricted network)", zone, candidateKindLabel(isRollover))
 			start := time.Now()
@@ -459,6 +480,30 @@ func candidateKindLabel(isRollover bool) string {
 	return "first-contact"
 }
 
+// connectionOriented reports whether this UPDATE arrived over a
+// transport that requires a completed handshake -- proof of actually
+// controlling the claimed source address -- before either side can
+// exchange any real data: TCP, or HTTPS/HTTP3 (both TLS-over-TCP and
+// QUIC perform their own handshake-based address validation), as opposed
+// to plain UDP, where a single forged packet can claim any source
+// address at all with nothing to disprove it.
+//
+// HTTPS/HTTP3 is detected via dnsserver.RawRequestKey's presence on ctx
+// -- set unconditionally by both ServeHTTP methods -- rather than by
+// inspecting w.RemoteAddr()'s concrete net.Addr type: ServerHTTPS3
+// happens to construct its DoHWriter's RemoteAddr as a *net.UDPAddr
+// (QUIC itself runs over UDP), which would otherwise look
+// indistinguishable from plain, spoofable UDP by address type alone,
+// even though QUIC's own handshake makes it just as address-validated
+// as TCP.
+func connectionOriented(ctx context.Context, w dns.ResponseWriter) bool {
+	if _, isHTTP := ctx.Value(dnsserver.RawRequestKey{}).([]byte); isHTTP {
+		return true
+	}
+	addr := w.RemoteAddr()
+	return addr != nil && addr.Network() == "tcp"
+}
+
 // findCandidateKey looks for exactly one Add-shaped DNSKEY at zone's apex
 // among update ops -- the candidate key a first-contact push introduces
 // itself with (§9.1: the same key signs and authenticates, so it always
@@ -532,9 +577,9 @@ func writeMsg(w dns.ResponseWriter, m *dns.Msg) (int, error) {
 // statusErrNoDSPublished is one of §12's SAZU status codes, carried as a
 // diagnostic TXT record per that section: "On the raw-DNS carrier this
 // rides as a short diagnostic TXT record in the response's Additional
-// section." Only this one code is implemented today -- the rest of §12's
-// list (ERR_STALE_SERIAL, ERR_UNKNOWN_SIGNER, etc.) is still outstanding,
-// see SAZU-PLAN.md.
+// section." Every status code in §12's list is implemented at this
+// point (see the other statusErr* constants below and in prereq.go/
+// sign.go); see SAZU-PLAN.md for the full accounting.
 const statusErrNoDSPublished = "ERR_NO_DS_PUBLISHED"
 
 // statusErrUnknownSigner is another of §12's status codes: a DS record is
@@ -572,6 +617,13 @@ const statusErrQuotaExceeded = "ERR_QUOTA_EXCEEDED"
 // address regardless of which zone it targets or whether the attempt is
 // even well-formed.
 const statusErrRateLimited = "ERR_RATE_LIMITED"
+
+// statusErrTransportNotAllowed: this first-contact or key-rollover
+// attempt arrived over a connectionless transport (plain UDP) -- see
+// connectionOriented. Not one of §12's named codes (the design doc
+// predates the HTTPS/JSON carrier and this specific spoofing concern),
+// but the same diagnostic-TXT convention as the rest of them.
+const statusErrTransportNotAllowed = "ERR_TRANSPORT_NOT_ALLOWED"
 
 // statusErrStaleSerial is another of §12's status codes: a push built
 // with BuildFullZonePush's previousSOA staleness guard (RFC 2136 §2.4.2)

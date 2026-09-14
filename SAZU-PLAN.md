@@ -436,6 +436,52 @@ for a manually verified real-binary walkthrough.
   against a real, separately-built `coredns` binary and `sazuctl` the
   same way.
 
+- **First-contact/rollover restricted to connection-oriented transports
+  (`ERR_TRANSPORT_NOT_ALLOWED`), closing a spoofing bypass of the throttle
+  above.** Found immediately after building `IPRateLimiter`: it's keyed
+  by the apparent source address, but plain UDP has no handshake --
+  a single forged packet can claim any source address at all, with
+  nothing to disprove it. An attacker exploiting that could vary the
+  (spoofed) source address on every packet and get a fresh per-address
+  budget every time, each attempt still costing this server a real
+  outbound chain-of-trust network query -- turning a rate limiter meant
+  to bound exactly that cost into no protection at all. A real minimal
+  attack packet for this is smaller than it might look: `containsAPEXSOA`
+  is only checked *after* the chain-of-trust walk in `serveUpdate`, so
+  the smallest message that reaches it is just a candidate DNSKEY plus a
+  genuine SIG(0) signature -- no SOA, no RRSIGs, no NSEC chain -- comfortably
+  under a single UDP datagram, unlike any *legitimate* push (which always
+  includes at least a SOA and, from a real full push, an NSEC chain and
+  RRSIGs, routinely well over 512 bytes as found elsewhere in this
+  document).
+
+  `handler.go`'s `connectionOriented` now gates the one first-contact/
+  rollover branch that triggers that network walk on the transport
+  actually being one where address spoofing doesn't work: TCP, or
+  HTTPS/HTTP3 (both TLS-over-TCP and QUIC perform their own
+  handshake-based address validation before any real work happens) --
+  never plain UDP. Detecting HTTPS/HTTP3 checks `dnsserver.RawRequestKey`'s
+  presence on the request context rather than the concrete `net.Addr`
+  type `w.RemoteAddr()` returns, specifically because `ServerHTTPS3`
+  constructs its `DoHWriter`'s address as a `*net.UDPAddr` (QUIC runs
+  over UDP) -- indistinguishable from plain, spoofable UDP by address
+  type alone, even though QUIC's own handshake makes an HTTP/3 request
+  just as address-validated as TCP.
+
+  No impact on any legitimate, already-documented workflow: a real
+  first-contact push already always exceeds the plain-UDP size ceiling in
+  practice (see the previous bullet and the RRSIG-TTL / TCP-transport
+  findings elsewhere in this document), so every push this repo's own
+  tooling (`sazuctl`) or test suite ever sends over UDP was already an
+  ordinary, already-authenticated push to an already-pinned zone -- the
+  one case this gate deliberately leaves untouched, since it never
+  touches the chain-of-trust walk in the first place. Verified end to
+  end: the exact minimal attack packet described above is refused over
+  UDP, the identical push succeeds once resent over TCP, an equivalent
+  rollover attempt over UDP is refused the same way, and an ordinary
+  partial push to an already-pinned zone still works over UDP exactly as
+  before.
+
 - **Key rollover (§10.4).** An already-pinned zone can present a brand
   new candidate key -- no restart, no separate out-of-band step -- by
   sending a push signed by (and introducing) that new key. Implemented by
@@ -634,5 +680,8 @@ for a manually verified real-binary walkthrough.
 
 Nothing. Every item the architectural review that led to this document
 identified -- CoreDNS-plugin, client-side, and the one separate-server
-item -- is implemented; see **Done**, above, most recently the
-HTTPS/JSON carrier (§7.3).
+item -- is implemented; see **Done**, above. Most recently: the global
+per-source-IP flood/scan throttle (`ERR_RATE_LIMITED`) and the
+connection-oriented-transport requirement for first contact/rollover
+that closes a spoofing bypass of it, both found and fixed in the same
+pass while hardening the HTTPS/JSON carrier (§7.3) area.
