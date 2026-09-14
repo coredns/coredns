@@ -482,6 +482,29 @@ for a manually verified real-binary walkthrough.
   partial push to an already-pinned zone still works over UDP exactly as
   before.
 
+- **`IPRateLimiter`/`RateLimiter` periodic garbage collection, closing a
+  second gap found in the same pass.** Both limiters key their state by
+  something an attacker can cheaply vary for free -- `IPRateLimiter` by
+  source address (including a one-shot spoofed UDP address, by
+  construction never seen twice), `RateLimiter` by zone name (a garbage
+  candidate name costs nothing to invent) -- and neither previously ever
+  removed a map entry once created, even after every timestamp in it
+  aged out of the window. That meant either limiter's own memory usage
+  grew with the number of *distinct keys ever attempted*, unboundedly,
+  for the lifetime of the process -- a rate limiter that was itself an
+  unbounded-memory attack surface. `ratelimit.go`'s new `sweepIfDue`
+  garbage-collects every fully-stale entry across a limiter's bucket(s),
+  at most once per that limiter's own window (24h for `RateLimiter`, 1
+  minute for `IPRateLimiter`) so the amortized cost stays negligible.
+  This bounds memory instead by "how many distinct keys were active in
+  roughly the last window," itself bounded by an attacker's own
+  sustained traffic rate -- an ordinary, expected property of a rate
+  limiter, not a new attack surface. Verified directly: 500 distinct
+  addresses (and, separately, 500 distinct zone names) each get their
+  own entry, ages them all out of the window, and confirms the very next
+  call -- which is what triggers a sweep -- collapses the map back down
+  to just the one entry that triggered it.
+
 - **Key rollover (§10.4).** An already-pinned zone can present a brand
   new candidate key -- no restart, no separate out-of-band step -- by
   sending a push signed by (and introducing) that new key. Implemented by

@@ -38,6 +38,7 @@ type IPRateLimiter struct {
 	window    time.Duration
 	seen      map[string][]time.Time
 	now       func() time.Time // overridable in tests
+	lastSwept time.Time
 }
 
 // NewIPRateLimiter returns an IPRateLimiter allowing perMinute UPDATE
@@ -64,11 +65,21 @@ func NewIPRateLimiter(perMinute int) *IPRateLimiter {
 // needs -- an attacker's failed probes cost this server real CPU and, for
 // a first-contact attempt, a real outbound network walk, whether or not
 // SIG(0) or anything else about the attempt ever turns out to verify.
+//
+// Precisely because this is called for every attempt regardless of
+// validity, the address it's keyed by can be pure one-shot garbage --
+// most notably a spoofed source address on a single UDP packet, which by
+// construction is never seen from the same address twice. See
+// sweepIfDue's own doc comment for why this periodically garbage-collects
+// r.seen rather than letting it grow with every distinct address ever
+// observed.
 func (r *IPRateLimiter) Allow(remoteAddr string) bool {
 	ip := sourceIP(remoteAddr)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return slidingWindowAllow(r.seen, ip, r.perMinute, r.window, r.now())
+	now := r.now()
+	sweepIfDue(&r.lastSwept, r.window, now, r.seen)
+	return slidingWindowAllow(r.seen, ip, r.perMinute, r.window, now)
 }
 
 // sourceIP strips the port from a "host:port" remote address, falling

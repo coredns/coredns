@@ -36,6 +36,7 @@ type RateLimiter struct {
 	full         map[string][]time.Time
 	differential map[string][]time.Time
 	now          func() time.Time // overridable in tests
+	lastSwept    time.Time
 }
 
 // NewRateLimiter returns a RateLimiter enforcing fullPerDay full-zone and
@@ -68,7 +69,9 @@ func (r *RateLimiter) Allow(zone string, full bool) bool {
 	if full {
 		bucket, limit = r.full, r.fullPerDay
 	}
-	return slidingWindowAllow(bucket, normalizeZone(zone), limit, r.window, r.now())
+	now := r.now()
+	sweepIfDue(&r.lastSwept, r.window, now, r.full, r.differential)
+	return slidingWindowAllow(bucket, normalizeZone(zone), limit, r.window, now)
 }
 
 // slidingWindowAllow is the check-and-record primitive both RateLimiter
@@ -94,4 +97,41 @@ func slidingWindowAllow(bucket map[string][]time.Time, key string, limit int, wi
 	}
 	bucket[key] = append(kept, now)
 	return true
+}
+
+// sweepIfDue garbage-collects every bucket's stale entries at most once
+// per window, updating *lastSwept when it does. Without this, a sliding-
+// window limiter's memory grows with the number of *distinct keys ever
+// seen*, never shrinking -- for RateLimiter, one entry per distinct zone
+// name a caller has attempted (even a first-contact attempt that never
+// verified, since garbage zone names are free to vary); for IPRateLimiter,
+// one entry per distinct source address (including a single one-shot
+// spoofed UDP packet, which by construction is never seen from the same
+// address twice). An attacker who can cheaply vary that identity on every
+// attempt could otherwise grow this map's memory usage without bound, one
+// entry per attempt, forever. Sweeping at most once per window keeps
+// memory instead bounded by "how many distinct keys were active in
+// roughly the last window," which is bounded by the attacker's own
+// sustained traffic rate -- an ordinary, expected property of a rate
+// limiter, not a new attack surface it introduces.
+func sweepIfDue(lastSwept *time.Time, window time.Duration, now time.Time, buckets ...map[string][]time.Time) {
+	if now.Sub(*lastSwept) < window {
+		return
+	}
+	*lastSwept = now
+	cutoff := now.Add(-window)
+	for _, bucket := range buckets {
+		for key, times := range bucket {
+			stillLive := false
+			for _, t := range times {
+				if t.After(cutoff) {
+					stillLive = true
+					break
+				}
+			}
+			if !stillLive {
+				delete(bucket, key)
+			}
+		}
+	}
 }
