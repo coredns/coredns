@@ -437,6 +437,26 @@ for a manually verified real-binary walkthrough.
   rollover machinery built here, if a real customer workflow ever needs
   independent, more-frequent content re-signing without a registrar step.
 
+- **Key custody hardening (§10.8), client-side.** `sazuctl` writes a plain
+  BIND-format key file by default, unchanged -- but every subcommand that
+  touches one now accepts `-key-passphrase-file <path>`: give it and that
+  key file is encrypted at rest instead (scrypt-derived AES-256-GCM key;
+  `keycrypt.go`), with no new external dependency (`golang.org/x/crypto`
+  was already in this tree). The encrypted format is a fixed magic line
+  plus a JSON envelope (KDF params, salt, nonce, ciphertext) wrapping the
+  exact same BIND-format bytes `SavePrivateKey` would otherwise write, so
+  decrypting one out-of-band still yields a file standard DNSSEC tooling
+  can read. `LoadPrivateKey`/`LoadOrGenerateKey` detect and handle both
+  formats transparently; a wrong or missing passphrase against an
+  encrypted file fails the same way a corrupted file would (AES-GCM
+  authentication), never with a distinguishable error. Real HSM/PKCS#11
+  support -- holding the key in hardware, never as bytes on disk at all --
+  remains a materially bigger, separate step (new dependency, a real or
+  software HSM to test against, an API redesign for signing) and is left
+  for if/when that's actually needed; this covers the much more common
+  risk (a laptop or CI secret store gets compromised or synced somewhere
+  it shouldn't) without it.
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -457,10 +477,6 @@ other outstanding item is a CoreDNS-plugin change.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different
   wire encoding.
-### Client-side (not a server concern either way)
-
-- [ ] **Key custody hardening (§10.8).** `sazuctl` writes a plain BIND-format
-  key file today — no HSM support, no encryption at rest.
 
 ### Separate server
 

@@ -51,16 +51,41 @@ func SavePrivateKey(path string, key *dns.DNSKEY, priv ed25519.PrivateKey) error
 	return os.WriteFile(path, []byte(key.PrivateKeyString(priv)), 0o600)
 }
 
-// LoadPrivateKey reads back a key file written by SavePrivateKey. Ed25519
-// only, matching the scope of the client tooling built on top of it --
-// miekg/dns can write BIND's private-key-file format for RSA/ECDSA too,
-// but has no built-in reader for any algorithm, so a full reader is out of
-// scope until something other than this package's own Ed25519 keys needs
-// reading back.
-func LoadPrivateKey(path string) (ed25519.PrivateKey, error) {
+// SaveEncryptedPrivateKey writes priv to path exactly as SavePrivateKey
+// would, except encrypted at rest with a key derived from passphrase --
+// §10.8's key custody hardening (see keycrypt.go). The file is no longer
+// directly readable by standard DNSSEC tooling; decrypt it back to plain
+// BIND format first (LoadPrivateKey with the same passphrase, then
+// SavePrivateKey) if that's ever needed.
+func SaveEncryptedPrivateKey(path string, key *dns.DNSKEY, priv ed25519.PrivateKey, passphrase []byte) error {
+	enc, err := encryptKeyFileBytes([]byte(key.PrivateKeyString(priv)), passphrase)
+	if err != nil {
+		return fmt.Errorf("encrypting %s: %w", path, err)
+	}
+	return os.WriteFile(path, enc, 0o600)
+}
+
+// LoadPrivateKey reads back a key file written by SavePrivateKey or
+// SaveEncryptedPrivateKey, transparently telling the two apart. passphrase
+// is only used (and only needed) for an encrypted file; pass nil for a
+// plain one. Ed25519 only, matching the scope of the client tooling built
+// on top of it -- miekg/dns can write BIND's private-key-file format for
+// RSA/ECDSA too, but has no built-in reader for any algorithm, so a full
+// reader is out of scope until something other than this package's own
+// Ed25519 keys needs reading back.
+func LoadPrivateKey(path string, passphrase []byte) (ed25519.PrivateKey, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
+	}
+	if isEncryptedKeyFile(data) {
+		if len(passphrase) == 0 {
+			return nil, fmt.Errorf("%s: this key file is encrypted -- a passphrase is required", path)
+		}
+		data, err = decryptKeyFileBytes(data, passphrase)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		rest, ok := strings.CutPrefix(line, "PrivateKey: ")
@@ -88,12 +113,20 @@ func DNSKEYFor(owner string, priv ed25519.PrivateKey, ksk bool) *dns.DNSKEY {
 	return k
 }
 
-// LoadOrGenerateKey loads an existing key file at path, or generates and
-// saves a new one if it doesn't exist yet. The bool result reports whether
-// a new key was generated.
-func LoadOrGenerateKey(path, owner string, ksk bool) (*dns.DNSKEY, ed25519.PrivateKey, bool, error) {
+// LoadOrGenerateKey loads an existing key file at path (transparently
+// handling either the plain BIND format or this package's own
+// passphrase-encrypted one -- see LoadPrivateKey), or generates and saves
+// a new one if it doesn't exist yet. The bool result reports whether a
+// new key was generated.
+//
+// passphrase controls encryption, symmetrically for both directions: pass
+// nil for the original, plain BIND-format behavior (reading a plain file,
+// or writing one when generating); pass a non-nil passphrase to decrypt
+// an existing encrypted file, or to have a newly generated key saved
+// encrypted with it.
+func LoadOrGenerateKey(path, owner string, ksk bool, passphrase []byte) (*dns.DNSKEY, ed25519.PrivateKey, bool, error) {
 	if _, err := os.Stat(path); err == nil {
-		priv, err := LoadPrivateKey(path)
+		priv, err := LoadPrivateKey(path, passphrase)
 		if err != nil {
 			return nil, nil, false, err
 		}
@@ -103,7 +136,12 @@ func LoadOrGenerateKey(path, owner string, ksk bool) (*dns.DNSKEY, ed25519.Priva
 	if err != nil {
 		return nil, nil, false, err
 	}
-	if err := SavePrivateKey(path, k, priv); err != nil {
+	if passphrase != nil {
+		err = SaveEncryptedPrivateKey(path, k, priv, passphrase)
+	} else {
+		err = SavePrivateKey(path, k, priv)
+	}
+	if err != nil {
 		return nil, nil, false, err
 	}
 	return k, priv, true, nil

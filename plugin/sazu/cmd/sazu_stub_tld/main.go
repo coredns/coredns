@@ -35,7 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	key, _, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	key, _, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sazu-stub-tld: error: %v\n", err)
 		os.Exit(1)

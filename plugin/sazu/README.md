@@ -131,6 +131,13 @@ Subcommands:
 Every subcommand without `-target` just prints the signed wire bytes and
 self-verifies — safe to run with nothing listening yet.
 
+Every subcommand that reads or writes a key file (`keygen`'s `-out`, every
+other subcommand's `-key`) also accepts `-key-passphrase-file <path>`
+(§10.8): give it and that key file is encrypted at rest (scrypt + AES-256-
+GCM) with the passphrase in the given file, instead of the plain
+BIND-format file `sazuctl` writes by default. Omit it and nothing changes
+from before this existed.
+
 `plugin/sazu/cmd/sazu_stub_tld` is a minimal stand-in parent zone, useful for
 manually checking DS-digest wire correctness offline. It **cannot** be used
 to satisfy chain-of-trust validation itself, which always walks the real DNS

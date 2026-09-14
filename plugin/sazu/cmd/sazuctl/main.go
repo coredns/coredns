@@ -8,6 +8,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"flag"
 	"fmt"
@@ -79,12 +80,43 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage: sazuctl <keygen|ds|push|push-zone> [flags]")
-	fmt.Fprintln(os.Stderr, "  sazuctl keygen -out <path> [-zone <owner>]")
-	fmt.Fprintln(os.Stderr, "  sazuctl ds -zone <zone> -key <path>")
-	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port]")
-	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port]")
-	fmt.Fprintln(os.Stderr, "  sazuctl push-update -zone <zone> -key <path> [-add \"rr\"]... [-del \"rr\"]... [-del-rrset \"name TYPE\"]... [-target host:port]")
-	fmt.Fprintln(os.Stderr, "  sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port]")
+	fmt.Fprintln(os.Stderr, "  sazuctl keygen -out <path> [-zone <owner>] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl ds -zone <zone> -key <path> [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push-update -zone <zone> -key <path> [-add \"rr\"]... [-del \"rr\"]... [-del-rrset \"name TYPE\"]... [-target host:port] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "-key-passphrase-file encrypts/decrypts the key file at rest (§10.8); omit it for a plain BIND-format key file (the default).")
+}
+
+// addPassphraseFlag registers the -key-passphrase-file flag every
+// subcommand that touches a private key file shares: §10.8 key custody
+// hardening is opt-in and uniform across all of them -- give this flag
+// and the key file is read/written encrypted (see
+// sazu.SaveEncryptedPrivateKey), omit it and behavior is unchanged from
+// before this existed (a plain BIND-format file).
+func addPassphraseFlag(fs *flag.FlagSet) *string {
+	return fs.String("key-passphrase-file", "",
+		"path to a file whose contents (trimmed of a trailing newline) are the passphrase to "+
+			"encrypt/decrypt -key/-out with. Omit for a plain, unencrypted key file (the default).")
+}
+
+// readPassphraseFile reads the passphrase addPassphraseFlag's flag points
+// at, or returns nil (meaning "unencrypted") if path is empty.
+func readPassphraseFile(path string) ([]byte, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading -key-passphrase-file: %w", err)
+	}
+	data = bytes.TrimRight(data, "\r\n")
+	if len(data) == 0 {
+		return nil, fmt.Errorf("-key-passphrase-file %s is empty", path)
+	}
+	return data, nil
 }
 
 // stringSliceFlag collects a repeatable -flag value1 -flag value2 ... into
@@ -102,21 +134,34 @@ func runKeygen(args []string) error {
 	fs := flag.NewFlagSet("keygen", flag.ExitOnError)
 	out := fs.String("out", "", "path to write the new key to")
 	zone := fs.String("zone", "example.org", "owner name for the key (cosmetic until push)")
+	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *out == "" {
 		return fmt.Errorf("-out is required")
 	}
+	passphrase, err := readPassphraseFile(*passphraseFile)
+	if err != nil {
+		return err
+	}
 
 	key, priv, err := sazu.GenerateEd25519Key(*zone, true)
 	if err != nil {
 		return err
 	}
-	if err := sazu.SavePrivateKey(*out, key, priv); err != nil {
+	if passphrase != nil {
+		err = sazu.SaveEncryptedPrivateKey(*out, key, priv, passphrase)
+	} else {
+		err = sazu.SavePrivateKey(*out, key, priv)
+	}
+	if err != nil {
 		return err
 	}
 	printKeyInfo(*out, key)
+	if passphrase != nil {
+		fmt.Println("(encrypted at rest with the given passphrase)")
+	}
 	return nil
 }
 
@@ -124,14 +169,19 @@ func runDS(args []string) error {
 	fs := flag.NewFlagSet("ds", flag.ExitOnError)
 	zone := fs.String("zone", "", "zone this key is for")
 	keyPath := fs.String("key", "", "path to the Ed25519 key (created if missing)")
+	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *zone == "" || *keyPath == "" {
 		return fmt.Errorf("-zone and -key are required")
 	}
+	passphrase, err := readPassphraseFile(*passphraseFile)
+	if err != nil {
+		return err
+	}
 
-	key, _, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	key, _, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true, passphrase)
 	if err != nil {
 		return err
 	}
@@ -161,14 +211,19 @@ func runPush(args []string) error {
 	record := fs.String("record", "", "record to add, as name=ipv4 (default www.<zone>=203.0.113.10)")
 	ttl := fs.Uint("ttl", 300, "TTL for the added record")
 	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *zone == "" || *keyPath == "" {
 		return fmt.Errorf("-zone and -key are required")
 	}
+	passphrase, err := readPassphraseFile(*passphraseFile)
+	if err != nil {
+		return err
+	}
 
-	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true, passphrase)
 	if err != nil {
 		return err
 	}
@@ -226,14 +281,19 @@ func runPushZone(args []string) error {
 		"SOA serial you last saw published for this zone, to guard against a stale push (RFC 2136 §2.4.2). "+
 			"Omit (0) for first contact, where there is nothing yet to be stale against.")
 	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *zone == "" || *keyPath == "" || *zoneFile == "" {
 		return fmt.Errorf("-zone, -key, and -zonefile are required")
 	}
+	passphrase, err := readPassphraseFile(*passphraseFile)
+	if err != nil {
+		return err
+	}
 
-	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true, passphrase)
 	if err != nil {
 		return err
 	}
@@ -280,6 +340,7 @@ func runPushUpdate(args []string) error {
 	fs.Var(&adds, "add", `record to add, zone-file format, e.g. -add "www.example.org. 300 IN A 203.0.113.20" (repeatable)`)
 	fs.Var(&dels, "del", "exact record to delete, same format as -add (repeatable)")
 	fs.Var(&delRRsets, "del-rrset", `name and type whose entire RRset should be deleted, e.g. -del-rrset "www.example.org. A" (repeatable)`)
+	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -289,8 +350,12 @@ func runPushUpdate(args []string) error {
 	if len(adds) == 0 && len(dels) == 0 && len(delRRsets) == 0 {
 		return fmt.Errorf("at least one of -add, -del, or -del-rrset is required")
 	}
+	passphrase, err := readPassphraseFile(*passphraseFile)
+	if err != nil {
+		return err
+	}
 
-	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true, passphrase)
 	if err != nil {
 		return err
 	}
@@ -354,6 +419,7 @@ func runContact(args []string) error {
 	clear := fs.Bool("clear", false, "clear the zone's registered contact instead of setting one")
 	var addresses stringSliceFlag
 	fs.Var(&addresses, "address", "contact address: mailto:you@example.org, or https://... for a webhook (repeatable)")
+	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -363,8 +429,12 @@ func runContact(args []string) error {
 	if *clear == (len(addresses) > 0) {
 		return fmt.Errorf("specify exactly one of -clear or one or more -address")
 	}
+	passphrase, err := readPassphraseFile(*passphraseFile)
+	if err != nil {
+		return err
+	}
 
-	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true, passphrase)
 	if err != nil {
 		return err
 	}
