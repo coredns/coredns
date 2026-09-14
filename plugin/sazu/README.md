@@ -354,17 +354,35 @@ delegation change — this test server is never in the actual query path for
 anyone but you, deliberately, so a mistake here can't take your domain
 offline.
 
+### Key rollover
+
+A zone's key isn't permanent once pinned: generate a new one, publish
+its DS record at your registrar alongside the existing one (most accept
+more than one, and both stay listed throughout — see
+`REGISTRARS.md`), wait for it to propagate, then push signed with the
+new key, introducing it the same way first contact does:
+
+```
+./sazuctl keygen -out new-client.private -zone yourdomain.example
+./sazuctl push-update -zone yourdomain.example -key new-client.private \
+    -add "yourdomain.example. 3600 IN DNSKEY ..." -target 127.0.0.1:15353
+```
+
+(`sazuctl push-zone -key new-client.private ...` also works, and is
+simpler if you're re-pushing full zone content at the same time — a
+DNSKEY at the apex is exactly what BuildFullZonePush already always
+includes.) The server verifies the new key both signs this push and has
+a matching DS at the parent — the identical check first contact itself
+requires — before switching over; until that succeeds, the old key keeps
+working normally. Once switched, remove the old DS at your registrar
+whenever you're ready; there's no rush, since a dangling extra DS
+alongside the real one is safe (see `REGISTRARS.md`).
+
 ## Known limitations
 
 Worth being explicit about what this proof of concept does *not* cover, so
 a real-world test isn't mistaken for a production trial run:
 
-* **No rate limiting or per-tenant quotas** (§12). Every configured zone
-  shares one server instance with no throttling.
-* **No key rollover** (§10.4). Once a key is pinned, there is no supported
-  way to replace it short of restarting the server (which forgets all
-  pinned keys and onboarded zones — this store is in-memory only, nothing
-  persists across a restart).
 * **No delegation-change watch loop** (§11). A pinned key that later drops
   out of the zone's real DNSKEY RRset at the parent isn't detected.
 * **A single mutex serializes every UPDATE** this plugin instance handles,

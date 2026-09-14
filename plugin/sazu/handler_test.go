@@ -656,16 +656,8 @@ func TestOnboardWithWeakAlgorithmKeyIsRejected(t *testing.T) {
 	if resp.Rcode != dns.RcodeRefused {
 		t.Fatalf("rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
 	}
-	var gotStatus string
-	for _, rr := range resp.Extra {
-		if txt, ok := rr.(*dns.TXT); ok {
-			for _, s := range txt.Txt {
-				gotStatus = s
-			}
-		}
-	}
-	if gotStatus != statusErrWeakAlgorithm {
-		t.Fatalf("expected %s diagnostic, got %q", statusErrWeakAlgorithm, gotStatus)
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrWeakAlgorithm {
+		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrWeakAlgorithm, status, ok)
 	}
 	if _, ok := s.Keys.Get("example.org."); ok {
 		t.Fatalf("expected no key to be pinned for a rejected weak-algorithm push")
@@ -729,16 +721,8 @@ func TestRateLimiterExceededRejectsFurtherDifferentialPushes(t *testing.T) {
 	if resp.Rcode != dns.RcodeRefused {
 		t.Fatalf("second partial push rcode = %s, want REFUSED (quota exceeded)", dns.RcodeToString[resp.Rcode])
 	}
-	var gotStatus string
-	for _, rr := range resp.Extra {
-		if txt, ok := rr.(*dns.TXT); ok {
-			for _, s := range txt.Txt {
-				gotStatus = s
-			}
-		}
-	}
-	if gotStatus != statusErrQuotaExceeded {
-		t.Fatalf("expected %s diagnostic, got %q", statusErrQuotaExceeded, gotStatus)
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrQuotaExceeded {
+		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrQuotaExceeded, status, ok)
 	}
 	if got := query(t, addr, "ftp.example.org.", dns.TypeA); len(got.Answer) != 0 {
 		t.Fatalf("expected the over-quota push's content to never have been applied, got %+v", got.Answer)
@@ -965,6 +949,218 @@ func TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic(t *testing.T) {
 	}
 	if _, ok := diagnosticStatus(resp); ok {
 		t.Fatalf("expected no diagnostic TXT record for a generic chain failure, got extra=%+v", resp.Extra)
+	}
+}
+
+// TestKeyRolloverSwitchesToNewKey proves §10.4: an already-pinned zone
+// can roll over to a brand new key, without a server restart or any
+// out-of-band step, by sending a push signed by (and introducing) the new
+// key -- provided that new key also independently passes the exact same
+// chain-of-trust-to-the-parent-DS check first contact requires. After a
+// successful rollover, the old key stops working and the new one takes
+// over authenticating the zone.
+func TestKeyRolloverSwitchesToNewKey(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.InsecureSkipChainValidation = false
+	s.Validator = fakeValidator{err: nil} // the new key's DS "checks out"
+	addr := serveThroughRealServer(t, s)
+
+	oldKey, oldPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating old key: %v", err)
+	}
+	onboardPush, err := BuildFullZonePush("example.org.", testSOA(1), nil, oldKey, oldPriv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
+	now := time.Now()
+	onboardWire, err := SignUpdate(onboardPush, oldKey, oldPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing onboarding push: %v", err)
+	}
+	if resp := sendRaw(t, addr, onboardWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	newKey, newPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating new key: %v", err)
+	}
+	rollover := new(dns.Msg)
+	rollover.SetQuestion("example.org.", dns.TypeSOA)
+	rollover.Opcode = dns.OpcodeUpdate
+	rollover.Insert([]dns.RR{
+		&dns.DNSKEY{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+			Flags: newKey.Flags, Protocol: newKey.Protocol, Algorithm: newKey.Algorithm, PublicKey: newKey.PublicKey},
+	})
+	now = time.Now()
+	rolloverWire, err := SignUpdate(rollover, newKey, newPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing rollover push: %v", err)
+	}
+	resp := sendRaw(t, addr, rolloverWire)
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("rollover push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	pinnedNow, ok := s.Keys.Get("example.org.")
+	if !ok || pinnedNow.PublicKey != newKey.PublicKey {
+		t.Fatalf("expected the zone to now be pinned to the new key, got %+v", pinnedNow)
+	}
+
+	// The old key no longer authenticates anything for this zone.
+	oldSignedPartial := new(dns.Msg)
+	oldSignedPartial.SetQuestion("example.org.", dns.TypeSOA)
+	oldSignedPartial.Opcode = dns.OpcodeUpdate
+	oldSignedPartial.Insert([]dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))})
+	now = time.Now()
+	oldWire, err := SignUpdate(oldSignedPartial, oldKey, oldPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, oldWire); resp.Rcode == dns.RcodeSuccess {
+		t.Fatalf("expected a push signed by the old, rolled-over-away-from key to be rejected")
+	}
+
+	// The new key does.
+	newSignedPartial := new(dns.Msg)
+	newSignedPartial.SetQuestion("example.org.", dns.TypeSOA)
+	newSignedPartial.Opcode = dns.OpcodeUpdate
+	newSignedPartial.Insert([]dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 20))})
+	now = time.Now()
+	newWire, err := SignUpdate(newSignedPartial, newKey, newPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, newWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("push signed by the new key rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+// TestKeyRolloverFailsWithoutADSForTheNewKey proves the rollover path
+// isn't a bypass of first contact's own trust model: a new key that
+// doesn't independently chain to a DS at the parent is refused, exactly
+// as it would be if it were trying to onboard a brand new zone, and the
+// zone stays pinned to its old key throughout.
+func TestKeyRolloverFailsWithoutADSForTheNewKey(t *testing.T) {
+	s := newTestSazu("example.org.")
+	// Onboard insecurely first (this test is about the rollover check,
+	// not first contact's), then flip on the real chain check -- with a
+	// validator that always reports "no DS published" -- for the rollover
+	// attempt itself.
+	s.InsecureSkipChainValidation = true
+	addr := serveThroughRealServer(t, s)
+
+	oldKey, oldPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating old key: %v", err)
+	}
+	onboardPush, err := BuildFullZonePush("example.org.", testSOA(1), nil, oldKey, oldPriv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
+	now := time.Now()
+	onboardWire, err := SignUpdate(onboardPush, oldKey, oldPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing onboarding push: %v", err)
+	}
+	if resp := sendRaw(t, addr, onboardWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	s.InsecureSkipChainValidation = false
+	s.Validator = fakeValidator{err: &ChainError{Op: "no-ds-published", Msg: "no DS record published yet for example.org."}}
+
+	newKey, newPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating new key: %v", err)
+	}
+	rollover := new(dns.Msg)
+	rollover.SetQuestion("example.org.", dns.TypeSOA)
+	rollover.Opcode = dns.OpcodeUpdate
+	rollover.Insert([]dns.RR{
+		&dns.DNSKEY{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+			Flags: newKey.Flags, Protocol: newKey.Protocol, Algorithm: newKey.Algorithm, PublicKey: newKey.PublicKey},
+	})
+	now = time.Now()
+	rolloverWire, err := SignUpdate(rollover, newKey, newPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing rollover push: %v", err)
+	}
+	resp := sendRaw(t, addr, rolloverWire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("rollover push rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrNoDSPublished {
+		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrNoDSPublished, status, ok)
+	}
+
+	pinnedNow, ok := s.Keys.Get("example.org.")
+	if !ok || pinnedNow.PublicKey != oldKey.PublicKey {
+		t.Fatalf("expected the zone to remain pinned to the old key after a failed rollover, got %+v", pinnedNow)
+	}
+}
+
+// TestKeyRolloverRejectedForWeakAlgorithm proves §10.7's algorithm floor
+// applies to a rollover's new candidate key exactly as it does at first
+// contact -- checked before any chain-of-trust effort is spent on it.
+func TestKeyRolloverRejectedForWeakAlgorithm(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.InsecureSkipChainValidation = false
+	// If the floor check didn't run first, this validator would make the
+	// rollover succeed -- so a passing test here proves the floor check,
+	// not an incidental chain-of-trust failure, is what's rejecting it.
+	s.Validator = fakeValidator{err: nil}
+	addr := serveThroughRealServer(t, s)
+
+	oldKey, oldPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating old key: %v", err)
+	}
+	onboardPush, err := BuildFullZonePush("example.org.", testSOA(1), nil, oldKey, oldPriv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
+	now := time.Now()
+	onboardWire, err := SignUpdate(onboardPush, oldKey, oldPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing onboarding push: %v", err)
+	}
+	if resp := sendRaw(t, addr, onboardWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	newKey, newPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating new key: %v", err)
+	}
+	weakCandidate := &dns.DNSKEY{
+		Hdr:       dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+		Flags:     newKey.Flags,
+		Protocol:  newKey.Protocol,
+		Algorithm: dns.RSASHA1,
+		PublicKey: newKey.PublicKey,
+	}
+	rollover := new(dns.Msg)
+	rollover.SetQuestion("example.org.", dns.TypeSOA)
+	rollover.Opcode = dns.OpcodeUpdate
+	rollover.Insert([]dns.RR{weakCandidate})
+	now = time.Now()
+	// Signed with the real Ed25519 new key -- the SIG(0) itself is fine;
+	// only the embedded candidate's declared algorithm is weak.
+	rolloverWire, err := SignUpdate(rollover, newKey, newPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing rollover push: %v", err)
+	}
+	resp := sendRaw(t, addr, rolloverWire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("rollover push rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrWeakAlgorithm {
+		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrWeakAlgorithm, status, ok)
+	}
+	if pinnedNow, ok := s.Keys.Get("example.org."); !ok || pinnedNow.PublicKey != oldKey.PublicKey {
+		t.Fatalf("expected the zone to remain pinned to the old key, got %+v", pinnedNow)
 	}
 }
 

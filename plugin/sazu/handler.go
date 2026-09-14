@@ -210,36 +210,61 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	var candidate *dns.DNSKEY
 	if alreadyPinned {
 		candidate = pinned
-		log.Debugf("update for %s: zone already pinned to key tag %d", zone, candidate.KeyTag())
 	} else {
-		var err error
-		candidate, err = findCandidateKey(r.Ns, zone)
-		if err != nil {
-			log.Debugf("update for %s: no candidate DNSKEY found in a first-contact push: %v", zone, err)
+		var ferr error
+		candidate, ferr = findCandidateKey(r.Ns, zone)
+		if ferr != nil {
+			log.Debugf("update for %s: no candidate DNSKEY found in a first-contact push: %v", zone, ferr)
 			return reply(dns.RcodeRefused)
 		}
 		log.Debugf("update for %s: first-contact candidate key tag %d algorithm %d", zone, candidate.KeyTag(), candidate.Algorithm)
-
-		// §10.7 algorithm floor: refuse to onboard a key using an
-		// algorithm RFC 8624 §3.1 rates MUST NOT or NOT RECOMMENDED for
-		// zone signing. Checked here, before spending any cryptographic
-		// effort verifying SIG(0) against it: cheap, and there's no
-		// reason to do real work validating a signature this package
-		// would refuse to act on regardless of whether it verifies. Only
-		// checked at first contact -- once pinned, a key's algorithm
-		// can't change without a rollover (§10.4, not yet implemented),
-		// so there is nothing new to check on a later ordinary push.
 		if !algorithmMeetsFloor(candidate.Algorithm) {
 			log.Debugf("update for %s: candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, candidate.Algorithm)
 			return replyWithStatus(w, r, dns.RcodeRefused, statusErrWeakAlgorithm)
 		}
 	}
 
-	if err := VerifySIG0(raw, candidate); err != nil {
-		log.Debugf("update for %s: SIG(0) verification failed: %v", zone, err)
+	isRollover := false
+	sigErr := VerifySIG0(raw, candidate)
+	if sigErr != nil && alreadyPinned {
+		// §10.4 key rollover: the pinned key didn't authenticate this
+		// transaction -- before giving up, check whether a *different*
+		// candidate DNSKEY also present in these ops does. If so, this
+		// zone already has a pinned key presenting a new one it can prove
+		// current possession of; the caller still has to run the exact
+		// same chain-of-trust recheck first contact requires (a matching
+		// DS at the parent) before this actually takes effect. Reusing
+		// first contact's whole trust model rather than also requiring
+		// the *old* key's signature is deliberate: whoever can get a DS
+		// published at the registrar already fully controls the
+		// delegation regardless (the root of trust first contact itself
+		// already rests on), so requiring only that same proof here
+		// doesn't introduce a new attack surface beyond what first
+		// contact already accepts. An ordinary push's failure mode is
+		// unchanged: if there's no distinct, self-verifying candidate,
+		// sigErr stays exactly what VerifySIG0 against the pinned key
+		// returned.
+		if other, ferr := findCandidateKey(r.Ns, zone); ferr == nil &&
+			!(other.PublicKey == pinned.PublicKey && other.Algorithm == pinned.Algorithm) {
+			log.Debugf("update for %s: rollover candidate key tag %d algorithm %d", zone, other.KeyTag(), other.Algorithm)
+			if !algorithmMeetsFloor(other.Algorithm) {
+				// Checked before spending any effort verifying its
+				// signature or (further down) walking the chain of
+				// trust -- same "cheap check first" reasoning as first
+				// contact's own floor check above.
+				log.Debugf("update for %s: rollover candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, other.Algorithm)
+				return replyWithStatus(w, r, dns.RcodeRefused, statusErrWeakAlgorithm)
+			}
+			if verr := VerifySIG0(raw, other); verr == nil {
+				candidate, isRollover, sigErr = other, true, nil
+			}
+		}
+	}
+	if sigErr != nil {
+		log.Debugf("update for %s: SIG(0) verification failed: %v", zone, sigErr)
 		return reply(dns.RcodeNotAuth)
 	}
-	log.Debugf("update for %s: SIG(0) verified", zone)
+	log.Debugf("update for %s: SIG(0) verified (rollover=%v)", zone, isRollover)
 
 	// §10.6 registration record: a contact address (if this push carries
 	// one) rides the same authenticated UPDATE as everything else, at a
@@ -269,9 +294,9 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		}
 	}
 
-	if !alreadyPinned {
+	if !alreadyPinned || isRollover {
 		if !s.InsecureSkipChainValidation {
-			log.Infof("update for %s: first contact, starting chain-of-trust walk to the DNS root (this makes real outbound DNS queries and can take a while on a restricted network)", zone)
+			log.Infof("update for %s: %s, starting chain-of-trust walk to the DNS root (this makes real outbound DNS queries and can take a while on a restricted network)", zone, candidateKindLabel(isRollover))
 			start := time.Now()
 			err := s.Validator.VerifyChainOfTrust(zone, candidate)
 			log.Infof("update for %s: chain-of-trust walk finished in %s, err=%v", zone, time.Since(start), err)
@@ -303,10 +328,13 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 				return replyWithStatus(w, r, dns.RcodeRefused, status)
 			}
 		}
-		if !containsAPEXSOA(zoneOps, zone) {
+		if !alreadyPinned && !containsAPEXSOA(zoneOps, zone) {
 			// A first-contact push that doesn't establish a real SOA
 			// would pin a key for a zone with nothing servable behind
-			// it. Reject before pinning anything.
+			// it. Reject before pinning anything. Not required for a
+			// rollover: the zone already has real content and a real SOA
+			// from before, and a rollover push may legitimately carry
+			// nothing but the new key itself.
 			return reply(dns.RcodeFormatError)
 		}
 	}
@@ -335,7 +363,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	// disagreeing about whether the update actually happened.
 	if s.DB != nil {
 		var keyToPin *dns.DNSKEY
-		if !alreadyPinned {
+		if !alreadyPinned || isRollover {
 			keyToPin = candidate
 		}
 		if err := s.DB.CommitUpdate(zone, keyToPin, zoneOps, dns.ClassINET, contactUpdate); err != nil {
@@ -358,6 +386,9 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	if !alreadyPinned {
 		s.Keys.Pin(zone, candidate)
 		log.Infof("update for %s: onboarded and pinned to key tag %d", zone, candidate.KeyTag())
+	} else if isRollover {
+		s.Keys.Pin(zone, candidate)
+		log.Infof("update for %s: rolled over, now pinned to key tag %d (was %d)", zone, candidate.KeyTag(), pinned.KeyTag())
 	}
 	if contactUpdate != nil && s.Contacts != nil {
 		s.Contacts.Set(zone, contactUpdate.Addresses)
@@ -365,6 +396,15 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	}
 	log.Debugf("update for %s: accepted", zone)
 	return reply(dns.RcodeSuccess)
+}
+
+// candidateKindLabel names what kind of candidate-key event this is, for
+// log messages shared between first contact and rollover.
+func candidateKindLabel(isRollover bool) string {
+	if isRollover {
+		return "key rollover"
+	}
+	return "first-contact"
 }
 
 // findCandidateKey looks for exactly one Add-shaped DNSKEY at zone's apex

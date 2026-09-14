@@ -399,6 +399,44 @@ for a manually verified real-binary walkthrough.
   correctness, so the failure mode of losing quota history is "briefly
   too permissive," never "a customer locked out of their own zone."
 
+- **Key rollover (§10.4).** An already-pinned zone can present a brand
+  new candidate key -- no restart, no separate out-of-band step -- by
+  sending a push signed by (and introducing) that new key. Implemented by
+  reusing first contact's exact machinery rather than inventing parallel
+  logic: `serveUpdate` tries the pinned key first, exactly as before; only
+  if that verification fails does it look for a *different* candidate
+  DNSKEY in the same ops and, if one both signs this transaction and
+  passes the identical chain-of-trust-to-the-parent-DS check first
+  contact requires, treats the push as a rollover -- re-pinning
+  `KeyRegistry` (and, if configured, `DB`) to the new key. An ordinary
+  push's failure mode (wrong key, corrupted signature) is completely
+  unchanged: it only ever reaches the rollover branch after the pinned
+  key has already failed, and only succeeds there if a genuinely distinct,
+  self-verifying, DS-anchored candidate exists. Deliberately does *not*
+  also require the *old* key's signature as a second factor: whoever can
+  get a DS published at the registrar already fully controls the
+  delegation regardless (that is the root of trust first contact itself
+  already rests on), so requiring only that same proof for a rollover
+  doesn't introduce a new attack surface beyond what first contact
+  already accepts. The §10.7 algorithm floor applies to a rollover's new
+  candidate exactly as it does at first contact, checked before any
+  signature verification or chain-of-trust effort is spent on it. A
+  rollover push doesn't need to re-establish a SOA (unlike true first
+  contact) -- the zone already has real content from before, and a
+  rollover may legitimately carry nothing but the new key itself.
+
+  This also resolves the KSK/ZSK question this item used to carry
+  alongside it: given rollover now exists, the argument for splitting
+  the two (avoiding a DS/registrar update on every rotation) has a
+  place to land, but SAZU's threat model -- the private key only ever
+  signs offline, on the customer's own machine, never held by an
+  always-on server -- still doesn't need the *other* traditional reason
+  for the split (limiting exposure of a frequently-used online key).
+  Decision: keep the single-key model (§9.1's own deliberate choice) for
+  now; a KSK/ZSK split remains straightforward to add later on top of the
+  rollover machinery built here, if a real customer workflow ever needs
+  independent, more-frequent content re-signing without a registrar step.
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -407,21 +445,6 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Key rollover (§10.4).** Once pinned, a key is permanent. Needs the
-  same chain-of-trust-recheck machinery already built for first contact,
-  triggered by a different condition (an already-pinned zone presenting a
-  new candidate key that also chains to the parent's DS). When this gets
-  designed, also decide then whether to introduce a KSK/ZSK split (SAZU
-  currently uses one Ed25519 key, KSK-flagged, for everything -- §9.1's
-  own deliberate choice): the two are effectively the same question,
-  since a ZSK's entire benefit is being rotatable without a new DS record
-  or registrar involvement, which only pays off once rollover itself
-  exists. Given SAZU's actual threat model -- the private key only ever
-  signs offline, on the customer's own machine, never held by an
-  always-on server -- the traditional reason for the split (limiting a
-  frequently-used, exposed online key) doesn't really apply here; the
-  rollover-cost argument is the one piece of the usual rationale that
-  would still be relevant.
 - [ ] **Audit trail, remaining transaction status codes, transaction UUID
   (§12).** `ERR_NO_DS_PUBLISHED`, `ERR_UNKNOWN_SIGNER`, `ERR_SIG_INVALID`,
   `ERR_WEAK_ALGORITHM`, and `ERR_QUOTA_EXCEEDED` are done (see Done,
