@@ -56,6 +56,21 @@ func (l *loggerAdapter) Write(p []byte) (n int, err error) {
 // Plugins can access the original HTTP request to retrieve headers, client IP, and metadata.
 type HTTPRequestKey struct{}
 
+// RawRequestKey is the context key for the exact DNS wire bytes CoreDNS
+// received over this HTTPS (or HTTP/3) request, before any parsing --
+// alongside HTTPRequestKey, for a plugin whose own authentication scheme
+// (e.g. SIG(0), RFC 2931, which signs literal wire bytes rather than any
+// re-encoding of a parsed message) needs the exact bytes the client
+// sent. The plain UDP/TCP/TLS transports give a plugin this via their
+// own DecorateReader hook (UDPDecorateReaderFunc/TCPDecorateReaderFunc on
+// Config); HTTPS/HTTP3 never go through a dns.Server's DecorateReader at
+// all, so this context value is the equivalent for them. Set once per
+// request, from the same raw bytes doh.RequestToMsgWireWithAccept
+// already extracted -- decoded from a JSON wire envelope first, if the
+// request used one, so a plugin retrieving this always gets the
+// message's true wire bytes regardless of which carrier delivered them.
+type RawRequestKey struct{}
+
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	s, err := NewServer(addr, group)
@@ -216,7 +231,11 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, raw, err := doh.RequestToMsgWire(r)
+	// WithAccept, not the plain RequestToMsgWire, so a plugin's own
+	// Config.AllowOpcode (e.g. RFC 2136 dynamic UPDATE) reaches it over
+	// HTTPS exactly as it already does over UDP/TCP/TLS -- see
+	// AllowOpcode's own doc comment.
+	msg, raw, err := doh.RequestToMsgWireWithAccept(r, s.msgAcceptFunc())
 	if err != nil {
 		clog.Debugf("DoH request could not be parsed: %v", err)
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -252,6 +271,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.WithValue(r.Context(), Key{}, s.Server)
 	ctx = context.WithValue(ctx, LoopKey{}, 0)
 	ctx = context.WithValue(ctx, HTTPRequestKey{}, r)
+	ctx = context.WithValue(ctx, RawRequestKey{}, raw)
 	s.ServeDNS(ctx, dw, msg)
 
 	// See section 4.2.1 of RFC 8484.

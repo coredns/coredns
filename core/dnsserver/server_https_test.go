@@ -118,6 +118,103 @@ func TestServerHTTPSRejectsUpdate(t *testing.T) {
 	}
 }
 
+// TestServerHTTPSAllowOpcodeAcceptsUpdate proves AllowOpcode now reaches
+// the HTTPS transport exactly as it already does UDP/TCP/TLS: a config
+// that opts into dns.OpcodeUpdate accepts an UPDATE-opcode message over
+// HTTPS (POST, GET, and the JSON wire envelope), reaching the plugin
+// chain rather than being rejected the way TestServerHTTPSRejectsUpdate
+// proves happens without that opt-in. It also proves RawRequestKey
+// carries the message's exact original wire bytes in every case,
+// including through the JSON envelope's base64 decoding -- the property
+// a SIG(0)-authenticating plugin (RFC 2931 signs literal wire bytes)
+// depends on.
+func TestServerHTTPSAllowOpcodeAcceptsUpdate(t *testing.T) {
+	wire := mustPackRFC2136Update(t)
+
+	newConfig := func() (*Config, *contextCapturingPlugin) {
+		p := &contextCapturingPlugin{}
+		c := testConfig("https", p)
+		c.TLSConfig = &tls.Config{}
+		c.AllowOpcode(dns.OpcodeUpdate)
+		return c, p
+	}
+
+	rawFromContext := func(t *testing.T, p *contextCapturingPlugin) []byte {
+		t.Helper()
+		if p.capturedContext == nil {
+			t.Fatal("plugin chain was never reached")
+		}
+		raw, ok := p.capturedContext.Value(RawRequestKey{}).([]byte)
+		if !ok {
+			t.Fatal("RawRequestKey not found in context")
+		}
+		return raw
+	}
+
+	t.Run("POST raw wire bytes", func(t *testing.T) {
+		config, p := newConfig()
+		server, err := NewServerHTTPS("127.0.0.1:443", []*Config{config})
+		if err != nil {
+			t.Fatalf("NewServerHTTPS() failed: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(wire))
+		req.RemoteAddr = "127.0.0.1:12345"
+		recorder := httptest.NewRecorder()
+
+		server.ServeHTTP(recorder, req)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("ServeHTTP() status = %d, want %d (body: %s)", recorder.Code, http.StatusOK, recorder.Body.String())
+		}
+		if !bytes.Equal(rawFromContext(t, p), wire) {
+			t.Fatal("RawRequestKey did not carry the exact original wire bytes")
+		}
+	})
+
+	t.Run("GET base64 wire bytes", func(t *testing.T) {
+		config, p := newConfig()
+		server, err := NewServerHTTPS("127.0.0.1:443", []*Config{config})
+		if err != nil {
+			t.Fatalf("NewServerHTTPS() failed: %v", err)
+		}
+		target := "/dns-query?dns=" + base64.RawURLEncoding.EncodeToString(wire)
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		req.RemoteAddr = "127.0.0.1:12345"
+		recorder := httptest.NewRecorder()
+
+		server.ServeHTTP(recorder, req)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("ServeHTTP() status = %d, want %d (body: %s)", recorder.Code, http.StatusOK, recorder.Body.String())
+		}
+		if !bytes.Equal(rawFromContext(t, p), wire) {
+			t.Fatal("RawRequestKey did not carry the exact original wire bytes")
+		}
+	})
+
+	t.Run("POST JSON wire envelope", func(t *testing.T) {
+		config, p := newConfig()
+		server, err := NewServerHTTPS("127.0.0.1:443", []*Config{config})
+		if err != nil {
+			t.Fatalf("NewServerHTTPS() failed: %v", err)
+		}
+		envelope := `{"wire":"` + base64.StdEncoding.EncodeToString(wire) + `"}`
+		req := httptest.NewRequest(http.MethodPost, "/dns-query", strings.NewReader(envelope))
+		req.Header.Set("Content-Type", "application/dns-message+json")
+		req.RemoteAddr = "127.0.0.1:12345"
+		recorder := httptest.NewRecorder()
+
+		server.ServeHTTP(recorder, req)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("ServeHTTP() status = %d, want %d (body: %s)", recorder.Code, http.StatusOK, recorder.Body.String())
+		}
+		if !bytes.Equal(rawFromContext(t, p), wire) {
+			t.Fatal("RawRequestKey did not carry the decoded, exact original wire bytes from the JSON envelope")
+		}
+	})
+}
+
 func TestNewServerHTTPSWithCustomLimits(t *testing.T) {
 	maxConnections := 100
 	maxStreams := 100

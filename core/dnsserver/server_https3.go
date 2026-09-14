@@ -233,7 +233,9 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, raw, err := doh.RequestToMsgWire(r)
+	// WithAccept, not the plain RequestToMsgWire -- see the matching
+	// comment in server_https.go's ServeHTTP.
+	msg, raw, err := doh.RequestToMsgWireWithAccept(r, s.msgAcceptFunc())
 	if err != nil {
 		clog.Debugf("DoH3 request could not be parsed: %v", err)
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -263,6 +265,7 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.WithValue(r.Context(), Key{}, s.Server)
 	ctx = context.WithValue(ctx, LoopKey{}, 0)
 	ctx = context.WithValue(ctx, HTTPRequestKey{}, r)
+	ctx = context.WithValue(ctx, RawRequestKey{}, raw)
 
 	s.ServeDNS(ctx, dw, msg)
 

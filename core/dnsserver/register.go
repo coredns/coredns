@@ -203,9 +203,9 @@ func (c *Config) AddPlugin(m plugin.Plugin) {
 }
 
 // AllowOpcode permits a non-default DNS opcode to reach this config's plugin chain
-// on UDP, TCP, and DNS-over-TLS listeners. Plugins should call it during setup.
-// The listener still requires exactly one question, and configs that do not opt in
-// continue to reject the opcode.
+// on UDP, TCP, DNS-over-TLS, DNS-over-HTTPS, and DNS-over-HTTP/3 listeners.
+// Plugins should call it during setup. The listener still requires exactly
+// one question, and configs that do not opt in continue to reject the opcode.
 func (c *Config) AllowOpcode(opcode int) {
 	if c.allowedOpcodes == nil {
 		c.allowedOpcodes = make(map[int]struct{})
