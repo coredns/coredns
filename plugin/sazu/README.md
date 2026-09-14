@@ -143,6 +143,43 @@ manually checking DS-digest wire correctness offline. It **cannot** be used
 to satisfy chain-of-trust validation itself, which always walks the real DNS
 root — see the next two sections for how to actually test that.
 
+### sazu-watchd: §11 delegation-change monitoring
+
+`plugin/sazu/cmd/sazu-watchd` is a separate, standalone daemon -- never runs
+inside CoreDNS -- that periodically re-checks every onboarded zone's chain
+of trust (the same "does a DS matching this zone's pinned key exist at the
+parent" check first contact and a key rollover already perform) and alerts
+the zone's registered contact (`sazuctl contact`) when that check's outcome
+changes: a pinned key's DS silently disappearing or changing at the
+registrar, without anyone re-pushing anything to this server, is exactly
+the kind of drift nothing else here would ever notice.
+
+```
+go build -o sazu-watchd ./plugin/sazu/cmd/sazu-watchd
+./sazu-watchd -db /path/to/the/same/sazu.db/CoreDNS/uses \
+    -interval 5m \
+    -smtp-addr smtp.example.org:587 -smtp-from alerts@example.org \
+    -smtp-username alerts -smtp-password-file smtp-pass.txt
+```
+
+It reads the exact same SQLite file CoreDNS's `sazu` plugin writes to via
+its `db` directive (both processes can safely have it open at once) --
+there is no other configuration to keep in sync between the two. Alerts go
+to whatever address(es) a zone registered with `sazuctl contact`: `mailto:`
+addresses via SMTP (configure `-smtp-*` above, or leave them unset --
+email alerts are simply skipped, with a logged error, until they're
+configured), `https://`/`http://` addresses via a small JSON webhook POST.
+A zone with no registered contact still gets every check logged, just
+with nothing to notify externally.
+
+Pass `-once` to run a single check pass and exit, instead of looping
+forever -- useful for confirming the daemon can actually reach and parse
+the database before wiring it into a real supervisor/systemd unit. Note
+that `-once` resets its "last known good" state every time it starts (see
+`watch.go`), so it never fires an alert on its own by design -- it exists
+for connectivity/config verification, not as a substitute for the
+long-running `-interval` loop a real deployment wants.
+
 ### Local sandbox testing
 
 This is the fastest way to prove the whole mechanism works, using
@@ -390,8 +427,6 @@ alongside the real one is safe (see `REGISTRARS.md`).
 Worth being explicit about what this proof of concept does *not* cover, so
 a real-world test isn't mistaken for a production trial run:
 
-* **No delegation-change watch loop** (§11). A pinned key that later drops
-  out of the zone's real DNSKEY RRset at the parent isn't detected.
 * **A single mutex serializes every UPDATE** this plugin instance handles,
   across all zones. Fine for testing; a production version would want
   per-zone locking for throughput.

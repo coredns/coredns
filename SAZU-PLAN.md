@@ -496,38 +496,57 @@ for a manually verified real-binary walkthrough.
   worth revisiting alongside the HTTPS/JSON carrier below, which has more
   room to carry this without that constraint.
 
+- **§11 Delegation-change monitoring & alerting: `sazu-watchd`.** A
+  standalone daemon (`plugin/sazu/cmd/sazu-watchd`), kept out of CoreDNS
+  exactly as this document always intended: it's a periodic background
+  job, not request-driven, and its own failure mode (a slow/flaky query
+  to some TLD server) must never add latency to actual DNS answers or
+  tie monitoring continuity to the query-serving process's uptime. On
+  every tick (`-interval`, default 5m; `-once` for a single pass) it:
+  1. Reads every onboarded zone's pinned key straight from the same
+     SQLite file CoreDNS's `db` directive writes to (`DB.ListZones`/
+     `LoadKey`, added alongside this rather than reusing the heavier
+     `LoadAll`, since watchd never needs a zone's actual RR content).
+  2. Re-runs `chain.go`'s `Validator` -- imported as a library, the exact
+     same "does a DS matching this key exist at the parent" check first
+     contact and a §10.4 key rollover already perform -- against each one.
+  3. Compares against an in-memory "last known good" per zone
+     (`watch.go`'s `checkOnce`); on a transition (OK→failing or
+     failing→OK), alerts the zone's §10.6 registered contact
+     (`DB.LoadContact`) and logs regardless of whether a contact is even
+     registered. A zone's *first* observation only establishes a
+     baseline and never alerts on its own -- there is no "last known" yet
+     to have changed from, which is also what keeps daemon startup from
+     alert-storming on every zone that happens to already be in a
+     long-standing, already-known failure state.
+
+  Alerting (`alert.go`'s `Notifier`) dispatches per-address on scheme,
+  supporting both channels §11 left "TBD" between rather than picking
+  one: `mailto:` via SMTP (stdlib `net/smtp`, optional auth, password
+  supplied via `-smtp-password-file` for the same reason `sazuctl`'s own
+  `-key-passphrase-file` avoids CLI-visible secrets) and `http(s)://` via
+  a small self-describing JSON webhook POST. Zone state is deliberately
+  not persisted across a `sazu-watchd` restart -- purely advisory
+  monitoring continuity, not correctness-critical data, so the failure
+  mode of losing it is "possibly miss one alert if a break-and-recover
+  both happen within one restart window," never a false report.
+
+  Verified against a real, live CoreDNS + `sazuctl` + `sazu-watchd`
+  three-binary setup sharing one real SQLite file end to end (onboard a
+  zone, register a contact, stop CoreDNS, run `sazu-watchd -once`,
+  confirm via direct SQLite inspection that the zone/key/contact/audit
+  rows it reads are exactly what CoreDNS wrote), in addition to its own
+  unit tests (a fake `ChainValidator` for the state-transition logic,
+  `httptest`/an unconfigured `Notifier` for alert dispatch).
+
 ## Outstanding
 
-Split by where each belongs, per the architectural review that led to this
-document. The one item marked **separate server** is the exception; every
-other outstanding item is a CoreDNS-plugin change.
-
-### CoreDNS-side
+Just one item left, per the architectural review that led to this
+document (which originally split outstanding work by where it belongs --
+CoreDNS-plugin, client-side, or a separate server -- now moot with only
+a single CoreDNS-side item remaining):
 
 - [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP wire format only today.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different
   wire encoding.
-
-### Separate server
-
-- [ ] **§11 Delegation-change monitoring & alerting — the watch loop /
-  notification mechanism.** Not implemented at all. Design:
-
-  A standalone daemon (`sazu-watchd`) that, per onboarded zone, every ~5
-  minutes:
-  1. Reads the zone's pinned key and registered contact address from shared
-     storage (persistence above — the forcing function for building that
-     first).
-  2. Re-runs `chain.go`'s `Validator` (imported as a library, the same way
-     `sazuctl` already imports `plugin/sazu`) to fetch the parent's current
-     NS+DS.
-  3. Compares against last-known-good; on divergence, logs and alerts the
-     registered contact (email/webhook/etc — integration TBD).
-
-  Kept out of CoreDNS deliberately: it's a periodic background job, not
-  request-driven, and its failure mode (a slow/flaky query to some TLD
-  server) must never be able to add latency to actual DNS answers or tie
-  monitoring continuity to the query-serving process's uptime. It will read
-  the persistence layer above (zones/keys) once the registration-record
-  item adds a contact address to persist alongside them.
