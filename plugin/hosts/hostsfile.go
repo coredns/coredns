@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -161,7 +162,7 @@ func (h *Hostsfile) initInline(inline []string) {
 		return
 	}
 
-	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")))
+	h.inline = h.parseSource(strings.NewReader(strings.Join(inline, "\n")), "Inline hosts entries")
 }
 
 // maxFieldSize bounds the memory used while assembling a single field that
@@ -170,13 +171,19 @@ func (h *Hostsfile) initInline(inline []string) {
 const maxFieldSize = 1024
 
 // Parse reads the hostsfile and populates the byName and addr maps.
+func (h *Hostsfile) parse(r io.Reader) *Map {
+	return h.parseSource(r, "Hosts file "+strconv.Quote(h.path))
+}
+
+// parseSource is parse with an explicit source name, so that entries inlined in
+// the Corefile are not reported as coming from the hosts file.
 //
 // Lines are read with a bufio.Reader and parsed field by field as the data
 // arrives, so a line of any length is handled with a fixed amount of memory
 // and never aborts the parse of the entries that follow it.
-func (h *Hostsfile) parse(r io.Reader) *Map {
+func (h *Hostsfile) parseSource(r io.Reader, src string) *Map {
 	hmap := newMap()
-	p := lineParser{h: h, hmap: hmap}
+	p := lineParser{h: h, hmap: hmap, src: src, line: 1}
 
 	reader := bufio.NewReader(r)
 	for {
@@ -200,10 +207,12 @@ func (h *Hostsfile) parse(r io.Reader) *Map {
 type lineParser struct {
 	h    *Hostsfile
 	hmap *Map
+	src  string // where the entries came from, for diagnostics
 
 	field     []byte // the field being assembled, possibly spanning chunks
 	oversized bool   // the current field exceeded maxFieldSize and is dropped
 	index     int    // number of fields already seen on this line
+	line      int    // 1-based number of the line being parsed, for diagnostics
 	comment   bool   // the rest of this line is a comment
 	addr      net.IP // address of the current line, nil if unusable
 	family    int
@@ -222,6 +231,7 @@ func (p *lineParser) feed(chunk []byte, last bool) {
 	}
 	if last {
 		p.index, p.comment, p.addr = 0, false, nil
+		p.line++
 	}
 }
 
@@ -279,6 +289,8 @@ func (p *lineParser) emit() {
 	if p.index == 1 {
 		// The first field is the address; without it the line is unusable.
 		if oversized {
+			log.Errorf("%s, line %d: address longer than %d bytes, dropping the line",
+				p.src, p.line, maxFieldSize)
 			return
 		}
 		p.addr = parseIP(string(field))
@@ -292,7 +304,12 @@ func (p *lineParser) emit() {
 		}
 		return
 	}
-	if p.addr == nil || oversized {
+	if p.addr == nil {
+		return
+	}
+	if oversized {
+		log.Errorf("%s, line %d: name longer than %d bytes, dropping the name",
+			p.src, p.line, maxFieldSize)
 		return
 	}
 	p.addName(string(field))
