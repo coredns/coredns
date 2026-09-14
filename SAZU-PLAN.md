@@ -366,6 +366,21 @@ for a manually verified real-binary walkthrough.
   defensively drops one anyway if a naively-built client sends it,
   so an orphan signature can never leak into served zone content.
 
+- **Algorithm policy / weak-algorithm floor (§10.7).** A first-contact
+  candidate DNSKEY whose algorithm RFC 8624 §3.1 rates MUST NOT or NOT
+  RECOMMENDED for zone signing (RSAMD5, DSA/SHA1, RSASHA1,
+  DSA-NSEC3-SHA1, RSASHA1-NSEC3-SHA1, RSASHA512, ECC-GOST, or anything
+  unrecognized) is refused outright, with the `ERR_WEAK_ALGORITHM`
+  diagnostic, before any cryptographic effort is spent verifying its
+  SIG(0) -- `algorithm.go`'s `algorithmMeetsFloor` is a deliberate
+  allowlist (RSASHA256, ECDSAP256SHA256, ECDSAP384SHA384, ED25519, ED448),
+  not a denylist, so an unrecognized future algorithm number fails closed
+  rather than being silently accepted. Only checked at first contact --
+  once pinned, a key's algorithm can't change without a rollover (§10.4,
+  still outstanding), so there's nothing new to check on a later ordinary
+  push. This is the Go port's counterpart to the earlier Rust/rDNS port's
+  `meets_minimum_floor()` check, which hadn't carried over until now.
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -374,10 +389,6 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Algorithm policy / weak-algorithm floor (§10.7).** No rejection of
-  weak algorithms (e.g. SHA-1-only DS digests) anywhere in the Go port today
-  — the Rust/rDNS port had `meets_minimum_floor()` checks (RFC 8624); it
-  didn't carry over.
 - [ ] **Key rollover (§10.4).** Once pinned, a key is permanent. Needs the
   same chain-of-trust-recheck machinery already built for first contact,
   triggered by a different condition (an already-pinned zone presenting a
@@ -397,13 +408,13 @@ other outstanding item is a CoreDNS-plugin change.
   50 differential/day per zone (customizable), 24h rolling window, per the
   design doc's starting numbers.
 - [ ] **Audit trail, remaining transaction status codes, transaction UUID
-  (§12).** `ERR_NO_DS_PUBLISHED`, `ERR_UNKNOWN_SIGNER`, and
-  `ERR_SIG_INVALID` are done (see Done, above) — the rest of the list
-  isn't: no `ERR_STALE_SERIAL`, `ERR_EXPIRED_SIGNATURE`,
-  `ERR_WEAK_ALGORITHM`, `ERR_QUOTA_EXCEEDED`, or `ERR_RATE_LIMITED` yet
-  (most of these are blocked on the features that would produce them,
-  e.g. rate limiting below), and no per-transaction UUID or persistent
-  audit log of accepted/rejected transactions.
+  (§12).** `ERR_NO_DS_PUBLISHED`, `ERR_UNKNOWN_SIGNER`, `ERR_SIG_INVALID`,
+  and `ERR_WEAK_ALGORITHM` are done (see Done, above) — the rest of the
+  list isn't: no `ERR_STALE_SERIAL`, `ERR_EXPIRED_SIGNATURE`,
+  `ERR_QUOTA_EXCEEDED`, or `ERR_RATE_LIMITED` yet (most of these are
+  blocked on the features that would produce them, e.g. rate limiting
+  below), and no per-transaction UUID or persistent audit log of
+  accepted/rejected transactions.
 - [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP wire format only today.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different

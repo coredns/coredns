@@ -218,6 +218,20 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 			return reply(dns.RcodeRefused)
 		}
 		log.Debugf("update for %s: first-contact candidate key tag %d algorithm %d", zone, candidate.KeyTag(), candidate.Algorithm)
+
+		// §10.7 algorithm floor: refuse to onboard a key using an
+		// algorithm RFC 8624 §3.1 rates MUST NOT or NOT RECOMMENDED for
+		// zone signing. Checked here, before spending any cryptographic
+		// effort verifying SIG(0) against it: cheap, and there's no
+		// reason to do real work validating a signature this package
+		// would refuse to act on regardless of whether it verifies. Only
+		// checked at first contact -- once pinned, a key's algorithm
+		// can't change without a rollover (§10.4, not yet implemented),
+		// so there is nothing new to check on a later ordinary push.
+		if !algorithmMeetsFloor(candidate.Algorithm) {
+			log.Debugf("update for %s: candidate key algorithm %d is below the minimum floor (RFC 8624 §3.1), refusing", zone, candidate.Algorithm)
+			return replyWithStatus(w, r, dns.RcodeRefused, statusErrWeakAlgorithm)
+		}
 	}
 
 	if err := VerifySIG0(raw, candidate); err != nil {
@@ -408,6 +422,11 @@ const statusErrUnknownSigner = "ERR_UNKNOWN_SIGNER"
 // RequireValidRRSIGs is enabled and a pushed RRset's RRSIG doesn't
 // actually verify against the candidate/pinned key.
 const statusErrSigInvalid = "ERR_SIG_INVALID"
+
+// statusErrWeakAlgorithm is another of §12's status codes: a first-contact
+// candidate key's algorithm doesn't meet §10.7's minimum floor (RFC 8624
+// §3.1) -- see algorithm.go.
+const statusErrWeakAlgorithm = "ERR_WEAK_ALGORITHM"
 
 // replyWithStatus replies to r with rcode and, if status is non-empty,
 // a diagnostic TXT record carrying it in the Additional section.

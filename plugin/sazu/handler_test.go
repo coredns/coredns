@@ -616,6 +616,62 @@ func TestOnboardWithoutSOAIsRejected(t *testing.T) {
 	}
 }
 
+// TestOnboardWithWeakAlgorithmKeyIsRejected proves §10.7's algorithm
+// floor: a first-contact push whose candidate DNSKEY declares an
+// algorithm RFC 8624 §3.1 rates MUST NOT/NOT RECOMMENDED for zone signing
+// (RSASHA1 here) is refused with the ERR_WEAK_ALGORITHM diagnostic and
+// pins nothing, even though the transaction itself (SIG(0), signed with a
+// real, perfectly fine Ed25519 key) is otherwise entirely well-formed.
+func TestOnboardWithWeakAlgorithmKeyIsRejected(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	weakCandidate := &dns.DNSKEY{
+		Hdr:       dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+		Flags:     key.Flags,
+		Protocol:  key.Protocol,
+		Algorithm: dns.RSASHA1, // RFC 8624 §3.1: NOT RECOMMENDED
+		PublicKey: key.PublicKey,
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeSOA)
+	m.Opcode = dns.OpcodeUpdate
+	m.Insert([]dns.RR{weakCandidate, testSOA(1), testA("www.example.org.", net.IPv4(203, 0, 113, 10))})
+
+	now := time.Now()
+	// Signed with a real, otherwise-fine Ed25519 key -- proving the floor
+	// check catches the weak *candidate* algorithm on its own merits, not
+	// as a side effect of some other failure.
+	wire, err := SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+	var gotStatus string
+	for _, rr := range resp.Extra {
+		if txt, ok := rr.(*dns.TXT); ok {
+			for _, s := range txt.Txt {
+				gotStatus = s
+			}
+		}
+	}
+	if gotStatus != statusErrWeakAlgorithm {
+		t.Fatalf("expected %s diagnostic, got %q", statusErrWeakAlgorithm, gotStatus)
+	}
+	if _, ok := s.Keys.Get("example.org."); ok {
+		t.Fatalf("expected no key to be pinned for a rejected weak-algorithm push")
+	}
+}
+
 // TestOrdinaryPartialPushAfterOnboarding is the second half of the whole
 // chain: once a zone is onboarded, an ordinary push signed by the same
 // (already-pinned) key -- carrying no DNSKEY at all -- can add and
