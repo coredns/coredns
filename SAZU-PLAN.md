@@ -399,6 +399,43 @@ for a manually verified real-binary walkthrough.
   correctness, so the failure mode of losing quota history is "briefly
   too permissive," never "a customer locked out of their own zone."
 
+- **Global, per-source-IP flood/scan throttle: `ERR_RATE_LIMITED`
+  (§12).** Closes a real gap the per-zone quota above leaves open: that
+  quota is keyed by zone name, so an attacker who varies the *target*
+  zone name on every attempt -- "probe many candidate zones, looking for
+  one whose delegation or DNSSEC state is exploitable" -- gets a fresh,
+  entirely unused quota bucket every single time, no matter how many
+  attempts they've already made. `ipratelimit.go`'s `IPRateLimiter`
+  closes it with an address-keyed limit, independent of which zone(s) an
+  address targets: a rolling 1-minute window (deliberately much shorter
+  than the per-zone quota's 24h one -- this is a flood/scan guard
+  reacting on the timescale a scan actually happens on, not a churn
+  guard), defaulting to 30 UPDATE attempts/minute per source address and
+  overridable via a new `ip_rate_limit UPDATES_PER_MINUTE` Corefile
+  directive. Checked in `serveUpdate` before anything else -- before
+  SIG(0) verification, even, and before the existing per-zone quota --
+  deliberately: it bounds raw attempt *volume*, not just successfully
+  authenticated attempts, since an attacker's failed probes cost this
+  server real CPU (and, for a first-contact attempt, a real outbound
+  chain-of-trust network walk) whether or not anything about the attempt
+  ever turns out to verify. Shares its sliding-window compaction logic
+  with `RateLimiter` (`slidingWindowAllow`) rather than duplicating it.
+  Applies uniformly across every transport (UDP/TCP/HTTPS/HTTP3), same as
+  the per-zone quota, since it's in the same shared `serveUpdate` code
+  path. An exceeded limit is refused with the new `ERR_RATE_LIMITED`
+  diagnostic -- §12's last remaining status code, now implemented.
+  Deliberately not persisted across a restart, for the same reason
+  `RateLimiter` isn't.
+
+  Verified end to end (a real `dnsserver.Server`, real signed pushes)
+  against the exact scenario this exists for: three real, distinct,
+  never-before-seen zone names onboard normally from one address (each
+  with its own, entirely untouched per-zone quota), and a fourth --
+  still with a completely fresh per-zone quota of its own -- is refused
+  purely on that address's accumulated attempt volume; also verified
+  against a real, separately-built `coredns` binary and `sazuctl` the
+  same way.
+
 - **Key rollover (§10.4).** An already-pinned zone can present a brand
   new candidate key -- no restart, no separate out-of-band step -- by
   sending a push signed by (and introducing) that new key. Implemented by
@@ -473,10 +510,10 @@ for a manually verified real-binary walkthrough.
   wrong with the key or the content.
 
 - **Audit trail: transaction UUID, persistent log (§12).** Every §12
-  status code from the design doc's list is now implemented except
-  `ERR_RATE_LIMITED` (a distinct, faster-timescale flood throttle, not the
-  same thing as the daily quota, and still genuinely outstanding).
-  `serveUpdate` now generates a fresh transaction ID (`audit.go`'s
+  status code from the design doc's list is now implemented (see the
+  global per-source-IP flood throttle above, `ERR_RATE_LIMITED` -- the
+  one still outstanding when this bullet was first written, since
+  landed). `serveUpdate` now generates a fresh transaction ID (`audit.go`'s
   `newTransactionID`, a hand-rolled RFC 4122 v4 UUID -- no dependency
   needed for something this simple) and, when `db` is configured, writes
   one `audit_log` row per transaction *regardless of outcome* -- accepted

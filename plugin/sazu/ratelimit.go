@@ -68,24 +68,30 @@ func (r *RateLimiter) Allow(zone string, full bool) bool {
 	if full {
 		bucket, limit = r.full, r.fullPerDay
 	}
+	return slidingWindowAllow(bucket, normalizeZone(zone), limit, r.window, r.now())
+}
 
-	zone = normalizeZone(zone)
-	now := r.now()
-	cutoff := now.Add(-r.window)
-
-	// Compact in place, dropping anything outside the rolling window --
-	// safe because the write index never runs ahead of the read index
-	// (we only ever append what we've already read, never more).
-	kept := bucket[zone][:0]
-	for _, t := range bucket[zone] {
+// slidingWindowAllow is the check-and-record primitive both RateLimiter
+// (per-zone, daily) and IPRateLimiter (per-source-IP, per-minute) share:
+// does key have fewer than limit recorded events within window of now?
+// If so, record one and return true. Compacts bucket[key] in place,
+// dropping anything outside the window, before counting -- safe because
+// the write index never runs ahead of the read index (only entries
+// already read are ever re-appended). Callers are responsible for their
+// own locking; this touches the map and slice directly with none of its
+// own.
+func slidingWindowAllow(bucket map[string][]time.Time, key string, limit int, window time.Duration, now time.Time) bool {
+	cutoff := now.Add(-window)
+	kept := bucket[key][:0]
+	for _, t := range bucket[key] {
 		if t.After(cutoff) {
 			kept = append(kept, t)
 		}
 	}
 	if len(kept) >= limit {
-		bucket[zone] = kept
+		bucket[key] = kept
 		return false
 	}
-	bucket[zone] = append(kept, now)
+	bucket[key] = append(kept, now)
 	return true
 }

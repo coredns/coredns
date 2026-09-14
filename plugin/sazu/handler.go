@@ -41,6 +41,17 @@ type Sazu struct {
 	Capture     *RawCapture
 	RateLimiter *RateLimiter
 
+	// IPRateLimiter enforces a global, per-source-IP flood/scan throttle
+	// (§12's ERR_RATE_LIMITED), independent of RateLimiter's per-zone
+	// daily quota: it bounds total UPDATE attempt volume from one address
+	// regardless of which zone name(s) it targets, closing the gap a
+	// per-zone-only quota leaves open against an attacker probing many
+	// different candidate zone names from one address. Checked before
+	// anything else in serveUpdate -- before SIG(0) verification, even --
+	// since it exists to bound raw attempt volume, not just successfully
+	// authenticated ones.
+	IPRateLimiter *IPRateLimiter
+
 	// DB, if non-nil, persists every accepted UPDATE (see db.go): a
 	// restart replays it back into Store/Keys instead of starting empty.
 	// Nil is a fully supported mode -- purely in-memory, matching every
@@ -201,6 +212,19 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	log.Debugf("update for %s from %s: transaction %s, %d prerequisite(s), %d op(s)", zone, remoteAddr, txID, len(r.Answer), len(r.Ns))
+
+	if s.IPRateLimiter != nil && !s.IPRateLimiter.Allow(remoteAddr) {
+		// Checked before anything else -- SIG(0) verification included --
+		// deliberately: this bounds raw attempt volume from remoteAddr
+		// regardless of whether the attempt is even well-formed, which is
+		// exactly what a flood/scan guard needs. See IPRateLimiter's own
+		// doc comment for the gap this closes that RateLimiter's per-zone
+		// quota (checked later, and only after SIG(0) verifies) cannot:
+		// an attacker varying the target zone name gets a fresh quota
+		// bucket every time, but never a fresh IPRateLimiter bucket.
+		log.Warningf("update for %s from %s: rejected, source IP exceeded its update rate limit", zone, remoteAddr)
+		return reply(dns.RcodeRefused, statusErrRateLimited)
+	}
 
 	raw, ok := s.Capture.Take(w.RemoteAddr(), r.Id)
 	if !ok {
@@ -535,10 +559,19 @@ const statusErrWeakAlgorithm = "ERR_WEAK_ALGORITHM"
 // statusErrQuotaExceeded is another of §12's status codes: this zone has
 // already used up its full-zone or differential push quota for the
 // current rolling 24h window -- see RateLimiter and containsAPEXDNSKEY.
-// §12 also names a distinct ERR_RATE_LIMITED code; that one is for a
-// separate, faster-timescale flood throttle this package does not
-// implement yet (see SAZU-PLAN.md) -- it is not just a synonym for this.
+// §12 also names a distinct ERR_RATE_LIMITED code (see
+// statusErrRateLimited) -- that one is a separate, faster-timescale,
+// per-source-IP flood throttle, not just a synonym for this.
 const statusErrQuotaExceeded = "ERR_QUOTA_EXCEEDED"
+
+// statusErrRateLimited is §12's remaining status code: remoteAddr has
+// exceeded IPRateLimiter's global, per-source-IP UPDATE rate over the
+// current rolling 1-minute window -- distinct from statusErrQuotaExceeded
+// (a per-*zone* daily churn quota, checked only after SIG(0) verifies)
+// specifically because this one bounds raw attempt volume from an
+// address regardless of which zone it targets or whether the attempt is
+// even well-formed.
+const statusErrRateLimited = "ERR_RATE_LIMITED"
 
 // statusErrStaleSerial is another of §12's status codes: a push built
 // with BuildFullZonePush's previousSOA staleness guard (RFC 2136 §2.4.2)

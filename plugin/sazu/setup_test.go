@@ -39,6 +39,30 @@ func TestParseSazu(t *testing.T) {
 			shouldErr: true,
 		},
 		{
+			input: `sazu example.org. {
+				ip_rate_limit
+			}`,
+			shouldErr: true,
+		},
+		{
+			input: `sazu example.org. {
+				ip_rate_limit ten
+			}`,
+			shouldErr: true,
+		},
+		{
+			input: `sazu example.org. {
+				ip_rate_limit -1
+			}`,
+			shouldErr: true,
+		},
+		{
+			input: `sazu example.org. {
+				ip_rate_limit 10 20
+			}`,
+			shouldErr: true,
+		},
+		{
 			input:     `sazu example.org. example.net.`,
 			wantZones: []string{"example.org.", "example.net."},
 		},
@@ -156,6 +180,29 @@ func TestParseSazuRateLimitDefaultsAndOverride(t *testing.T) {
 	}
 	if cfg.fullPushesPerDay != 10 || cfg.differentialPushesPerDay != 100 {
 		t.Fatalf("expected overridden quotas (10, 100), got (%d, %d)", cfg.fullPushesPerDay, cfg.differentialPushesPerDay)
+	}
+}
+
+func TestParseSazuIPRateLimitDefaultAndOverride(t *testing.T) {
+	c := caddy.NewTestController("dns", `sazu example.org.`)
+	cfg, err := parseSazu(c)
+	if err != nil {
+		t.Fatalf("parseSazu: %v", err)
+	}
+	if cfg.ipUpdatesPerMinute != DefaultIPUpdatesPerMinute {
+		t.Fatalf("expected the default per-IP quota (%d) when ip_rate_limit is omitted, got %d",
+			DefaultIPUpdatesPerMinute, cfg.ipUpdatesPerMinute)
+	}
+
+	c = caddy.NewTestController("dns", `sazu example.org. {
+		ip_rate_limit 5
+	}`)
+	cfg, err = parseSazu(c)
+	if err != nil {
+		t.Fatalf("parseSazu: %v", err)
+	}
+	if cfg.ipUpdatesPerMinute != 5 {
+		t.Fatalf("expected the overridden per-IP quota (5), got %d", cfg.ipUpdatesPerMinute)
 	}
 }
 

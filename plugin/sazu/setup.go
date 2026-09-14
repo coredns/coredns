@@ -44,6 +44,7 @@ func setup(c *caddy.Controller) error {
 		InsecureSkipChainValidation: cfg.insecureSkipChainValidation,
 		RequireValidRRSIGs:          cfg.requireValidRRSIGs,
 		RateLimiter:                 NewRateLimiter(cfg.fullPushesPerDay, cfg.differentialPushesPerDay),
+		IPRateLimiter:               NewIPRateLimiter(cfg.ipUpdatesPerMinute),
 	}
 
 	if cfg.dbPath != "" {
@@ -82,12 +83,14 @@ type sazuConfig struct {
 	dbPath                      string
 	fullPushesPerDay            int
 	differentialPushesPerDay    int
+	ipUpdatesPerMinute          int
 }
 
 func parseSazu(c *caddy.Controller) (sazuConfig, error) {
 	cfg := sazuConfig{
 		fullPushesPerDay:         DefaultFullPushesPerDay,
 		differentialPushesPerDay: DefaultDifferentialPushesPerDay,
+		ipUpdatesPerMinute:       DefaultIPUpdatesPerMinute,
 	}
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -134,6 +137,19 @@ func parseSazu(c *caddy.Controller) (sazuConfig, error) {
 				}
 				cfg.fullPushesPerDay = full
 				cfg.differentialPushesPerDay = diff
+			case "ip_rate_limit":
+				// §12: <updates-per-minute>, the global, per-source-IP
+				// flood/scan throttle -- see ipratelimit.go. Default (30)
+				// applies if this directive is omitted entirely.
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return sazuConfig{}, c.ArgErr()
+				}
+				perMinute, err := strconv.Atoi(args[0])
+				if err != nil || perMinute < 0 {
+					return sazuConfig{}, c.Errf("ip_rate_limit: invalid updates-per-minute %q", args[0])
+				}
+				cfg.ipUpdatesPerMinute = perMinute
 			default:
 				return sazuConfig{}, c.ArgErr()
 			}

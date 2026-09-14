@@ -39,6 +39,7 @@ sazu ZONES... {
     insecure_skip_chain_validation
     db PATH
     rate_limit FULL_PER_DAY DIFFERENTIAL_PER_DAY
+    ip_rate_limit UPDATES_PER_MINUTE
 }
 ```
 
@@ -68,6 +69,16 @@ sazu ZONES... {
   for an ordinary partial one (`push-update`), tracked independently.
   Defaults to `5 50` if omitted. An exceeded quota is refused with the
   `ERR_QUOTA_EXCEEDED` diagnostic. Not persisted across a restart.
+* `ip_rate_limit UPDATES_PER_MINUTE` overrides §12's global, per-source-IP
+  flood/scan throttle: a rolling 1-minute cap on UPDATE attempts from one
+  address, independent of the per-zone quota above and of which zone
+  name(s) it targets — closing the gap a per-zone-only quota leaves open
+  against an attacker probing many different candidate zone names (each
+  gets its own fresh, unused per-zone quota). Defaults to `30` if
+  omitted. Checked before anything else in a push, including SIG(0)
+  verification, since it bounds raw attempt volume, not just
+  successfully authenticated attempts. An exceeded limit is refused with
+  the `ERR_RATE_LIMITED` diagnostic. Not persisted across a restart.
 
 ## Examples
 

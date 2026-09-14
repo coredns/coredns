@@ -779,6 +779,112 @@ func TestRateLimiterExceededRejectsFurtherDifferentialPushes(t *testing.T) {
 	}
 }
 
+// TestIPRateLimiterCoversScanningAcrossManyDistinctZoneNames proves the
+// exact gap IPRateLimiter closes that RateLimiter's per-zone quota alone
+// cannot: an attacker (or, here, one address in the test's own loopback
+// traffic) trying many different, never-before-seen candidate zone
+// names in a row -- "is any of these attackable" -- from one address.
+// Each individual zone name has its own, entirely unused RateLimiter
+// quota (5 full pushes/day by default), so a per-zone-only quota would
+// never trip here; only the address-keyed IPRateLimiter does.
+func TestIPRateLimiterCoversScanningAcrossManyDistinctZoneNames(t *testing.T) {
+	s := &Sazu{
+		Zones:                       []string{"."}, // catch-all, like a real multi-tenant "sazu ." scope
+		Store:                       NewStore(),
+		Keys:                        NewKeyRegistry(),
+		Validator:                   NewValidator(),
+		Capture:                     NewRawCapture(5*time.Second, 64),
+		InsecureSkipChainValidation: true,
+		IPRateLimiter:               NewIPRateLimiter(3),
+	}
+	addr := serveThroughRealServer(t, s)
+
+	for i, zone := range []string{"first.example.", "second.example.", "third.example."} {
+		onboard(t, addr, zone) // fails the test itself if refused
+		if _, ok := s.Keys.Get(zone); !ok {
+			t.Fatalf("attempt %d: expected %s to be onboarded", i, zone)
+		}
+	}
+
+	// A 4th, still entirely distinct zone name -- with its own, still
+	// completely fresh RateLimiter quota -- must now be refused purely on
+	// the strength of the shared source address having used up its
+	// global per-minute budget.
+	key, priv, err := GenerateEd25519Key("fourth.example.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	push, err := BuildFullZonePush("fourth.example.", synthesizeSOA("fourth.example."), nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
+	now := time.Now()
+	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("4th distinct zone name's onboarding rcode = %s, want REFUSED (IP rate limited)", dns.RcodeToString[resp.Rcode])
+	}
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrRateLimited {
+		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrRateLimited, status, ok)
+	}
+	if _, ok := s.Keys.Get("fourth.example."); ok {
+		t.Fatalf("expected fourth.example. to not be onboarded once the source address was rate limited")
+	}
+}
+
+// TestIPRateLimiterCountsEveryUpdateAttemptNotJustFirstContact proves
+// IPRateLimiter's scope is genuinely global, not scoped to first contact:
+// it counts every UPDATE attempt from an address, including an
+// otherwise entirely ordinary, already-authenticated partial push to a
+// zone that address already legitimately owns -- checked in serveUpdate
+// before authentication even runs, so it has no way to tell "this
+// attempt would have been fine" apart from "this attempt is more of the
+// same volume" in the first place.
+func TestIPRateLimiterCountsEveryUpdateAttemptNotJustFirstContact(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.IPRateLimiter = NewIPRateLimiter(1)
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	onboardPush, err := BuildFullZonePush("example.org.", testSOA(1), nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
+	now := time.Now()
+	onboardWire, err := SignUpdate(onboardPush, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing onboarding push: %v", err)
+	}
+	if resp := sendRaw(t, addr, onboardWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR (this is the one allowed attempt)", dns.RcodeToString[resp.Rcode])
+	}
+
+	partial := new(dns.Msg)
+	partial.SetUpdate("example.org.")
+	partial.Insert([]dns.RR{testA("mail.example.org.", net.IPv4(203, 0, 113, 20))})
+	now = time.Now()
+	partialWire, err := SignUpdate(partial, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing partial push: %v", err)
+	}
+	resp := sendRaw(t, addr, partialWire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("partial push rcode = %s, want REFUSED (IP rate limited), even though it's a perfectly valid, already-authenticated push", dns.RcodeToString[resp.Rcode])
+	}
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrRateLimited {
+		t.Fatalf("expected %s diagnostic, got status=%q ok=%v", statusErrRateLimited, status, ok)
+	}
+	if got := query(t, addr, "mail.example.org.", dns.TypeA); len(got.Answer) != 0 {
+		t.Fatalf("expected the rate-limited push's content to never have been applied, got %+v", got.Answer)
+	}
+}
+
 // TestServeUpdateRecordsAuditTrailForAcceptedAndRejectedTransactions
 // proves §12's audit trail actually captures both outcomes an operator
 // would want to investigate later: a successful onboarding, and a
