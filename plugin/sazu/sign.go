@@ -112,7 +112,17 @@ func signOneRRset(rrset []dns.RR, dnskeyRR *dns.DNSKEY, signer crypto.Signer, in
 // one. Ops are otherwise expected to be wire-accurate (Class/Rdlength
 // reflecting what was actually unpacked), the same precondition
 // EvaluatePrerequisites and ApplyUpdateOps already document.
-func VerifySignedRRsets(candidate *dns.DNSKEY, ops []dns.RR, zclass uint16, now time.Time) error {
+//
+// On failure, also returns a §12 SAZU status code when the failure is
+// specific enough to warrant one: statusErrExpiredSignature if a
+// covering RRSIG was found that is otherwise completely legitimate
+// (right name, type, key tag, algorithm, and a cryptographically valid
+// signature) but simply falls outside its own inception/expiration
+// window, as opposed to "" for the more generic "no valid RRSIG at all"
+// case. Telling these apart matters operationally -- one means
+// "re-sign and re-push," the other means something is actually wrong
+// with the key or the content.
+func VerifySignedRRsets(candidate *dns.DNSKEY, ops []dns.RR, zclass uint16, now time.Time) (string, error) {
 	adds := make([]dns.RR, 0, len(ops))
 	for _, rr := range ops {
 		h := rr.Header()
@@ -121,7 +131,7 @@ func VerifySignedRRsets(candidate *dns.DNSKEY, ops []dns.RR, zclass uint16, now 
 		}
 	}
 	if len(adds) == 0 {
-		return nil
+		return "", nil
 	}
 
 	sigs := make([]*dns.RRSIG, 0)
@@ -133,14 +143,25 @@ func VerifySignedRRsets(candidate *dns.DNSKEY, ops []dns.RR, zclass uint16, now 
 
 	for _, group := range groupRRsets(adds) {
 		h := group[0].Header()
-		if !anySignatureVerifies(group, h.Rrtype, sigs, candidate, now) {
-			return fmt.Errorf("sazu: no valid RRSIG covers %s/%s", h.Name, dns.TypeToString[h.Rrtype])
+		ok, expired := anySignatureVerifies(group, h.Rrtype, sigs, candidate, now)
+		if !ok {
+			if expired {
+				return statusErrExpiredSignature, fmt.Errorf(
+					"sazu: RRSIG covering %s/%s is outside its validity window", h.Name, dns.TypeToString[h.Rrtype])
+			}
+			return "", fmt.Errorf("sazu: no valid RRSIG covers %s/%s", h.Name, dns.TypeToString[h.Rrtype])
 		}
 	}
-	return nil
+	return "", nil
 }
 
-func anySignatureVerifies(rrset []dns.RR, covered uint16, sigs []*dns.RRSIG, candidate *dns.DNSKEY, now time.Time) bool {
+// anySignatureVerifies reports whether any sig in sigs both covers rrset
+// and actually verifies against candidate within its validity window
+// (ok), and separately whether a cryptographically valid but expired (or
+// not-yet-valid) match was seen along the way (expired) -- checked in
+// that order (crypto first) specifically so a signature that fails
+// crypto for its own reasons is never mistaken for merely expired.
+func anySignatureVerifies(rrset []dns.RR, covered uint16, sigs []*dns.RRSIG, candidate *dns.DNSKEY, now time.Time) (ok, expired bool) {
 	for _, sig := range sigs {
 		if sig.TypeCovered != covered || !strings.EqualFold(sig.Hdr.Name, rrset[0].Header().Name) {
 			continue
@@ -148,12 +169,14 @@ func anySignatureVerifies(rrset []dns.RR, covered uint16, sigs []*dns.RRSIG, can
 		if sig.KeyTag != candidate.KeyTag() || sig.Algorithm != candidate.Algorithm {
 			continue
 		}
-		if !sig.ValidityPeriod(now) {
+		if err := sig.Verify(candidate, rrset); err != nil {
 			continue
 		}
-		if err := sig.Verify(candidate, rrset); err == nil {
-			return true
+		if !sig.ValidityPeriod(now) {
+			expired = true
+			continue
 		}
+		return true, false
 	}
-	return false
+	return false, expired
 }

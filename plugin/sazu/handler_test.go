@@ -258,6 +258,56 @@ func TestRequireValidRRSIGsRejectsUnsignedContent(t *testing.T) {
 	}
 }
 
+// TestRequireValidRRSIGsRejectsExpiredContentWithSpecificDiagnostic
+// proves the more specific of the two RequireValidRRSIGs diagnostics: a
+// push whose content RRSIGs are otherwise completely legitimate (right
+// key, right RRset, cryptographically valid) but simply outside their
+// own inception/expiration window gets ERR_EXPIRED_SIGNATURE, not the
+// generic ERR_SIG_INVALID the previous test exercises for content with
+// no valid signature at all. The transaction's own SIG(0) is fresh
+// throughout -- only the zone content's RRSIGs are expired.
+func TestRequireValidRRSIGsRejectsExpiredContentWithSpecificDiagnostic(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.RequireValidRRSIGs = true
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	dnskeyRR := &dns.DNSKEY{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+		Flags: key.Flags, Protocol: key.Protocol, Algorithm: key.Algorithm, PublicKey: key.PublicKey}
+	adds := []dns.RR{dnskeyRR, testSOA(1), testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
+
+	now := time.Now()
+	// Zone content signed with an already-expired validity window.
+	signed, err := SignZoneContent(adds, dnskeyRR, priv, now.Add(-2*time.Hour), now.Add(-time.Hour))
+	if err != nil {
+		t.Fatalf("SignZoneContent: %v", err)
+	}
+
+	m := new(dns.Msg)
+	m.SetUpdate("example.org.")
+	m.Insert(signed)
+	// The transaction's own SIG(0) is fresh -- only the content's RRSIGs
+	// are expired.
+	wire, err := SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("rcode = %s, want NotAuth", dns.RcodeToString[resp.Rcode])
+	}
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrExpiredSignature {
+		t.Fatalf("diagnostic status = %q, ok=%v, want %q", status, ok, statusErrExpiredSignature)
+	}
+	if _, ok := s.Keys.Get("example.org."); ok {
+		t.Fatalf("a rejected push must not pin a key")
+	}
+}
+
 // TestRequireValidRRSIGsOffAcceptsUnsignedContent proves the flag is
 // genuinely opt-in: with it left at its default (false), the exact same
 // unsigned-content push that the previous test rejects is accepted --

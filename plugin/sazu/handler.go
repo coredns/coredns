@@ -340,9 +340,9 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	}
 
 	z := s.Store.GetOrCreate(zone)
-	if rcode, err := EvaluatePrerequisites(z, r.Answer, dns.ClassINET); err != nil {
+	if rcode, status, err := EvaluatePrerequisites(z, r.Answer, dns.ClassINET); err != nil {
 		log.Debugf("update for %s: prerequisite failed: %v", zone, err)
-		return reply(rcode)
+		return replyWithStatus(w, r, rcode, status)
 	}
 
 	if s.RequireValidRRSIGs {
@@ -352,9 +352,12 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		// ("Level 0 -- trust the pipe") is still a supported, simpler
 		// mode -- but this is what actually determines whether a zone
 		// will validate for real DNSSEC resolvers once served.
-		if err := VerifySignedRRsets(candidate, zoneOps, dns.ClassINET, time.Now()); err != nil {
+		if status, err := VerifySignedRRsets(candidate, zoneOps, dns.ClassINET, time.Now()); err != nil {
 			log.Debugf("update for %s: RequireValidRRSIGs check failed: %v", zone, err)
-			return replyWithStatus(w, r, dns.RcodeNotAuth, statusErrSigInvalid)
+			if status == "" {
+				status = statusErrSigInvalid
+			}
+			return replyWithStatus(w, r, dns.RcodeNotAuth, status)
 		}
 	}
 
@@ -511,6 +514,23 @@ const statusErrWeakAlgorithm = "ERR_WEAK_ALGORITHM"
 // separate, faster-timescale flood throttle this package does not
 // implement yet (see SAZU-PLAN.md) -- it is not just a synonym for this.
 const statusErrQuotaExceeded = "ERR_QUOTA_EXCEEDED"
+
+// statusErrStaleSerial is another of §12's status codes: a push built
+// with BuildFullZonePush's previousSOA staleness guard (RFC 2136 §2.4.2)
+// was rejected because the zone's current SOA no longer matches what the
+// push was built against -- see EvaluatePrerequisites.
+const statusErrStaleSerial = "ERR_STALE_SERIAL"
+
+// statusErrExpiredSignature is another of §12's status codes: distinct
+// from the more general statusErrSigInvalid -- emitted only when
+// RequireValidRRSIGs is enabled and a pushed RRset's RRSIG would
+// otherwise verify against the candidate/pinned key (right name, type,
+// key tag, and algorithm, and a cryptographically valid signature) but
+// falls outside its own inception/expiration window. Telling this apart
+// from "no valid signature at all" matters operationally: this one means
+// "re-sign and re-push," not "something is wrong with the key or the
+// content."
+const statusErrExpiredSignature = "ERR_EXPIRED_SIGNATURE"
 
 // replyWithStatus replies to r with rcode and, if status is non-empty,
 // a diagnostic TXT record carrying it in the Additional section.

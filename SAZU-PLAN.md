@@ -457,6 +457,21 @@ for a manually verified real-binary walkthrough.
   risk (a laptop or CI secret store gets compromised or synced somewhere
   it shouldn't) without it.
 
+- **`ERR_STALE_SERIAL` and `ERR_EXPIRED_SIGNATURE` status codes (§12).**
+  `EvaluatePrerequisites` now returns a status code alongside its rcode:
+  `ERR_STALE_SERIAL` specifically for the SOA-serial staleness guard
+  (`BuildFullZonePush`'s `previousSOA` parameter, an RFC 2136 §2.4.2
+  value-dependent prerequisite against the apex SOA) failing, leaving
+  every other, more generic prerequisite failure with no status code as
+  before. `VerifySignedRRsets` similarly now distinguishes
+  `ERR_EXPIRED_SIGNATURE` -- a covering RRSIG that is otherwise
+  completely legitimate (right name, type, key tag, algorithm, and a
+  cryptographically valid signature) but simply outside its own
+  inception/expiration window -- from the more generic `ERR_SIG_INVALID`
+  (no valid signature at all). The distinction matters operationally:
+  one means "re-sign and re-push," the other means something is actually
+  wrong with the key or the content.
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -465,14 +480,17 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Audit trail, remaining transaction status codes, transaction UUID
-  (§12).** `ERR_NO_DS_PUBLISHED`, `ERR_UNKNOWN_SIGNER`, `ERR_SIG_INVALID`,
-  `ERR_WEAK_ALGORITHM`, and `ERR_QUOTA_EXCEEDED` are done (see Done,
-  above) — the rest of the list isn't: no `ERR_STALE_SERIAL`,
-  `ERR_EXPIRED_SIGNATURE`, or `ERR_RATE_LIMITED` yet (that last one is a
-  distinct, faster-timescale flood throttle -- not the same thing as the
-  daily quota above, and not yet built), and no per-transaction UUID or
-  persistent audit log of accepted/rejected transactions.
+- [ ] **Audit trail: transaction UUID, persistent log (§12).** Every §12
+  status code is now implemented (`ERR_NO_DS_PUBLISHED`,
+  `ERR_UNKNOWN_SIGNER`, `ERR_SIG_INVALID`, `ERR_WEAK_ALGORITHM`,
+  `ERR_QUOTA_EXCEEDED`, `ERR_STALE_SERIAL`, `ERR_EXPIRED_SIGNATURE` -- see
+  Done, above) except `ERR_RATE_LIMITED` (a distinct, faster-timescale
+  flood throttle, not the same thing as the daily quota, and not yet
+  built). Still missing: a per-transaction UUID, and a persistent audit
+  log of accepted/rejected transactions (who pushed what, when, and with
+  what outcome) -- today's diagnostics are surfaced only in the response
+  itself and, if `debug` is loaded, the log stream; nothing is queryable
+  after the fact.
 - [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP wire format only today.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different

@@ -143,7 +143,7 @@ func TestVerifySignedRRsetsAcceptsGenuinelySignedContent(t *testing.T) {
 		}
 	}
 
-	if err := VerifySignedRRsets(dnskeyRR, signed, dns.ClassINET, now); err != nil {
+	if _, err := VerifySignedRRsets(dnskeyRR, signed, dns.ClassINET, now); err != nil {
 		t.Fatalf("expected genuinely signed content to verify, got: %v", err)
 	}
 }
@@ -157,7 +157,7 @@ func TestVerifySignedRRsetsRejectsUnsignedRRset(t *testing.T) {
 	a := testA("www.example.org.", net.IPv4(203, 0, 113, 10))
 	a.Hdr.Class = dns.ClassINET
 
-	if err := VerifySignedRRsets(dnskeyRR, []dns.RR{a}, dns.ClassINET, time.Now()); err == nil {
+	if _, err := VerifySignedRRsets(dnskeyRR, []dns.RR{a}, dns.ClassINET, time.Now()); err == nil {
 		t.Fatalf("expected an unsigned RRset to be rejected")
 	}
 }
@@ -184,7 +184,7 @@ func TestVerifySignedRRsetsRejectsWrongKeySignature(t *testing.T) {
 		t.Fatalf("SignZoneContent: %v", err)
 	}
 
-	if err := VerifySignedRRsets(dnskeyRR, signed, dns.ClassINET, now); err == nil {
+	if _, err := VerifySignedRRsets(dnskeyRR, signed, dns.ClassINET, now); err == nil {
 		t.Fatalf("expected content signed by a different key to be rejected against the pinned key")
 	}
 }
@@ -203,8 +203,35 @@ func TestVerifySignedRRsetsRejectsExpiredSignature(t *testing.T) {
 		t.Fatalf("SignZoneContent: %v", err)
 	}
 
-	if err := VerifySignedRRsets(dnskeyRR, signed, dns.ClassINET, now); err == nil {
+	status, err := VerifySignedRRsets(dnskeyRR, signed, dns.ClassINET, now)
+	if err == nil {
 		t.Fatalf("expected an already-expired RRSIG to be rejected")
+	}
+	if status != statusErrExpiredSignature {
+		t.Fatalf("expected the %s diagnostic for an otherwise-valid but expired signature, got %q", statusErrExpiredSignature, status)
+	}
+}
+
+// TestVerifySignedRRsetsMissingSignatureCarriesNoExpiredStatus proves
+// ERR_EXPIRED_SIGNATURE is specific to a signature that is otherwise
+// completely legitimate -- an RRset with no covering signature at all
+// gets the generic (status "") rejection instead, not misreported as
+// merely expired.
+func TestVerifySignedRRsetsMissingSignatureCarriesNoExpiredStatus(t *testing.T) {
+	key, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	dnskeyRR := dnskeyRRFor(key)
+	a := testA("www.example.org.", net.IPv4(203, 0, 113, 10))
+	a.Hdr.Class = dns.ClassINET
+
+	status, err := VerifySignedRRsets(dnskeyRR, []dns.RR{a}, dns.ClassINET, time.Now())
+	if err == nil {
+		t.Fatalf("expected an unsigned RRset to be rejected")
+	}
+	if status != "" {
+		t.Fatalf("expected no status code for a completely missing signature, got %q", status)
 	}
 }
 
@@ -216,7 +243,7 @@ func TestVerifySignedRRsetsIgnoresDeleteShapedOps(t *testing.T) {
 	dnskeyRR := dnskeyRRFor(key)
 	del := &dns.A{Hdr: dns.RR_Header{Name: "www.example.org.", Rrtype: dns.TypeA, Class: dns.ClassNONE}, A: net.IPv4(203, 0, 113, 10)}
 
-	if err := VerifySignedRRsets(dnskeyRR, []dns.RR{del}, dns.ClassINET, time.Now()); err != nil {
+	if _, err := VerifySignedRRsets(dnskeyRR, []dns.RR{del}, dns.ClassINET, time.Now()); err != nil {
 		t.Fatalf("expected a delete-shaped op to need no signature, got: %v", err)
 	}
 }
