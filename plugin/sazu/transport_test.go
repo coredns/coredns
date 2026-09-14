@@ -282,3 +282,95 @@ func TestOrdinaryPartialPushOverUDPStillWorks(t *testing.T) {
 		t.Fatalf("ordinary partial push over UDP rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
 	}
 }
+
+// TestTransportAndRateLimitRejectionsAreNotAudited proves the audit
+// trail deliberately excludes exactly the two rejections that exist to
+// bound a flood: statusErrTransportNotAllowed and statusErrRateLimited.
+// IPRateLimiter bounds attempts *per* address, not the number of
+// distinct addresses -- a first-contact attempt from a fresh (possibly
+// spoofed) address always gets one free pass through it before being
+// refused for the transport it arrived on, so persisting one DB row per
+// such attempt would let an attacker varying the address on every packet
+// turn the audit trail itself into an unbounded-growth vector. Every
+// other rejection reason must still be fully audited, including this
+// same zone's earlier, ordinary no-SOA rejection.
+func TestTransportAndRateLimitRejectionsAreNotAudited(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.DB = openTestDB(t)
+	// 2, not 1: the test's own loopback client shares one source address
+	// across every message it sends, so the first two attempts below
+	// (the ordinary no-SOA rejection, then the UDP transport rejection)
+	// must both still fit within budget -- otherwise the second one would
+	// itself be IP rate limited before ever reaching the transport gate
+	// this test means to exercise.
+	s.IPRateLimiter = NewIPRateLimiter(2)
+	addr := serveThroughRealServer(t, s)
+
+	// First: an ordinary rejection (no SOA) -- must still be audited.
+	badKey, badPriv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	bad := new(dns.Msg)
+	bad.SetUpdate("example.org.")
+	bad.Insert([]dns.RR{
+		&dns.DNSKEY{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+			Flags: badKey.Flags, Protocol: badKey.Protocol, Algorithm: badKey.Algorithm, PublicKey: badKey.PublicKey},
+	})
+	now := time.Now()
+	badWire, err := SignUpdate(bad, badKey, badPriv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, badWire); resp.Rcode == dns.RcodeSuccess {
+		t.Fatalf("expected the no-SOA push to be rejected")
+	}
+
+	// Second: a first-contact attempt over UDP -- refused with
+	// ERR_TRANSPORT_NOT_ALLOWED, and must NOT be audited.
+	key2, priv2, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	udpWire := minimalFirstContactWire(t, "example.org.", key2, priv2)
+	if resp := sendRawUDP(t, addr, udpWire); resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("expected the UDP first-contact attempt to be refused, got %s", dns.RcodeToString[resp.Rcode])
+	}
+
+	// Third: with IPRateLimiter already set to 1/minute and one attempt
+	// already spent above, this one is refused with ERR_RATE_LIMITED --
+	// also must NOT be audited.
+	key3, priv3, err := GenerateEd25519Key("other.example.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	push3, err := BuildFullZonePush("other.example.", testSOA(1), nil, key3, priv3, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
+	now = time.Now()
+	wire3, err := SignUpdate(push3, key3, priv3, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, wire3); resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("expected the 3rd attempt to be IP rate limited, got %s", dns.RcodeToString[resp.Rcode])
+	}
+
+	entries, err := s.DB.RecentTransactions("example.org.", 10)
+	if err != nil {
+		t.Fatalf("RecentTransactions: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly 1 audited entry (the no-SOA rejection) for example.org., got %d: %+v", len(entries), entries)
+	}
+	if entries[0].Status != "" {
+		t.Fatalf("expected the one audited entry to be the ordinary no-SOA rejection (no status), got %+v", entries[0])
+	}
+
+	if entries, err := s.DB.RecentTransactions("other.example.", 10); err != nil {
+		t.Fatalf("RecentTransactions: %v", err)
+	} else if len(entries) != 0 {
+		t.Fatalf("expected the rate-limited attempt against other.example. to leave no audit entry at all, got %+v", entries)
+	}
+}

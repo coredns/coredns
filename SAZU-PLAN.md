@@ -505,6 +505,26 @@ for a manually verified real-binary walkthrough.
   call -- which is what triggers a sweep -- collapses the map back down
   to just the one entry that triggered it.
 
+- **Audit trail excludes flood-shaped rejections, closing a third gap
+  found in the same pass.** `IPRateLimiter` bounds attempts *per*
+  address, not the number of distinct addresses -- a first-contact
+  attempt from a fresh (possibly spoofed) address always gets one free
+  pass through it before being refused for the transport it arrived on
+  (`ERR_TRANSPORT_NOT_ALLOWED`). With `db` configured, persisting one
+  audit row per such attempt would have let an attacker varying the
+  address on every packet turn the audit trail itself into exactly the
+  kind of unbounded-growth vector the two fixes above exist to prevent --
+  disk usage this time, not memory. `serveUpdate`'s `reply` closure now
+  skips the audit-trail write specifically for `statusErrRateLimited` and
+  `statusErrTransportNotAllowed` (both already inherently rate-bounded
+  per address by `IPRateLimiter` itself, and both carrying little
+  forensic value regardless, since the address is exactly the thing
+  already suspected of being unreliable) -- every other rejection reason
+  is still fully audited, including ones `IPRateLimiter` itself let
+  through. Verified directly: an ordinary no-SOA rejection is still
+  audited; a UDP-transport rejection and a rate-limited rejection both
+  leave zero audit rows behind, for their own zone or any other.
+
 - **Key rollover (§10.4).** An already-pinned zone can present a brand
   new candidate key -- no restart, no separate out-of-band step -- by
   sending a push signed by (and introducing) that new key. Implemented by

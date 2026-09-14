@@ -202,7 +202,21 @@ func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	// reason an UPDATE itself fails: it's just logged, since the audit
 	// trail is a record of what happened, not a gate on whether it can.
 	reply := func(rcode int, status string) (int, error) {
-		if s.DB != nil {
+		// Deliberately skip the audit-trail write for the two rejections
+		// that exist specifically to bound a flood/scan: statusErrRateLimited
+		// and statusErrTransportNotAllowed. IPRateLimiter bounds attempts
+		// *per* address, not the number of distinct addresses -- a
+		// first-contact attempt from a fresh (possibly spoofed) address
+		// always gets one free pass through it, so an attacker who varies
+		// the address on every packet can still generate one of these
+		// rejections per packet, unboundedly. Persisting one DB row per
+		// such attempt would turn the audit trail itself into exactly the
+		// kind of resource-growth vector this whole defense exists to
+		// avoid, for entries with little forensic value anyway (the
+		// address is exactly the thing already suspected of being
+		// unreliable). Every other rejection reason is still fully
+		// audited, including ones IPRateLimiter itself did let through.
+		if s.DB != nil && status != statusErrRateLimited && status != statusErrTransportNotAllowed {
 			entry := AuditEntry{ID: txID, Zone: zone, RemoteAddr: remoteAddr, Rcode: dns.RcodeToString[rcode], Status: status, At: time.Now()}
 			if err := s.DB.RecordTransaction(entry); err != nil {
 				log.Errorf("update for %s: recording audit entry %s: %v", zone, txID, err)
