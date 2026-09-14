@@ -2,12 +2,10 @@
 // split-signing DNSSEC scheme where a customer's own signer holds the
 // private key, and this server only ever accepts already-signed zone
 // updates, authenticated via SIG(0) (RFC 2931) carried on RFC 2136 dynamic
-// UPDATE messages. See the design document for the full protocol.
-//
-// This package is not yet registered in plugin.cfg -- it is being built
-// and tested as a standalone library first (chain-of-trust validation,
-// SIG(0) handling), the same staged approach used for the earlier Rust/
-// rDNS port, before being wired into CoreDNS's request-handling chain.
+// UPDATE messages. See the design document (sazu-protocol.md) for the
+// full protocol, and this repo's own SAZU-PLAN.md for exactly what of it
+// this port implements. Registered as a real CoreDNS plugin (plugin.cfg,
+// setup.go) -- `sazu ZONES...` in a Corefile.
 package sazu
 
 import (
