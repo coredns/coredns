@@ -255,20 +255,10 @@ func (db *DB) LoadAll() (*Store, *KeyRegistry, *ContactRegistry, error) {
 	keys := NewKeyRegistry()
 	contacts := NewContactRegistry()
 
-	zoneRows, err := db.sql.Query(`SELECT origin FROM zones`)
+	origins, err := db.ListZones()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("loading zones: %w", err)
 	}
-	var origins []string
-	for zoneRows.Next() {
-		var origin string
-		if err := zoneRows.Scan(&origin); err != nil {
-			zoneRows.Close()
-			return nil, nil, nil, err
-		}
-		origins = append(origins, origin)
-	}
-	zoneRows.Close()
 
 	for _, origin := range origins {
 		z := store.GetOrCreate(origin)
@@ -292,39 +282,86 @@ func (db *DB) LoadAll() (*Store, *KeyRegistry, *ContactRegistry, error) {
 		}
 		rrRows.Close()
 
-		var flags, protocol, algorithm int64
-		var publicKey string
-		row := db.sql.QueryRow(`SELECT flags, protocol, algorithm, public_key FROM keys WHERE zone = ?`, origin)
-		switch err := row.Scan(&flags, &protocol, &algorithm, &publicKey); err {
-		case nil:
-			keys.Pin(origin, &dns.DNSKEY{
-				Hdr:       dns.RR_Header{Name: dns.Fqdn(origin), Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET},
-				Flags:     uint16(flags),
-				Protocol:  uint8(protocol),
-				Algorithm: uint8(algorithm),
-				PublicKey: publicKey,
-			})
-		case sql.ErrNoRows:
+		switch key, ok, err := db.LoadKey(origin); {
+		case err != nil:
+			return nil, nil, nil, fmt.Errorf("loading key for %s: %w", origin, err)
+		case ok:
+			keys.Pin(origin, key)
+		default:
 			// A zone row with no pinned key shouldn't normally happen
 			// (CommitUpdate always pins one at first contact), but isn't
 			// fatal to loading -- the zone just won't accept further
 			// pushes until an operator intervenes.
-		default:
-			return nil, nil, nil, fmt.Errorf("loading key for %s: %w", origin, err)
 		}
 
-		var address string
-		switch err := db.sql.QueryRow(`SELECT address FROM contacts WHERE zone = ?`, origin).Scan(&address); err {
-		case nil:
-			contacts.Set(origin, strings.Split(address, "\n"))
-		case sql.ErrNoRows:
-			// No contact registered for this zone -- fine, §10.6 is optional.
-		default:
+		switch addrs, ok, err := db.LoadContact(origin); {
+		case err != nil:
 			return nil, nil, nil, fmt.Errorf("loading contact for %s: %w", origin, err)
+		case ok:
+			contacts.Set(origin, addrs)
+		default:
+			// No contact registered for this zone -- fine, §10.6 is optional.
 		}
 	}
 
 	return store, keys, contacts, nil
+}
+
+// ListZones returns every onboarded zone's origin -- a lighter-weight
+// alternative to LoadAll for a caller (like sazu-watchd, §11) that needs
+// to enumerate zones without loading their full content.
+func (db *DB) ListZones() ([]string, error) {
+	rows, err := db.sql.Query(`SELECT origin FROM zones`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var origins []string
+	for rows.Next() {
+		var origin string
+		if err := rows.Scan(&origin); err != nil {
+			return nil, err
+		}
+		origins = append(origins, origin)
+	}
+	return origins, rows.Err()
+}
+
+// LoadKey returns the pinned DNSKEY for zone, if any -- a lighter-weight
+// alternative to LoadAll for a caller that only needs one zone's key.
+func (db *DB) LoadKey(zone string) (*dns.DNSKEY, bool, error) {
+	var flags, protocol, algorithm int64
+	var publicKey string
+	switch err := db.sql.QueryRow(`SELECT flags, protocol, algorithm, public_key FROM keys WHERE zone = ?`, zone).
+		Scan(&flags, &protocol, &algorithm, &publicKey); err {
+	case nil:
+		return &dns.DNSKEY{
+			Hdr:       dns.RR_Header{Name: dns.Fqdn(zone), Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET},
+			Flags:     uint16(flags),
+			Protocol:  uint8(protocol),
+			Algorithm: uint8(algorithm),
+			PublicKey: publicKey,
+		}, true, nil
+	case sql.ErrNoRows:
+		return nil, false, nil
+	default:
+		return nil, false, err
+	}
+}
+
+// LoadContact returns the registered §10.6 contact addresses for zone, if
+// any -- a lighter-weight alternative to LoadAll for a caller that only
+// needs one zone's contact.
+func (db *DB) LoadContact(zone string) ([]string, bool, error) {
+	var address string
+	switch err := db.sql.QueryRow(`SELECT address FROM contacts WHERE zone = ?`, zone).Scan(&address); err {
+	case nil:
+		return strings.Split(address, "\n"), true, nil
+	case sql.ErrNoRows:
+		return nil, false, nil
+	default:
+		return nil, false, err
+	}
 }
 
 // RecordTransaction appends one row to the §12 audit trail: entry.ID must

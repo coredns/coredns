@@ -272,6 +272,47 @@ func TestDBCommitUpdatePersistsAndClearsContact(t *testing.T) {
 	}
 }
 
+// TestDBListZonesLoadKeyLoadContact proves the lighter-weight,
+// single-zone accessors sazu-watchd (§11) uses agree with what LoadAll
+// itself would have loaded, without needing to load full zone content.
+func TestDBListZonesLoadKeyLoadContact(t *testing.T) {
+	db := openTestDB(t)
+	key, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	soa.Hdr.Class = dns.ClassINET
+	if err := db.CommitUpdate("example.org.", key, []dns.RR{soa}, dns.ClassINET,
+		&ContactUpdate{Addresses: []string{"mailto:ops@example.org"}}); err != nil {
+		t.Fatalf("CommitUpdate: %v", err)
+	}
+
+	zones, err := db.ListZones()
+	if err != nil {
+		t.Fatalf("ListZones: %v", err)
+	}
+	if len(zones) != 1 || zones[0] != "example.org." {
+		t.Fatalf("expected [\"example.org.\"], got %+v", zones)
+	}
+
+	got, ok, err := db.LoadKey("example.org.")
+	if err != nil || !ok || got.PublicKey != key.PublicKey {
+		t.Fatalf("LoadKey: got %+v ok=%v err=%v", got, ok, err)
+	}
+	if _, ok, err := db.LoadKey("never-onboarded.example."); err != nil || ok {
+		t.Fatalf("expected LoadKey for an unonboarded zone to report ok=false, got ok=%v err=%v", ok, err)
+	}
+
+	addrs, ok, err := db.LoadContact("example.org.")
+	if err != nil || !ok || len(addrs) != 1 || addrs[0] != "mailto:ops@example.org" {
+		t.Fatalf("LoadContact: got %+v ok=%v err=%v", addrs, ok, err)
+	}
+	if _, ok, err := db.LoadContact("never-onboarded.example."); err != nil || ok {
+		t.Fatalf("expected LoadContact for an unonboarded zone to report ok=false, got ok=%v err=%v", ok, err)
+	}
+}
+
 // TestDBRecordTransactionAndRecentTransactions proves §12's audit trail
 // persistence: entries survive, come back newest first, and a zone with
 // no entries at all (rather than an error) just gets an empty result --
