@@ -381,6 +381,24 @@ for a manually verified real-binary walkthrough.
   push. This is the Go port's counterpart to the earlier Rust/rDNS port's
   `meets_minimum_floor()` check, which hadn't carried over until now.
 
+- **Rate limiting / quota (§12).** Each zone gets two independent
+  per-day quotas over a rolling (not calendar-day) 24h window: full-zone
+  pushes and differential (`push-update`) ones, defaulting to the design
+  doc's starting numbers (5 and 50) and overridable per-instance via the
+  new `rate_limit FULL_PER_DAY DIFFERENTIAL_PER_DAY` Corefile directive.
+  `ratelimit.go`'s `RateLimiter` classifies a push as full-zone if it
+  carries a DNSKEY at the apex (true of every first-contact push, and of
+  every full re-push, since `BuildFullZonePush` always re-asserts it) --
+  the same signal that already distinguishes the two client-side
+  subcommands (`push-zone` vs `push-update`). Checked right after SIG(0)
+  verification, before the expensive first-contact chain-of-trust walk,
+  so an already-exhausted quota doesn't also pay for that network round
+  trip. An exceeded quota is refused with the new `ERR_QUOTA_EXCEEDED`
+  diagnostic. Deliberately not persisted across a restart -- a purely
+  advisory abuse/churn guard, not something a customer depends on for
+  correctness, so the failure mode of losing quota history is "briefly
+  too permissive," never "a customer locked out of their own zone."
+
 ## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
@@ -404,17 +422,14 @@ other outstanding item is a CoreDNS-plugin change.
   frequently-used, exposed online key) doesn't really apply here; the
   rollover-cost argument is the one piece of the usual rationale that
   would still be relevant.
-- [ ] **Rate limiting / quota (§12).** No throttling at all — 5 full-zone/day,
-  50 differential/day per zone (customizable), 24h rolling window, per the
-  design doc's starting numbers.
 - [ ] **Audit trail, remaining transaction status codes, transaction UUID
   (§12).** `ERR_NO_DS_PUBLISHED`, `ERR_UNKNOWN_SIGNER`, `ERR_SIG_INVALID`,
-  and `ERR_WEAK_ALGORITHM` are done (see Done, above) — the rest of the
-  list isn't: no `ERR_STALE_SERIAL`, `ERR_EXPIRED_SIGNATURE`,
-  `ERR_QUOTA_EXCEEDED`, or `ERR_RATE_LIMITED` yet (most of these are
-  blocked on the features that would produce them, e.g. rate limiting
-  below), and no per-transaction UUID or persistent audit log of
-  accepted/rejected transactions.
+  `ERR_WEAK_ALGORITHM`, and `ERR_QUOTA_EXCEEDED` are done (see Done,
+  above) — the rest of the list isn't: no `ERR_STALE_SERIAL`,
+  `ERR_EXPIRED_SIGNATURE`, or `ERR_RATE_LIMITED` yet (that last one is a
+  distinct, faster-timescale flood throttle -- not the same thing as the
+  daily quota above, and not yet built), and no per-transaction UUID or
+  persistent audit log of accepted/rejected transactions.
 - [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP wire format only today.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different

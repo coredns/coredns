@@ -36,12 +36,13 @@ var log = clog.NewWithPlugin("sazu")
 type Sazu struct {
 	Next plugin.Handler
 
-	Zones     []string
-	Store     *Store
-	Keys      *KeyRegistry
-	Contacts  *ContactRegistry
-	Validator ChainValidator
-	Capture   *RawCapture
+	Zones       []string
+	Store       *Store
+	Keys        *KeyRegistry
+	Contacts    *ContactRegistry
+	Validator   ChainValidator
+	Capture     *RawCapture
+	RateLimiter *RateLimiter
 
 	// DB, if non-nil, persists every accepted UPDATE (see db.go): a
 	// restart replays it back into Store/Keys instead of starting empty.
@@ -252,6 +253,22 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		return reply(dns.RcodeFormatError)
 	}
 
+	if s.RateLimiter != nil {
+		// §12 quota: a full-zone push (one carrying a DNSKEY at the apex --
+		// true of every first-contact push, and of every full re-push,
+		// since BuildFullZonePush always re-asserts it) and an ordinary
+		// differential push-update are metered separately, since they cost
+		// very different amounts of server effort. Checked here, before
+		// the expensive first-contact chain-of-trust walk below, so an
+		// already-exhausted quota doesn't also pay for that network round
+		// trip.
+		isFull := !alreadyPinned || containsAPEXDNSKEY(zoneOps, zone)
+		if !s.RateLimiter.Allow(zone, isFull) {
+			log.Debugf("update for %s: rejected, quota exceeded (full=%v)", zone, isFull)
+			return replyWithStatus(w, r, dns.RcodeRefused, statusErrQuotaExceeded)
+		}
+	}
+
 	if !alreadyPinned {
 		if !s.InsecureSkipChainValidation {
 			log.Infof("update for %s: first contact, starting chain-of-trust walk to the DNS root (this makes real outbound DNS queries and can take a while on a restricted network)", zone)
@@ -394,6 +411,25 @@ func containsAPEXSOA(updateOps []dns.RR, zone string) bool {
 	return false
 }
 
+// containsAPEXDNSKEY reports whether updateOps adds a DNSKEY at zone's
+// apex -- §12's signal for classifying a push as "full-zone" for rate-
+// limiting purposes: BuildFullZonePush always includes one (first contact
+// or not), while an ordinary push-update never does.
+func containsAPEXDNSKEY(updateOps []dns.RR, zone string) bool {
+	zoneLower := strings.ToLower(dns.Fqdn(zone))
+	for _, rr := range updateOps {
+		key, ok := rr.(*dns.DNSKEY)
+		if !ok {
+			continue
+		}
+		h := key.Header()
+		if h.Rdlength > 0 && strings.EqualFold(h.Name, zoneLower) {
+			return true
+		}
+	}
+	return false
+}
+
 func writeMsg(w dns.ResponseWriter, m *dns.Msg) (int, error) {
 	if err := w.WriteMsg(m); err != nil {
 		return dns.RcodeServerFailure, err
@@ -427,6 +463,14 @@ const statusErrSigInvalid = "ERR_SIG_INVALID"
 // candidate key's algorithm doesn't meet §10.7's minimum floor (RFC 8624
 // §3.1) -- see algorithm.go.
 const statusErrWeakAlgorithm = "ERR_WEAK_ALGORITHM"
+
+// statusErrQuotaExceeded is another of §12's status codes: this zone has
+// already used up its full-zone or differential push quota for the
+// current rolling 24h window -- see RateLimiter and containsAPEXDNSKEY.
+// §12 also names a distinct ERR_RATE_LIMITED code; that one is for a
+// separate, faster-timescale flood throttle this package does not
+// implement yet (see SAZU-PLAN.md) -- it is not just a synonym for this.
+const statusErrQuotaExceeded = "ERR_QUOTA_EXCEEDED"
 
 // replyWithStatus replies to r with rcode and, if status is non-empty,
 // a diagnostic TXT record carrying it in the Additional section.

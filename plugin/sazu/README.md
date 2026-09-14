@@ -38,6 +38,7 @@ from the content it has accepted.
 sazu ZONES... {
     insecure_skip_chain_validation
     db PATH
+    rate_limit FULL_PER_DAY DIFFERENTIAL_PER_DAY
 }
 ```
 
@@ -61,6 +62,12 @@ sazu ZONES... {
   forget them. **Omit this and everything is purely in-memory** — lost on
   every restart, which is fine for a quick one-off test but not for
   anything you want to survive a redeploy.
+* `rate_limit FULL_PER_DAY DIFFERENTIAL_PER_DAY` overrides §12's per-zone
+  push quotas, each enforced over a rolling 24h window: FULL_PER_DAY for a
+  full-zone push (`push-zone`, or first contact) and DIFFERENTIAL_PER_DAY
+  for an ordinary partial one (`push-update`), tracked independently.
+  Defaults to `5 50` if omitted. An exceeded quota is refused with the
+  `ERR_QUOTA_EXCEEDED` diagnostic. Not persisted across a restart.
 
 ## Examples
 

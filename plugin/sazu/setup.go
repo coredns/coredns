@@ -1,6 +1,7 @@
 package sazu
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -42,6 +43,7 @@ func setup(c *caddy.Controller) error {
 		Capture:                     capture,
 		InsecureSkipChainValidation: cfg.insecureSkipChainValidation,
 		RequireValidRRSIGs:          cfg.requireValidRRSIGs,
+		RateLimiter:                 NewRateLimiter(cfg.fullPushesPerDay, cfg.differentialPushesPerDay),
 	}
 
 	if cfg.dbPath != "" {
@@ -78,10 +80,15 @@ type sazuConfig struct {
 	insecureSkipChainValidation bool
 	requireValidRRSIGs          bool
 	dbPath                      string
+	fullPushesPerDay            int
+	differentialPushesPerDay    int
 }
 
 func parseSazu(c *caddy.Controller) (sazuConfig, error) {
-	var cfg sazuConfig
+	cfg := sazuConfig{
+		fullPushesPerDay:         DefaultFullPushesPerDay,
+		differentialPushesPerDay: DefaultDifferentialPushesPerDay,
+	}
 	for c.Next() {
 		args := c.RemainingArgs()
 		cfg.zones = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
@@ -108,6 +115,25 @@ func parseSazu(c *caddy.Controller) (sazuConfig, error) {
 					return sazuConfig{}, c.ArgErr()
 				}
 				cfg.dbPath = args[0]
+			case "rate_limit":
+				// §12: <full-pushes-per-day> <differential-pushes-per-day>,
+				// both over a rolling 24h window -- see ratelimit.go.
+				// Defaults (5/50) apply if this directive is omitted
+				// entirely.
+				args := c.RemainingArgs()
+				if len(args) != 2 {
+					return sazuConfig{}, c.ArgErr()
+				}
+				full, err := strconv.Atoi(args[0])
+				if err != nil || full < 0 {
+					return sazuConfig{}, c.Errf("rate_limit: invalid full-pushes-per-day %q", args[0])
+				}
+				diff, err := strconv.Atoi(args[1])
+				if err != nil || diff < 0 {
+					return sazuConfig{}, c.Errf("rate_limit: invalid differential-pushes-per-day %q", args[1])
+				}
+				cfg.fullPushesPerDay = full
+				cfg.differentialPushesPerDay = diff
 			default:
 				return sazuConfig{}, c.ArgErr()
 			}

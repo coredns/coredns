@@ -672,6 +672,79 @@ func TestOnboardWithWeakAlgorithmKeyIsRejected(t *testing.T) {
 	}
 }
 
+// TestRateLimiterExceededRejectsFurtherDifferentialPushes proves §12's
+// quota is actually wired into serveUpdate: once a zone's differential
+// push quota for the rolling window is used up, a further otherwise
+// perfectly valid push-update is refused with ERR_QUOTA_EXCEEDED and
+// leaves the zone's content untouched, while the full-zone quota (tracked
+// independently) is unaffected.
+func TestRateLimiterExceededRejectsFurtherDifferentialPushes(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.RateLimiter = NewRateLimiter(DefaultFullPushesPerDay, 1)
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	onboardPush, err := BuildFullZonePush("example.org.", soa, nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
+	now := time.Now()
+	onboardWire, err := SignUpdate(onboardPush, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing onboarding push: %v", err)
+	}
+	if resp := sendRaw(t, addr, onboardWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	partial := func(rr dns.RR) *dns.Msg {
+		m := new(dns.Msg)
+		m.SetQuestion("example.org.", dns.TypeSOA)
+		m.Opcode = dns.OpcodeUpdate
+		m.Insert([]dns.RR{rr})
+		return m
+	}
+
+	first := partial(testA("mail.example.org.", net.IPv4(203, 0, 113, 20)))
+	now = time.Now()
+	firstWire, err := SignUpdate(first, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing first partial push: %v", err)
+	}
+	if resp := sendRaw(t, addr, firstWire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("first partial push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	second := partial(testA("ftp.example.org.", net.IPv4(203, 0, 113, 21)))
+	now = time.Now()
+	secondWire, err := SignUpdate(second, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing second partial push: %v", err)
+	}
+	resp := sendRaw(t, addr, secondWire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("second partial push rcode = %s, want REFUSED (quota exceeded)", dns.RcodeToString[resp.Rcode])
+	}
+	var gotStatus string
+	for _, rr := range resp.Extra {
+		if txt, ok := rr.(*dns.TXT); ok {
+			for _, s := range txt.Txt {
+				gotStatus = s
+			}
+		}
+	}
+	if gotStatus != statusErrQuotaExceeded {
+		t.Fatalf("expected %s diagnostic, got %q", statusErrQuotaExceeded, gotStatus)
+	}
+	if got := query(t, addr, "ftp.example.org.", dns.TypeA); len(got.Answer) != 0 {
+		t.Fatalf("expected the over-quota push's content to never have been applied, got %+v", got.Answer)
+	}
+}
+
 // TestOrdinaryPartialPushAfterOnboarding is the second half of the whole
 // chain: once a zone is onboarded, an ordinary push signed by the same
 // (already-pinned) key -- carrying no DNSKEY at all -- can add and
