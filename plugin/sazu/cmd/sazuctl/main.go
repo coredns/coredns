@@ -9,15 +9,19 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/doh"
 	"github.com/coredns/coredns/plugin/sazu"
 
 	"github.com/miekg/dns"
@@ -82,12 +86,13 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage: sazuctl <keygen|ds|push|push-zone> [flags]")
 	fmt.Fprintln(os.Stderr, "  sazuctl keygen -out <path> [-zone <owner>] [-key-passphrase-file <path>]")
 	fmt.Fprintln(os.Stderr, "  sazuctl ds -zone <zone> -key <path> [-key-passphrase-file <path>]")
-	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port] [-key-passphrase-file <path>]")
-	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port] [-key-passphrase-file <path>]")
-	fmt.Fprintln(os.Stderr, "  sazuctl push-update -zone <zone> -key <path> [-add \"rr\"]... [-del \"rr\"]... [-del-rrset \"name TYPE\"]... [-target host:port] [-key-passphrase-file <path>]")
-	fmt.Fprintln(os.Stderr, "  sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port|url] [-json] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port|url] [-json] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push-update -zone <zone> -key <path> [-add \"rr\"]... [-del \"rr\"]... [-del-rrset \"name TYPE\"]... [-target host:port|url] [-json] [-key-passphrase-file <path>]")
+	fmt.Fprintln(os.Stderr, "  sazuctl contact -zone <zone> -key <path> [-address mailto:you@example.org]... [-clear] [-target host:port|url] [-json] [-key-passphrase-file <path>]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "-key-passphrase-file encrypts/decrypts the key file at rest (§10.8); omit it for a plain BIND-format key file (the default).")
+	fmt.Fprintln(os.Stderr, "-target accepts an http(s):// URL to push over §7.3's HTTPS carrier instead of UDP/TCP; -json then sends a JSON wire envelope instead of raw bytes.")
 }
 
 // addPassphraseFlag registers the -key-passphrase-file flag every
@@ -100,6 +105,19 @@ func addPassphraseFlag(fs *flag.FlagSet) *string {
 	return fs.String("key-passphrase-file", "",
 		"path to a file whose contents (trimmed of a trailing newline) are the passphrase to "+
 			"encrypt/decrypt -key/-out with. Omit for a plain, unencrypted key file (the default).")
+}
+
+// addJSONCarrierFlag registers the -json flag every push-capable
+// subcommand shares: §7.3's HTTPS/JSON carrier, meaningful only when
+// -target is an http(s):// URL (see signSelfVerifyAndSend). Off by
+// default -- a raw application/dns-message POST body (the RFC 8484 DoH
+// convention this project's HTTPS carrier reuses as-is) is the simpler,
+// smaller default; -json switches to the {"wire": "<base64>"} envelope
+// for a deployment that specifically wants JSON instead.
+func addJSONCarrierFlag(fs *flag.FlagSet) *bool {
+	return fs.Bool("json", false,
+		"when -target is an http(s):// URL, send the push as a JSON wire envelope "+
+			`({"wire":"<base64>"}) instead of a raw application/dns-message body`)
 }
 
 // readPassphraseFile reads the passphrase addPassphraseFlag's flag points
@@ -210,7 +228,8 @@ func runPush(args []string) error {
 	keyPath := fs.String("key", "", "path to the Ed25519 key (created if missing)")
 	record := fs.String("record", "", "record to add, as name=ipv4 (default www.<zone>=203.0.113.10)")
 	ttl := fs.Uint("ttl", 300, "TTL for the added record")
-	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	target := fs.String("target", "", "host:port, or an http(s):// URL for the §7.3 HTTPS carrier, to send the signed push to (omit to just self-verify)")
+	jsonCarrier := addJSONCarrierFlag(fs)
 	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -269,7 +288,7 @@ func runPush(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(*zone, wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target, *jsonCarrier)
 }
 
 func runPushZone(args []string) error {
@@ -280,7 +299,8 @@ func runPushZone(args []string) error {
 	previousSerial := fs.Uint64("previous-serial", 0,
 		"SOA serial you last saw published for this zone, to guard against a stale push (RFC 2136 §2.4.2). "+
 			"Omit (0) for first contact, where there is nothing yet to be stale against.")
-	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	target := fs.String("target", "", "host:port, or an http(s):// URL for the §7.3 HTTPS carrier, to send the signed push to (omit to just self-verify)")
+	jsonCarrier := addJSONCarrierFlag(fs)
 	passphraseFile := addPassphraseFlag(fs)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -323,7 +343,7 @@ func runPushZone(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(*zone, wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target, *jsonCarrier)
 }
 
 // runPushUpdate builds an ordinary (non-first-contact) SAZU push: no
@@ -335,7 +355,8 @@ func runPushUpdate(args []string) error {
 	fs := flag.NewFlagSet("push-update", flag.ExitOnError)
 	zone := fs.String("zone", "", "zone being updated")
 	keyPath := fs.String("key", "", "path to the Ed25519 key already pinned at the server for this zone")
-	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	target := fs.String("target", "", "host:port, or an http(s):// URL for the §7.3 HTTPS carrier, to send the signed push to (omit to just self-verify)")
+	jsonCarrier := addJSONCarrierFlag(fs)
 	var adds, dels, delRRsets stringSliceFlag
 	fs.Var(&adds, "add", `record to add, zone-file format, e.g. -add "www.example.org. 300 IN A 203.0.113.20" (repeatable)`)
 	fs.Var(&dels, "del", "exact record to delete, same format as -add (repeatable)")
@@ -401,7 +422,7 @@ func runPushUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(*zone, wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target, *jsonCarrier)
 }
 
 // runContact registers or clears a zone's §10.6 registration-contact
@@ -415,7 +436,8 @@ func runContact(args []string) error {
 	fs := flag.NewFlagSet("contact", flag.ExitOnError)
 	zone := fs.String("zone", "", "zone to register a contact for")
 	keyPath := fs.String("key", "", "path to the Ed25519 key already pinned at the server for this zone")
-	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	target := fs.String("target", "", "host:port, or an http(s):// URL for the §7.3 HTTPS carrier, to send the signed push to (omit to just self-verify)")
+	jsonCarrier := addJSONCarrierFlag(fs)
 	clear := fs.Bool("clear", false, "clear the zone's registered contact instead of setting one")
 	var addresses stringSliceFlag
 	fs.Var(&addresses, "address", "contact address: mailto:you@example.org, or https://... for a webhook (repeatable)")
@@ -463,7 +485,7 @@ func runContact(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(*zone, wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target, *jsonCarrier)
 }
 
 // parseRRs parses each s in values as a zone-file-format resource record.
@@ -505,10 +527,13 @@ func parseNameTypePairs(values []string) ([]dns.RR, error) {
 }
 
 // signSelfVerifyAndSend proves a signed push actually verifies against
-// its own key before sending anything, then either sends it to target
-// over UDP and reports what the server did with it, or just prints the
-// wire bytes if no target was given.
-func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target string) error {
+// its own key before sending anything, then sends it to target -- over
+// UDP/TCP for a "host:port" target, or via §7.3's HTTPS/JSON carrier for
+// an "http://"/"https://" URL target (asJSON selects the JSON wire
+// envelope over that carrier instead of raw wire bytes) -- and reports
+// what the server did with it, or just prints the wire bytes if no
+// target was given.
+func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target string, asJSON bool) error {
 	if err := sazu.VerifySIG0(wire, key); err != nil {
 		return fmt.Errorf("self-verification failed (this would be a bug): %w", err)
 	}
@@ -517,6 +542,10 @@ func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target str
 	if target == "" {
 		fmt.Printf("No -target given; wire bytes (hex):\n%x\n", wire)
 		return nil
+	}
+
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+		return sendOverHTTP(zone, wire, key, target, asJSON)
 	}
 
 	network := "udp"
@@ -554,6 +583,60 @@ func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target str
 		return nil
 	}
 	return interpretResponse(zone, key, resp)
+}
+
+// sendOverHTTP sends wire to target (an "http://" or "https://" URL,
+// with §7.3's DoH-style path appended) via a POST -- either raw
+// application/dns-message bytes (the RFC 8484 DoH convention, reused
+// as-is; the default) or, with asJSON, a doh.JSONWireEnvelope
+// ({"wire": "<base64>"}). Both carry the identical, byte-exact wire
+// bytes SIG(0) was computed over -- see plugin/pkg/doh's own doc
+// comments for why this is deliberately never a structural (RFC 8427)
+// JSON translation of the message's fields.
+func sendOverHTTP(zone string, wire []byte, key *dns.DNSKEY, target string, asJSON bool) error {
+	url := strings.TrimRight(target, "/") + doh.Path
+
+	var body io.Reader
+	contentType := doh.MimeType
+	carrier := "raw wire bytes"
+	if asJSON {
+		envelope, err := json.Marshal(doh.JSONWireEnvelope{Wire: base64.StdEncoding.EncodeToString(wire)})
+		if err != nil {
+			return fmt.Errorf("marshaling JSON wire envelope: %w", err)
+		}
+		body = bytes.NewReader(envelope)
+		contentType = doh.JSONMimeType
+		carrier = "a JSON wire envelope"
+	} else {
+		body = bytes.NewReader(wire)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("No response (%v) -- fine if nothing is listening yet; "+
+			"the push itself encoded, signed, and self-verified correctly.\n", err)
+		return nil
+	}
+	defer resp.Body.Close()
+	fmt.Printf("Sent %d bytes to %s as %s (HTTP status %d)\n", len(wire), url, carrier, resp.StatusCode)
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response body: %w", err)
+	}
+	respMsg := new(dns.Msg)
+	if err := respMsg.Unpack(buf); err != nil {
+		fmt.Printf("Response (%d bytes, did not parse as a DNS message: %v):\n%x\n", len(buf), err, buf)
+		return nil
+	}
+	return interpretResponse(zone, key, respMsg)
 }
 
 // writeRequest sends wire to conn, prefixing it with the 2-byte
