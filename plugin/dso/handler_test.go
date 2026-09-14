@@ -2,7 +2,9 @@ package dso
 
 import (
 	"net"
+	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -196,6 +198,10 @@ func TestHandlerPairing(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
+			if strings.Contains(tc.input, "multisocket") && runtime.GOOS == "windows" {
+				t.Skip("multisocket is not supported on windows")
+			}
+
 			inst, err := setupCoreDNSf(t, tc.input, ports[0], ports[1])
 			if err != nil {
 				t.Fatalf("Got %v", err)
@@ -215,6 +221,10 @@ func TestHandlerPairing(t *testing.T) {
 }
 
 func TestHandlerRestart(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("graceful restart is not supported on windows")
+	}
+
 	inst, conn := setupCoreDNSWithDSO(t, time.Minute, time.Hour)
 
 	var wg sync.WaitGroup
