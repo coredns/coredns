@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
@@ -101,7 +102,7 @@ func (s *Sazu) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		if plugin.Zones(s.Zones).Matches(qname) == "" {
 			return plugin.NextOrFailure(s.Name(), s.Next, ctx, w, r)
 		}
-		return s.serveUpdate(w, r, qname)
+		return s.serveUpdate(ctx, w, r, qname)
 	}
 
 	// Ordinary query: find which *onboarded* zone (if any) qname falls
@@ -182,7 +183,7 @@ func isDNSSECRequested(r *dns.Msg) bool {
 	return opt != nil && opt.Do()
 }
 
-func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, error) {
+func (s *Sazu) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, zone string) (int, error) {
 	txID := newTransactionID()
 	remoteAddr := w.RemoteAddr().String()
 	// reply is the sole exit point for this function: every response,
@@ -206,6 +207,21 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	log.Debugf("update for %s from %s: transaction %s, %d prerequisite(s), %d op(s)", zone, remoteAddr, txID, len(r.Answer), len(r.Ns))
 
 	raw, ok := s.Capture.Take(w.RemoteAddr(), r.Id)
+	if !ok {
+		// §7.3 HTTPS/JSON carrier: UDP/TCP get here via
+		// UDPDecorateReaderFunc/TCPDecorateReaderFunc into s.Capture, but
+		// HTTPS/HTTP3 never go through a dns.Server's DecorateReader at
+		// all -- core/dnsserver's ServerHTTPS/ServerHTTPS3 instead stash
+		// the exact wire bytes doh.RequestToMsgWireWithAccept already
+		// extracted (already decoded out of a JSON wire envelope, if the
+		// client used one) directly on the request context, precisely so
+		// a plugin like this one -- whose SIG(0)/RFC 2931 authentication
+		// must verify against literal wire bytes, never a re-encoding --
+		// has something to check over that transport too.
+		if httpRaw, isHTTP := ctx.Value(dnsserver.RawRequestKey{}).([]byte); isHTTP {
+			raw, ok = httpRaw, true
+		}
+	}
 	if !ok {
 		// No exact wire bytes captured for this request -- there is
 		// nothing to verify a SIG(0) signature against. Fail closed
