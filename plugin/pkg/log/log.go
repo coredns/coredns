@@ -1,7 +1,7 @@
 // Package log implements a small wrapper around the std lib log package. It
 // implements log levels by prefixing the logs with [INFO], [DEBUG], [WARNING]
 // or [ERROR]. Debug logging is available and enabled if the *debug* plugin is
-// used.
+// used. Configure can opt into structured JSON output instead of text prefixes.
 //
 // log.Info("this is some logging"), will log on the Info level.
 //
@@ -41,11 +41,19 @@ func (d *d) Value() bool {
 
 // logf calls log.Printf prefixed with level.
 func logf(level, format string, v ...any) {
+	if b := jsonBackend.Load(); b != nil {
+		b.log(level, "", fmt.Sprintf(format, v...))
+		return
+	}
 	golog.Print(level, fmt.Sprintf(format, v...))
 }
 
 // log calls log.Print prefixed with level.
 func log(level string, v ...any) {
+	if b := jsonBackend.Load(); b != nil {
+		b.log(level, "", fmt.Sprint(v...))
+		return
+	}
 	golog.Print(level, fmt.Sprint(v...))
 }
 
@@ -94,7 +102,7 @@ func Fatal(v ...any) { log(fatal, v...); os.Exit(1) }
 func Fatalf(format string, v ...any) { logf(fatal, format, v...); os.Exit(1) }
 
 // Discard sets the log output to /dev/null.
-func Discard() { golog.SetOutput(io.Discard) }
+func Discard() { SetOutput(io.Discard) }
 
 const (
 	debug   = "[DEBUG] "

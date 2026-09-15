@@ -8,17 +8,26 @@ import (
 // P is a logger that includes the plugin doing the logging.
 type P struct {
 	plugin string
+	name   string
 }
 
 // NewWithPlugin returns a logger that includes "plugin/name: " in the log message.
 // I.e [INFO] plugin/<name>: message.
-func NewWithPlugin(name string) P { return P{"plugin/" + name + ": "} }
+func NewWithPlugin(name string) P { return P{plugin: "plugin/" + name + ": ", name: name} }
 
 func (p P) logf(level, format string, v ...any) {
+	if b := jsonBackend.Load(); b != nil {
+		b.log(level, p.name, fmt.Sprintf(format, v...))
+		return
+	}
 	log(level, p.plugin, fmt.Sprintf(format, v...))
 }
 
 func (p P) log(level string, v ...any) {
+	if b := jsonBackend.Load(); b != nil {
+		b.log(level, p.name, fmt.Sprint(v...))
+		return
+	}
 	log(level+p.plugin, v...)
 }
 
