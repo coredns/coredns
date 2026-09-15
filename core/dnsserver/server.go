@@ -43,7 +43,6 @@ package dnsserver
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"net"
 	"runtime/debug"
@@ -504,7 +503,7 @@ func (s *Server) OnStartupComplete() {
 
 	out := startUpZones("", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 

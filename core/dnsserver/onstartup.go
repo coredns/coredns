@@ -7,7 +7,16 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	"github.com/coredns/coredns/plugin/pkg/log"
 )
+
+func printStartup(out string) {
+	if log.IsJSON() {
+		log.Info(strings.TrimSuffix(out, "\n"))
+		return
+	}
+	fmt.Print(out)
+}
 
 // checkZoneSyntax() checks whether the given string match 1035 Preferred Syntax or not.
 // The root zone, and all reverse zones always return true even though they technically don't meet 1035 Preferred Syntax

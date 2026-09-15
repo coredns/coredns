@@ -3,7 +3,6 @@ package dnsserver
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"time"
 
@@ -100,6 +99,6 @@ func (s *ServerTLS) OnStartupComplete() {
 
 	out := startUpZones(transport.TLS+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }

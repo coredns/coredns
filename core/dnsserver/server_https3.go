@@ -203,7 +203,7 @@ func (s *ServerHTTPS3) OnStartupComplete() {
 	}
 	out := startUpZones(transport.HTTPS3+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 

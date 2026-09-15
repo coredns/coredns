@@ -315,7 +315,7 @@ func (s *ServerQUIC) OnStartupComplete() {
 
 	out := startUpZones(transport.QUIC+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 

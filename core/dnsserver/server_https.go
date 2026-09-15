@@ -185,7 +185,7 @@ func (s *ServerHTTPS) OnStartupComplete() {
 
 	out := startUpZones(transport.HTTPS+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 

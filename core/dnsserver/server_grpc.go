@@ -156,7 +156,7 @@ func (s *ServergRPC) OnStartupComplete() {
 
 	out := startUpZones(transport.GRPC+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 
