@@ -247,3 +247,29 @@ func TestFileParseRelativeZones(t *testing.T) {
 		}
 	}
 }
+
+func TestFileParseReloadByMtimeInitializesMtime(t *testing.T) {
+	name, rm, err := test.TempFile(".", dbMiekNL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rm()
+
+	c := caddy.NewTestController("dns", "file "+name+" example.org. {\n\treload_by_mtime\n}")
+	zones, _, err := fileParse(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fi, err := os.Stat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	z := zones.Z["example.org."]
+	if z.file_mtime.IsZero() {
+		t.Fatal("file mtime was not initialized for reload_by_mtime")
+	}
+	if !z.file_mtime.Equal(fi.ModTime()) {
+		t.Fatalf("file mtime = %s, want %s", z.file_mtime, fi.ModTime())
+	}
+}
