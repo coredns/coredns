@@ -258,8 +258,12 @@ func (h *connHandler) handle(ctx context.Context) {
 	err := context.Cause(connCtx)
 
 	if shutdownErr, ok := errors.AsType[*shutdownError](err); ok {
-		retryDelay := uint32(shutdownErr.reconnectInterval.Milliseconds()) // #nosec G115
-		err = h.closeNotify(dns.RcodeSuccess, retryDelay)
+		if shutdownErr.reconnectInterval >= 0 {
+			retryDelay := uint32(shutdownErr.reconnectInterval.Milliseconds()) // #nosec G115
+			err = h.closeNotify(dns.RcodeSuccess, retryDelay)
+		} else {
+			h.sesh.Close()
+		}
 	}
 
 	switch {

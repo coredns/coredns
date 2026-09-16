@@ -28,10 +28,10 @@ type (
 		// KeepAliveInterval is maximum amount of time session can be without any traffic. Clients can further reduce it.
 		KeepAliveInterval time.Duration
 
-		// RestartReconnectInterval is RetryDelay interval for gracefully closed sessions due to Restart.
+		// RestartReconnectInterval is RetryDelay interval for gracefully closed sessions due to Restart. Set to <0 to disable.
 		RestartReconnectInterval time.Duration
 
-		// ShutdownReconnectInterval is RetryDelay interval for gracefully closed sessions due to Shutdown.
+		// ShutdownReconnectInterval is RetryDelay interval for gracefully closed sessions due to Shutdown. Set to <0 to disable.
 		ShutdownReconnectInterval time.Duration
 
 		// TsigSecret is TSIG secrets inherited from [dnsserver.Config] plugin is part of.
@@ -98,23 +98,20 @@ var (
 
 func parsePort(raw string) (port int, err error) {
 	port, err = strconv.Atoi(raw)
-	if err == nil && port > 65535 {
-		err = fmt.Errorf("outside of allowed range")
-	}
 	if err != nil {
 		port, err = net.LookupPort("tcp", raw)
 	}
 	if err != nil {
 		return 0, err
 	}
+	if port > 65535 {
+		return 0, fmt.Errorf("outside of allowed range")
+	}
 	return port, nil
 }
 
 func parseDuration(raw string) (time.Duration, error) {
 	d, err := time.ParseDuration(raw)
-	if err == nil && d < 0 {
-		err = fmt.Errorf("outside of allowed range")
-	}
 	if err != nil {
 		return 0, err
 	}
@@ -171,6 +168,9 @@ func parseConfig(c *caddy.Controller) (cfg *Config, err error) {
 				switch len(args) {
 				case 1:
 					v, err := parseDuration(args[0])
+					if err == nil && v < 0 {
+						err = fmt.Errorf("outside of allowed range")
+					}
 					if err != nil {
 						return nil, c.Errf("invalid keepalive interval %q: %v", args[0], err)
 					}
@@ -181,6 +181,9 @@ func parseConfig(c *caddy.Controller) (cfg *Config, err error) {
 					cfg.InactivityTimeout = v
 				case 2:
 					v1, err := parseDuration(args[0])
+					if err == nil && v1 < 0 {
+						err = fmt.Errorf("outside of allowed range")
+					}
 					if err != nil {
 						return nil, c.Errf("invalid keepalive interval %q: %v", args[0], err)
 					}
@@ -188,6 +191,9 @@ func parseConfig(c *caddy.Controller) (cfg *Config, err error) {
 						return nil, c.Errf("keepalive interval %q is too short", v1)
 					}
 					v2, err := parseDuration(args[1])
+					if err == nil && v2 < 0 {
+						err = fmt.Errorf("outside of allowed range")
+					}
 					if err != nil {
 						return nil, c.Errf("invalid inactivity timeout %q: %v", args[1], err)
 					}

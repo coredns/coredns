@@ -60,7 +60,7 @@ dso {
   Defaults to 1h and 1m respectively.
 * `reconnect` **ONRESTART** **ONSHUTDOWN** is the retry delay sent to clients when CoreDNS configuration is
   reloaded or the process is gracefully shut down.
-  Defaults to 5s and 15s respectively.
+  Defaults to 5s and 15s respectively, set to negative to disable.
 * `log` enables use of CoreDNS logging system to print incoming and outgoing DSO messages. If the *debug* plugin is enabled,
   malformed messages are hex dumped.
 * `push` [**ZONES...**] enables [RFC 8765][rfc8765] DNS Push Notifications; requires `tls_port`.
