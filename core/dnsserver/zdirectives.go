@@ -49,6 +49,7 @@ var Directives = []string{
 	"header",
 	"dnssec",
 	"tls",
+	"dso",
 	"minimal",
 	"template",
 	"transfer",
