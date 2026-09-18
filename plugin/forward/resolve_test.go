@@ -661,3 +661,25 @@ func TestResolverWithHCOptions(t *testing.T) {
 		t.Errorf("expected opts %v, got %v", expectedOpts, f.opts)
 	}
 }
+
+func TestSystemLookupUsesFQDN(t *testing.T) {
+	original := netLookupHost
+	t.Cleanup(func() {
+		netLookupHost = original
+	})
+
+	var gotHostname string
+	netLookupHost = func(hostname string) ([]string, error) {
+		gotHostname = hostname
+		return []string{"192.0.2.1"}, nil
+	}
+
+	_, err := systemLookup("dns.google")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if gotHostname != "dns.google." {
+		t.Errorf("expected system resolver lookup for %q, got %q", "dns.google.", gotHostname)
+	}
+}
