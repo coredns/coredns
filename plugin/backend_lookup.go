@@ -524,7 +524,7 @@ func checkForApex(ctx context.Context, b ServiceBackend, zone string, state requ
 
 	services, err := b.Services(ctx, state, false, opt)
 	state.Req.Question[0].Name = old
-	if err == nil || !b.IsNameError(err) {
+	if err == nil || !b.IsNameError(err) || opt.NoApexFallback {
 		return services, err
 	}
 

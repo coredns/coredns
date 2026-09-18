@@ -32,6 +32,12 @@ jobs:
           ( cd core; go test -race  ./... )
           ( cd coremain; go test -race ./... )
 
+      - name: Build manual-registration mode
+        run: go build -tags=coredns_manual_registration ./...
+
+      - name: Test manual-registration mode
+        run: go test -race -tags=coredns_manual_registration ./core/dnsserver ./coremain
+
   test-windows:
     name: Test Windows
     runs-on: windows-latest
@@ -56,6 +62,12 @@ jobs:
           ( cd request; go test -race ./... )
           ( cd core; go test -race  ./... )
           ( cd coremain; go test -race ./... )
+
+      - name: Build manual-registration mode
+        run: go build -tags=coredns_manual_registration ./...
+
+      - name: Test manual-registration mode
+        run: go test -race -tags=coredns_manual_registration ./core/dnsserver ./coremain
 
   test-plugins:
     name: Test Plugins
@@ -102,7 +114,6 @@ jobs:
 
       - name: Test
         run: |
-          go install github.com/fatih/faillint@c56e3ec6dbfc933bbeb884fd31f2bcd41f712657 # v1.15.0
           ( cd test; go test -race ./... )
 
   test-makefile-release:

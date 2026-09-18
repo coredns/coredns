@@ -35,8 +35,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	if zones == nil {
 		zones = plugin.Zones(h.Origins)
 	}
-	zone := zones.Matches(qname)
-	if zone == "" {
+	if !zones.Contains(qname) {
 		// PTR zones don't need to be specified in Origins.
 		if state.QType() != dns.TypePTR {
 			// if this doesn't match we need to fall through regardless of h.Fallthrough

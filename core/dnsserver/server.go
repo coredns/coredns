@@ -1,23 +1,52 @@
 // Package dnsserver implements CoreDNS as a Caddy server type.
 //
-// Importing this package registers the "dns" server type with Caddy. Programs
-// embedding CoreDNS can import only the plugins they need, set Directives before
-// starting a server, and pass an in-memory Corefile to [caddy.Start]. They should
-// not call coremain.Run, which provides the command-line program behavior such
-// as flag parsing, signal handling, and blocking until shutdown.
+// By default, importing this package registers the "dns" server type with Caddy.
+// Programs embedding CoreDNS can import only the plugins they need, call
+// [SetDirectives] before starting a server, and pass an in-memory Corefile to
+// [caddy.Start]. They should not import coremain or the generated all-plugin
+// bundle: coremain provides command-line behavior such as flag registration,
+// signal handling, and blocking until shutdown, and registers the server type.
 // Before stopping an embedded instance, run its shutdown callbacks so that
 // plugins can release resources.
 //
+// A host can register a custom directive with [plugin.Register] before starting
+// Caddy; it does not need to rebuild CoreDNS or modify plugin.cfg. Include the
+// directive in the list passed to SetDirectives at the desired execution
+// position, and use [GetConfig] and [Config.AddPlugin] in its setup function to
+// add the handler. The setup function can register startup and shutdown callbacks
+// on the Caddy controller.
+// Directives determines execution order, not the order in the Corefile.
+// Each directive must be registered only once per process.
+//
+// SetDirectives copies the supplied list and rejects empty or duplicate names.
+// Direct assignment to Directives remains supported for existing callers.
+// Neither entry point imports plugins or registers them on the host's behalf.
+//
 // Directives and Caddy's plugin registry are process-wide. Configure them
 // before starting any servers and do not mutate them while servers are running.
+// Automatic server-type registration is retained for existing embedding users;
+// it does not start listeners or prevent the host from selecting directives.
+//
+// To control when the DNS server type is registered, build the host with
+// -tags=coredns_manual_registration. This excludes this package's registration
+// init function. After selecting directives and registering host plugins, call
+// [Register] before caddy.Start. Register is idempotent and also works in default
+// builds. It returns an error if another caller already registered a DNS server
+// type, leaving that registration unchanged.
+//
+// The build tag does not disable initialization in Caddy or individual plugins,
+// or make their registries instance-local. Selected plugins must not import
+// coremain, directly or transitively, to avoid its command-line initialization
+// and server-type registration. The CoreDNS command-line program explicitly
+// registers the server type in both build modes.
 package dnsserver
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"net"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -45,11 +74,12 @@ import (
 // the same address and the listener may be stopped for
 // graceful termination (POSIX only).
 type Server struct {
-	Addr          string        // Address we listen on
-	IdleTimeout   time.Duration // Idle timeout for connection-oriented transports
-	ReadTimeout   time.Duration // Read timeout for connection-oriented transports
-	WriteTimeout  time.Duration // Write timeout for connection-oriented transports that support it
-	MaxTCPQueries int           // Maximum number of queries served on a single TCP/TLS connection. -1 means unlimited.
+	Addr          string            // Address we listen on
+	IdleTimeout   time.Duration     // Idle timeout for connection-oriented transports
+	ReadTimeout   time.Duration     // Read timeout for connection-oriented transports
+	WriteTimeout  time.Duration     // Write timeout for connection-oriented transports that support it
+	MaxTCPQueries int               // Maximum number of queries served on a single TCP/TLS connection. -1 means unlimited.
+	TsigSecret    map[string]string // TSIG secrets of all served zones; must not be modified as it's concurrently accessed by DNS server.
 
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
@@ -65,7 +95,7 @@ type Server struct {
 	stacktrace   bool                 // enable stacktrace in recover error log
 	classChaos   bool                 // allow non-INET class queries
 
-	tsigSecret map[string]string
+	allowedOpcodes map[int]struct{}
 
 	// udpDecorateWriterFunc is selected in NewServer from the group configs in
 	// stable order (last one set wins), so the choice is deterministic when
@@ -86,14 +116,15 @@ type MetadataCollector interface {
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 	s := &Server{
-		Addr:          addr,
-		zones:         make(map[string][]*Config),
-		graceTimeout:  5 * time.Second,
-		IdleTimeout:   10 * time.Second,
-		ReadTimeout:   3 * time.Second,
-		WriteTimeout:  5 * time.Second,
-		MaxTCPQueries: tcpMaxQueries,
-		tsigSecret:    make(map[string]string),
+		Addr:           addr,
+		zones:          make(map[string][]*Config),
+		graceTimeout:   5 * time.Second,
+		IdleTimeout:    10 * time.Second,
+		ReadTimeout:    3 * time.Second,
+		WriteTimeout:   5 * time.Second,
+		MaxTCPQueries:  tcpMaxQueries,
+		TsigSecret:     make(map[string]string),
+		allowedOpcodes: make(map[int]struct{}),
 	}
 
 	for _, site := range group {
@@ -121,12 +152,13 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		}
 
 		// copy tsig secrets
-		maps.Copy(s.tsigSecret, site.TsigSecret)
+		maps.Copy(s.TsigSecret, site.TsigSecret)
+		maps.Copy(s.allowedOpcodes, site.allowedOpcodes)
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
-		for i := len(site.Plugin) - 1; i >= 0; i-- {
-			stack = site.Plugin[i](stack)
+		for _, v := range slices.Backward(site.Plugin) {
+			stack = v(stack)
 
 			// register the *handler* also
 			site.registerHandler(stack)
@@ -182,7 +214,8 @@ func (s *Server) Serve(l net.Listener) error {
 
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
-		TsigSecret:    s.tsigSecret,
+		TsigSecret:    s.TsigSecret,
+		MsgAcceptFunc: s.msgAcceptFunc(),
 		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
@@ -213,7 +246,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	}), TsigSecret: s.tsigSecret, DecorateWriter: dw}
+	}), TsigSecret: s.TsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()
@@ -344,11 +377,15 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 				// If all filter funcs pass, use this config.
 				if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+					if !h.acceptsOpcode(r.Opcode) {
+						errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+						return
+					}
 					if h.ViewName != "" {
 						// if there was a view defined for this Config, set the view name in the context
 						ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 					}
-					if r.Question[0].Qtype != dns.TypeDS {
+					if r.Opcode != dns.OpcodeQuery || r.Question[0].Qtype != dns.TypeDS {
 						rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 						if !plugin.ClientWrite(rcode) {
 							errorFunc(s.Addr, w, r, rcode)
@@ -393,6 +430,10 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 			// If all filter funcs pass, use this config.
 			if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+				if !h.acceptsOpcode(r.Opcode) {
+					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+					return
+				}
 				if h.ViewName != "" {
 					// if there was a view defined for this Config, set the view name in the context
 					ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
@@ -408,6 +449,39 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 	// Still here? Error out with REFUSED.
 	errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
+}
+
+// msgAcceptFunc returns nil when no plugin has opted into an additional opcode,
+// preserving miekg/dns's default request policy exactly.
+func (s *Server) msgAcceptFunc() dns.MsgAcceptFunc {
+	if len(s.allowedOpcodes) == 0 {
+		return nil
+	}
+	return s.acceptMessage
+}
+
+func (s *Server) acceptMessage(header dns.Header) dns.MsgAcceptAction {
+	action := dns.DefaultMsgAcceptFunc(header)
+	if action != dns.MsgRejectNotImplemented {
+		return action
+	}
+
+	opcode := int(header.Bits>>11) & 0xF
+	if _, ok := s.allowedOpcodes[opcode]; !ok {
+		return action
+	}
+	if header.Qdcount != 1 {
+		return dns.MsgReject
+	}
+	return dns.MsgAccept
+}
+
+func (c *Config) acceptsOpcode(opcode int) bool {
+	if opcode == dns.OpcodeQuery || opcode == dns.OpcodeNotify {
+		return true
+	}
+	_, ok := c.allowedOpcodes[opcode]
+	return ok
 }
 
 // passAllFilterFuncs returns true if all filter funcs evaluate to true for the given request
@@ -429,7 +503,7 @@ func (s *Server) OnStartupComplete() {
 
 	out := startUpZones("", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 

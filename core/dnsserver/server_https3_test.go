@@ -414,8 +414,7 @@ func TestServeHTTP3DoesNotLeakBodyReadError(t *testing.T) {
 func requireHTTPS3ConnectionRejected(t *testing.T, err error) {
 	t.Helper()
 
-	var appErr *quic.ApplicationError
-	if errors.As(err, &appErr) {
+	if appErr, ok := errors.AsType[*quic.ApplicationError](err); ok {
 		if !appErr.Remote {
 			t.Fatalf("connection closed with local application error: %v", err)
 		}
@@ -428,8 +427,7 @@ func requireHTTPS3ConnectionRejected(t *testing.T, err error) {
 	// An application close sent before 1-RTT keys are available is encoded as
 	// the generic transport-level APPLICATION_ERROR. In that case, the peer
 	// cannot observe the HTTP/3 application code or reason phrase.
-	var transportErr *quic.TransportError
-	if errors.As(err, &transportErr) {
+	if transportErr, ok := errors.AsType[*quic.TransportError](err); ok {
 		if !transportErr.Remote {
 			t.Fatalf("connection closed with local transport error: %v", err)
 		}

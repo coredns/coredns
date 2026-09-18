@@ -16,6 +16,7 @@ type item struct {
 	QType              uint16
 	QClass             uint16
 	Rcode              int
+	Authoritative      bool
 	AuthenticatedData  bool
 	RecursionAvailable bool
 	Answer             []dns.RR
@@ -46,6 +47,7 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 		i.QClass = m.Question[0].Qclass
 	}
 	i.Rcode = m.Rcode
+	i.Authoritative = m.Authoritative
 	i.AuthenticatedData = m.AuthenticatedData
 	i.RecursionAvailable = m.RecursionAvailable
 	i.Answer = m.Answer
@@ -74,12 +76,6 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 }
 
 // toMsg turns i into a message, it tailors the reply to m.
-// The Authoritative bit should be set to 0, but some client stub resolver implementations, most notably,
-// on some legacy systems(e.g. ubuntu 14.04 with glib version 2.20), low-level glibc function `getaddrinfo`
-// useb by Python/Ruby/etc.. will discard answers that do not have this bit set.
-// So we're forced to always set this to 1; regardless if the answer came from the cache or not.
-// On newer systems(e.g. ubuntu 16.04 with glib version 2.23), this issue is resolved.
-// So we may set this bit back to 0 in the future ?
 func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
 	return i.toMsgWithTTL(m, ttl, do, ad)
@@ -90,10 +86,13 @@ func (i *item) toMsgWithTTL(m *dns.Msg, ttl uint32, do bool, ad bool) *dns.Msg {
 	m1 := new(dns.Msg)
 	m1.SetReply(m)
 
-	// Set this to true as some DNS clients discard the *entire* packet when it's non-authoritative.
-	// This is probably not according to spec, but the bit itself is not super useful as this point, so
-	// just set it to true.
-	m1.Authoritative = true
+	// The AA bit comes from the cached answer instead of being synthesized: a
+	// reply served from cache is no more authoritative than the reply that
+	// populated it (RFC 1035 section 4.1.1). It was hardcoded to 1 for legacy
+	// stub resolvers that dropped non-authoritative answers, but that only ever
+	// applied on the cache hit path, so those clients still saw AA=0 on every
+	// miss. See #6185.
+	m1.Authoritative = i.Authoritative
 	m1.AuthenticatedData = i.AuthenticatedData
 	if !do && !ad {
 		// When DNSSEC was not wanted, it can't be authenticated data.

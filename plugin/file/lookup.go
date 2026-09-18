@@ -385,6 +385,11 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, tr *tr
 Redo:
 	cname := elem.Type(dns.TypeCNAME)
 	if len(cname) > 0 {
+		// A CNAME that points to its own owner name can only loop.
+		if dns.CanonicalName(cname[0].Header().Name) == dns.CanonicalName(cname[0].(*dns.CNAME).Target) {
+			return nil, nil, nil, ServerFailure
+		}
+
 		rrs = append(rrs, cname...)
 
 		if do {

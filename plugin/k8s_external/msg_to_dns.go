@@ -21,7 +21,7 @@ func (e *External) a(ctx context.Context, services []msg.Service, state request.
 		case dns.TypeCNAME:
 			rr := s.NewCNAME(state.QName(), s.Host)
 			records = append(records, rr)
-			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil {
+			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil && resp != nil {
 				records = append(records, resp.Answer...)
 				if resp.Truncated {
 					truncated = true
@@ -53,7 +53,7 @@ func (e *External) aaaa(ctx context.Context, services []msg.Service, state reque
 		case dns.TypeCNAME:
 			rr := s.NewCNAME(state.QName(), s.Host)
 			records = append(records, rr)
-			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeAAAA); err == nil {
+			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeAAAA); err == nil && resp != nil {
 				records = append(records, resp.Answer...)
 				if resp.Truncated {
 					truncated = true
@@ -132,10 +132,10 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 				records = append(records, srv)
 			}
 			if ok := isDuplicate(dup, srv.Target, addr, 0); !ok {
-				if resp, err := e.upstream.Lookup(ctx, state, addr, dns.TypeA); err == nil {
+				if resp, err := e.upstream.Lookup(ctx, state, addr, dns.TypeA); err == nil && resp != nil {
 					extra = append(extra, resp.Answer...)
 				}
-				if resp, err := e.upstream.Lookup(ctx, state, addr, dns.TypeAAAA); err == nil {
+				if resp, err := e.upstream.Lookup(ctx, state, addr, dns.TypeAAAA); err == nil && resp != nil {
 					extra = append(extra, resp.Answer...)
 				}
 			}

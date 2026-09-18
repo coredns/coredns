@@ -1193,16 +1193,12 @@ func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
 	if o == nil {
 		t.Fatal("expected EDNS0 option record in response")
 	}
-	var foundCookie bool
 	for _, opt := range o.Option {
 		if opt.Option() == 0xffee {
 			t.Fatalf("expected rewritten EDNS0 option to be reverted, got %v", o.Option)
 		}
 		if opt.Option() == dns.EDNS0COOKIE {
-			foundCookie = true
+			t.Fatalf("expected request EDNS0 cookie option not to be copied to the response, got %v", o.Option)
 		}
-	}
-	if !foundCookie {
-		t.Fatalf("expected original EDNS0 cookie option to be preserved, got %v", o.Option)
 	}
 }

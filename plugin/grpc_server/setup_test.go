@@ -32,14 +32,14 @@ func TestSetup(t *testing.T) {
 				max_streams 100
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(100),
+			expectedMaxStreams: new(100),
 		},
 		{
 			input: `grpc_server {
 				max_connections 200
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(200),
+			expectedMaxConnections: new(200),
 		},
 		{
 			input: `grpc_server {
@@ -47,8 +47,8 @@ func TestSetup(t *testing.T) {
 				max_connections 100
 			}`,
 			shouldErr:              false,
-			expectedMaxStreams:     intPtr(50),
-			expectedMaxConnections: intPtr(100),
+			expectedMaxStreams:     new(50),
+			expectedMaxConnections: new(100),
 		},
 		// Zero values (unbounded)
 		{
@@ -56,14 +56,14 @@ func TestSetup(t *testing.T) {
 				max_streams 0
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(0),
+			expectedMaxStreams: new(0),
 		},
 		{
 			input: `grpc_server {
 				max_connections 0
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(0),
+			expectedMaxConnections: new(0),
 		},
 		// Error cases
 		{
@@ -139,9 +139,7 @@ func TestSetup(t *testing.T) {
 	}
 }
 
-func intPtr(v int) *int {
-	return &v
-}
+//go:fix inline
 
 func assertIntPtrValue(t *testing.T, testIndex int, testInput, fieldName string, actual, expected *int) {
 	t.Helper()

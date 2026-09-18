@@ -3,6 +3,8 @@ package dnsserver
 import (
 	"fmt"
 	"net"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -16,7 +18,22 @@ import (
 
 const serverType = "dns"
 
-func init() {
+// Register registers the DNS server type with Caddy. Repeated calls return the
+// result of the first call without registering again. An existing server type
+// registered by another caller is left unchanged and causes an error.
+//
+// Default builds call Register automatically. When built with the
+// coredns_manual_registration tag, an embedding host must call Register before
+// starting Caddy. Register neither registers plugins nor starts listeners.
+//
+// Concurrent calls to Register are safe, but the first call must not run
+// concurrently with other Caddy configuration or startup operations.
+func Register() error { return registerServerType() }
+
+var registerServerType = sync.OnceValue(func() error {
+	if slices.Contains(caddy.ListPlugins()["server_types"], serverType) {
+		return fmt.Errorf("dnsserver: server type %q already registered", serverType)
+	}
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return Directives },
 		DefaultInput: func() caddy.Input {
@@ -28,7 +45,8 @@ func init() {
 		},
 		NewContext: newContext,
 	})
-}
+	return nil
+})
 
 func newContext(_i *caddy.Instance) caddy.Context {
 	return &dnsContext{keysToConfigs: make(map[string]*Config)}
@@ -184,6 +202,17 @@ func (c *Config) AddPlugin(m plugin.Plugin) {
 	c.Plugin = append(c.Plugin, m)
 }
 
+// AllowOpcode permits a non-default DNS opcode to reach this config's plugin chain
+// on UDP, TCP, and DNS-over-TLS listeners. Plugins should call it during setup.
+// The listener still requires exactly one question, and configs that do not opt in
+// continue to reject the opcode.
+func (c *Config) AllowOpcode(opcode int) {
+	if c.allowedOpcodes == nil {
+		c.allowedOpcodes = make(map[int]struct{})
+	}
+	c.allowedOpcodes[opcode] = struct{}{}
+}
+
 // registerHandler adds a handler to a site's handler registration. Handlers
 //
 //	use this to announce that they exist to other plugin.
@@ -276,6 +305,7 @@ func propagateConfigParams(configs []*Config) {
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout
 		c.MaxTCPQueries = c.firstConfigInBlock.MaxTCPQueries
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
+		c.allowedOpcodes = c.firstConfigInBlock.allowedOpcodes
 
 		// Propagate HTTPRequestValidateFunc so that custom path validators work in
 		// multi-transport blocks. Otherwise HTTPS 404s on non-"/dns-query" paths.
@@ -284,6 +314,10 @@ func propagateConfigParams(configs []*Config) {
 		// Propagate UDPDecorateWriterFunc so a decorator configured once in a
 		// server block applies to the block's UDP listener(s).
 		c.UDPDecorateWriterFunc = c.firstConfigInBlock.UDPDecorateWriterFunc
+
+		// Propagate MaxHTTPSStreams so a `https { max_streams N }` set once in a
+		// server block applies to the block's HTTPS key regardless of key order.
+		c.MaxHTTPSStreams = c.firstConfigInBlock.MaxHTTPSStreams
 	}
 }
 

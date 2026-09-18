@@ -30,7 +30,7 @@ forward FROM TO...
 * **FROM** is the base domain to match for the request to be forwarded. Domains using CIDR notation
   that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
-  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
+  a protocol, `tls://9.9.9.9`, `quic://94.140.14.14`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
   for plain DNS. The number of upstreams is limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
   a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup.
   See the `resolver` option below.
@@ -46,6 +46,7 @@ forward FROM TO... {
     force_tcp
     prefer_udp
     expire DURATION
+    max_age DURATION
     max_idle_conns INTEGER
     read_timeout DURATION
     max_fails INTEGER
@@ -70,7 +71,8 @@ forward FROM TO... {
 * `force_tcp`, use TCP even when the request comes in over UDP.
 * `prefer_udp`, try first using UDP even when the request comes in over TCP. If response is truncated
   (TC flag set in response) then do another attempt over TCP. In case if both `force_tcp` and
-  `prefer_udp` options specified the `force_tcp` takes precedence.
+  `prefer_udp` options specified the `force_tcp` takes precedence. These options do not change an
+  explicitly configured DoT, DoQ, or DoH upstream transport.
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
@@ -79,9 +81,11 @@ forward FROM TO... {
   configured upstreams, allowing two complete passes when all upstreams are healthy.
   Set this to 0 to disable the per-request cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
+* `max_age` **DURATION**, stop reusing and replace connections after this total lifetime.
+  The default is 0, which disables maximum connection age. A non-zero value must not be less than `expire`.
 * `doh_method` **GET|POST**, whether to use GET or POST http method for DoH requests (defaults to POST).
 * `max_idle_conns` **INTEGER**, maximum number of idle connections to cache per upstream for reuse.
-  Default is 0, which means unlimited.
+  Default is 0, which means unlimited. DoQ multiplexes streams over one cached connection per upstream.
 * `read_timeout` **DURATION**, the per-query read timeout applied to each upstream when waiting for a
   response. The default is 2s. Increase this if upstreams legitimately take longer than 2s to answer
   (for example slow recursive resolutions that would otherwise surface as `SERVFAIL`/timeouts). Note
@@ -97,17 +101,17 @@ forward FROM TO... {
   * `tls` **CERT** **KEY**  **CA** - client authentication is used with the specified cert/key pair.
     The server certificate is verified using the specified CA file
 
-CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
-key exchange mechanisms use the Go `crypto/tls` defaults.
+CoreDNS sets the minimum TLS version to TLS 1.2 for DoT and DoH. DoQ uses TLS 1.3 as required by QUIC.
+The maximum TLS version, TLS 1.2 cipher suites, and key exchange mechanisms use the Go `crypto/tls` defaults.
 
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
-  needs this to be set to `dns.quad9.net`. Using TLS forwarding but not setting `tls_servername` results in anyone
-  being able to man-in-the-middle your connection to the DNS server you are forwarding to. Because of this,
-  it is strongly recommended to set this value when using TLS forwarding.
+  needs this to be set to `dns.quad9.net`. It is strongly recommended when using DoT, DoQ, or DoH with
+  an IP address whose certificate identifies a DNS name instead of that IP address.
 
-  Per destination endpoint TLS server name indication is possible in the form of `tls://9.9.9.9%dns.quad9.net`.
+  Per destination endpoint TLS server name indication is possible in the form of `tls://9.9.9.9%dns.quad9.net`
+  or `quic://9.9.9.9%dns.quad9.net`.
   `tls_servername` must not be specified when using per destination endpoint TLS server name indication
-  as it would introduce clash between the server name indication spectifications. If destination endpoint
+  as it would introduce a clash between server name indication specifications. If destination endpoint
   is to be reached via a port other than 853 then the port must be appended to the end of the destination
   endpoint specifier. In case of port 10853, the above string would be: `tls://9.9.9.9%dns.quad9.net:10853`.
 
@@ -133,12 +137,13 @@ key exchange mechanisms use the Go `crypto/tls` defaults.
 * `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
 * `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints at startup. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy.
 
-Also note the TLS config is "global" for the whole forwarding proxy if you need a different
-`tls_servername` for different upstreams you're out of luck.
+The client certificate, key, and CA configuration is global for one `forward` stanza. For DoT and DoQ,
+use the `%servername` endpoint form when upstreams in the same stanza require different TLS server names.
 
 On each endpoint, the timeouts for communication are set as follows:
 
-* The dial timeout by default is 30s, and can decrease automatically down to 1s based on early results.
+* The DNS and DoT dial timeout defaults to 30s and can decrease automatically down to 1s based on early results.
+  The DoQ handshake timeout is 5s.
 * The read timeout is static at 2s.
 
 ## Metadata
@@ -162,7 +167,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_proxy_conn_cache_misses_total{proxy_name="forward", to, proto}` - count of connection cache misses per upstream and protocol.
 
 Where `to` is one of the upstream servers (**TO** from the config), `rcode` is the returned RCODE
-from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`, `https`.
+from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`, `quic`, `https`.
 
 The following metrics have recently been deprecated:
 * `coredns_forward_healthcheck_failures_total{to, rcode}`
@@ -255,6 +260,20 @@ service with health checks.
 . {
     forward . tls://9.9.9.9 {
        tls_servername dns.quad9.net
+       health_check 5s
+    }
+    cache 30
+}
+~~~
+
+The following example uses DNS-over-QUIC (DoQ). DoQ uses UDP port 853 by default and multiplexes
+concurrent queries over separate streams on one QUIC connection. The `forward` plugin's single-message
+exchange path does not support AXFR or IXFR over DoQ; those requests return `NOTIMP`.
+
+~~~ corefile
+. {
+    forward . quic://94.140.14.14 {
+       tls_servername dns.adguard-dns.com
        health_check 5s
     }
     cache 30
@@ -359,3 +378,5 @@ Forward to an upstream identified by hostname, using a specific resolver to look
 [RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.
 
 [RFC 8484](https://tools.ietf.org/html/rfc8484) for DNS over HTTPS.
+
+[RFC 9250](https://www.rfc-editor.org/rfc/rfc9250.html) for DNS over QUIC.

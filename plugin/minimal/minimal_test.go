@@ -151,3 +151,20 @@ func TestMinimizeResponse(t *testing.T) {
 		}
 	}
 }
+
+func TestMinimizeResponseNilMsgPanic(t *testing.T) {
+	nilMsgHandler := plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+		w.WriteMsg(nil)
+		return 0, nil
+	})
+
+	o := minimalHandler{Next: nilMsgHandler}
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	req := new(dns.Msg)
+	req.SetQuestion("example.com.", dns.TypeA)
+
+	_, err := o.ServeDNS(context.TODO(), rec, req)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+}

@@ -1,6 +1,6 @@
 // Package proxy implements a forwarding proxy with connection caching.
-// It manages a pool of upstream connections (UDP and TCP) to reuse them for subsequent requests,
-// reducing latency and handshake overhead. It supports in-band health checking.
+// It reuses upstream DNS, DoT, DoH, and DoQ connections to reduce latency and
+// handshake overhead. It supports in-band health checking.
 package proxy
 
 import (
@@ -267,6 +267,17 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	return ret, localAddr, proto, nil
 }
 
+func (p *Proxy) lookupDoQ(ctx context.Context, state request.Request, _ Options) (*dns.Msg, net.Addr, string, error) {
+	// QUIC runs over UDP. Reporting udp keeps dnstap query_address and
+	// response_address consistent with the actual upstream socket.
+	const proto = "udp"
+	if p.doq == nil {
+		return nil, nil, proto, errors.New("proxy: DoQ transport is not initialized")
+	}
+	ret, localAddr, err := p.doq.exchange(ctx, state.Req, p.readTimeout)
+	return ret, localAddr, proto, err
+}
+
 // Connect selects an upstream, sends the request and waits for a response. It
 // also returns CoreDNS's own outbound address on the upstream socket
 // (localAddr) and the transport proto ("udp" or "tcp") actually used to reach
@@ -284,6 +295,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	switch p.protocol {
 	case transport.HTTPS:
 		ret, localAddr, proto, err = p.lookupDoH(ctx, state, opts)
+	case transport.QUIC:
+		ret, localAddr, proto, err = p.lookupDoQ(ctx, state, opts)
 	case transport.DNS, transport.TLS:
 		ret, localAddr, proto, err = p.lookupDNS(ctx, state, opts)
 	default:

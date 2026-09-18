@@ -352,4 +352,46 @@ func TestLookup(t *testing.T) {
 	}
 }
 
+func TestLookupNoApexFallback(t *testing.T) {
+	etc := newEtcdPlugin()
+	etc.Zones = []string{"strict.test."}
+
+	child := &msg.Service{Host: "10.0.0.1", Key: "x.child.strict.test."}
+	set(t, etc, child.Key, 0, child)
+	defer delete(t, etc, child.Key)
+
+	query := func() *dns.Msg {
+		m := new(dns.Msg)
+		m.SetQuestion("strict.test.", dns.TypeA)
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if _, err := etc.ServeDNS(ctxt, rec, m); err != nil {
+			t.Fatalf("unexpected lookup error: %v", err)
+		}
+		return rec.Msg
+	}
+
+	legacy := query()
+	if legacy.Rcode != dns.RcodeSuccess || len(legacy.Answer) != 1 {
+		t.Fatalf("legacy fallback returned rcode %s with %d answers", dns.RcodeToString[legacy.Rcode], len(legacy.Answer))
+	}
+
+	etc.NoApexFallback = true
+	strict := query()
+	if strict.Rcode != dns.RcodeNameError || len(strict.Answer) != 0 {
+		t.Fatalf("disabled fallback returned rcode %s with %d answers", dns.RcodeToString[strict.Rcode], len(strict.Answer))
+	}
+
+	apex := &msg.Service{Host: "192.0.2.1", Key: "x.apex.dns.strict.test."}
+	set(t, etc, apex.Key, 0, apex)
+	defer delete(t, etc, apex.Key)
+
+	strictWithApex := query()
+	if strictWithApex.Rcode != dns.RcodeSuccess || len(strictWithApex.Answer) != 1 {
+		t.Fatalf("dedicated apex lookup returned rcode %s with %d answers", dns.RcodeToString[strictWithApex.Rcode], len(strictWithApex.Answer))
+	}
+	if got := strictWithApex.Answer[0].String(); got != "strict.test.\t300\tIN\tA\t192.0.2.1" {
+		t.Fatalf("unexpected apex answer: %s", got)
+	}
+}
+
 var ctxt context.Context

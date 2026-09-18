@@ -11,7 +11,7 @@ import (
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
-func ptrTo[T any](v T) *T { return &v }
+//go:fix inline
 
 // dump renders an object for a failure message. %+v prints an aliased pointer field as
 // an address, which hides the value that actually differs, so render as JSON instead.
@@ -76,7 +76,7 @@ func deepCopyCases() []struct {
 			Ports: []api.ServicePort{{
 				Name: "http", Protocol: api.ProtocolTCP, Port: 80,
 				// A pointer field, so a slice copy alone leaves it shared.
-				AppProtocol: ptrTo("kubernetes.io/h2c"),
+				AppProtocol: new("kubernetes.io/h2c"),
 			}},
 			ExternalIPs: []string{"1.2.3.4"},
 		}},
@@ -89,7 +89,7 @@ func deepCopyCases() []struct {
 			Type:       mcs.ClusterSetIP,
 			Ports: []mcs.ServicePort{{
 				Name: "http", Protocol: api.ProtocolTCP, Port: 80,
-				AppProtocol: ptrTo("kubernetes.io/h2c"),
+				AppProtocol: new("kubernetes.io/h2c"),
 			}},
 		}},
 		{"Namespace", &Namespace{Version: "1", Name: "testns"}},

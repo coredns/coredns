@@ -56,6 +56,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/secondary"
 	_ "github.com/coredns/coredns/plugin/shed"
 	_ "github.com/coredns/coredns/plugin/sign"
+	_ "github.com/coredns/coredns/plugin/siit"
 	_ "github.com/coredns/coredns/plugin/template"
 	_ "github.com/coredns/coredns/plugin/timeouts"
 	_ "github.com/coredns/coredns/plugin/tls"

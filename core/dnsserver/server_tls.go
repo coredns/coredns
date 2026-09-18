@@ -3,7 +3,6 @@ package dnsserver
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"time"
 
@@ -54,7 +53,8 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 	// Only fill out the TCP server for this one.
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp-tls",
-		TsigSecret:    s.tsigSecret,
+		TsigSecret:    s.TsigSecret,
+		MsgAcceptFunc: s.msgAcceptFunc(),
 		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
@@ -99,6 +99,6 @@ func (s *ServerTLS) OnStartupComplete() {
 
 	out := startUpZones(transport.TLS+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }

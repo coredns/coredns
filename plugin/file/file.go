@@ -192,8 +192,11 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 
 	seenSOA := false
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if !seenSOA {
-			if s, ok := rr.(*dns.SOA); ok {
+		if s, ok := rr.(*dns.SOA); ok {
+			if dns.CanonicalName(canonicalEscape(s.Hdr.Name)) != dns.CanonicalName(canonicalEscape(z.origin)) {
+				return nil, fmt.Errorf("file %q has SOA owner %s that does not match origin %s", fileName, s.Hdr.Name, z.origin)
+			}
+			if !seenSOA {
 				seenSOA = true
 
 				// -1 is valid serial is we failed to load the file on startup.

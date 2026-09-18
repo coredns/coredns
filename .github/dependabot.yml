@@ -14,6 +14,10 @@ updates:
       go.etcd.io:
         patterns:
           - "go.etcd.io/etcd/*"
+      aws:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2"
+          - "github.com/aws/aws-sdk-go-v2/*"
     open-pull-requests-limit: 20
 
   - package-ecosystem: "github-actions"

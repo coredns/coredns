@@ -57,7 +57,7 @@ out-of-tree plugins.
 To compile CoreDNS, we assume you have a working Go setup. See various tutorials if you don’t have
 that already configured.
 
-First, make sure your golang version is 1.25.0 or higher as `go mod` support and other api is needed.
+First, make sure your golang version is 1.26.0 or higher as `go mod` support and other api is needed.
 See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
 Then, check out the project and run `make` to compile the binary:
 
@@ -107,6 +107,32 @@ $ dig @127.0.0.1 google.com
 ```
 
 ## Examples
+
+### JSON Logging
+
+Start CoreDNS with `-log-format=json` to emit operational logs as single-line JSON.
+The default `-log-format=text` retains the existing text output. The format applies
+to the whole process, including all server blocks, and persists across Corefile
+reloads. Query logging still requires the `log` plugin.
+
+```sh
+./coredns -conf Corefile -log-format=json
+```
+
+Records contain `time` (RFC3339 with fractional seconds), `level` (`DEBUG`, `INFO`,
+`WARN`, `ERROR`, or `FATAL`), and `msg`. Named plugin loggers also include `plugin`.
+Messages, including embedded newlines and DNS escapes, are JSON-encoded rather
+than concatenated into JSON templates. Debug output still requires `debug`.
+See the [log plugin](plugin/log/README.md#json-output) for typed query fields.
+
+The standard library's default logger (including Caddy's lifecycle messages) is
+routed through the same backend at `INFO` level; its original message is retained
+without guessing severity or fields from text. Independently configured third-party
+loggers, direct stdout/stderr writes, and Go runtime diagnostics are not intercepted.
+Command-line help, flag parsing errors, `-version`, and `-plugins` remain human-readable.
+Normal startup, Corefile errors, and query/error plugin logs use the selected format.
+
+### Querying CoreDNS
 
 When starting CoreDNS without any configuration, it loads the
 [*whoami*](https://coredns.io/plugins/whoami) and [*log*](https://coredns.io/plugins/log) plugins

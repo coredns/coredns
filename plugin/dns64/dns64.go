@@ -6,6 +6,7 @@ package dns64
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -121,6 +122,9 @@ func (d *DNS64) DoDNS64(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, o
 	resp, err := d.Upstream.Lookup(ctx, req, req.Name(), dns.TypeA)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("dns64: upstream returned no response")
 	}
 	out := d.Synthesize(r, origResponse, resp)
 	return out, nil

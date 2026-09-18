@@ -35,37 +35,26 @@ type Azure struct {
 	upstream      *upstream.Upstream
 	zMu           sync.RWMutex
 	zones         zones
+	updates       sync.WaitGroup
 
 	Next plugin.Handler
 	Fall fall.F
 }
 
-// New validates the input DNS zones and initializes the Azure struct.
+// New initializes the configured DNS zones without contacting Azure.
 func New(_ctx context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, 0, len(keys))
-	var private bool
-
 	for resourceGroup, znames := range keys {
 		for _, name := range znames {
-			switch accessMap[resourceGroup+name] {
-			case "public":
-				if _, err := publicClient.ListAllByDNSZone(context.Background(), resourceGroup, name, nil, ""); err != nil {
-					return nil, err
-				}
-				private = false
-			case "private":
-				if _, err := privateClient.ListComplete(context.Background(), resourceGroup, name, nil, ""); err != nil {
-					return nil, err
-				}
-				private = true
-			}
-
 			fqdn := dns.Fqdn(name)
 			if _, ok := zones[fqdn]; !ok {
 				names = append(names, fqdn)
 			}
-			zones[fqdn] = append(zones[fqdn], &zone{id: resourceGroup, zone: name, private: private, z: file.NewZone(fqdn, "")})
+			zones[fqdn] = append(zones[fqdn], &zone{
+				id: resourceGroup, zone: name, private: accessMap[resourceGroup+name] == "private",
+				z: file.NewZone(fqdn, ""),
+			})
 		}
 	}
 
@@ -78,61 +67,91 @@ func New(_ctx context.Context, publicClient publicdns.RecordSetsClient, privateC
 	}, nil
 }
 
-// Run updates the zone from azure.
+// Run starts initial and periodic zone synchronization in the background.
 func (h *Azure) Run(ctx context.Context) error {
-	if err := h.updateZones(ctx); err != nil {
-		return err
-	}
-	go func() {
-		delay := 1 * time.Minute
-		timer := time.NewTimer(delay)
-		defer timer.Stop()
-		for {
-			timer.Reset(delay)
-			select {
-			case <-ctx.Done():
-				log.Debugf("Breaking out of Azure update loop for %v: %v", h.zoneNames, ctx.Err())
-				return
-			case <-timer.C:
-				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil {
-					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
-				}
-			}
-		}
-	}()
+	h.updates.Go(func() {
+		h.run(ctx, time.Minute)
+	})
 	return nil
 }
 
+func (h *Azure) run(ctx context.Context, interval time.Duration) {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+			if ctx.Err() != nil {
+				return
+			}
+			if err := h.updateZones(ctx); err != nil && ctx.Err() == nil {
+				log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
+			}
+			timer.Reset(interval)
+		}
+	}
+}
+
 func (h *Azure) updateZones(ctx context.Context) error {
-	var err error
-	var publicSet publicdns.RecordSetListResultPage
-	var privateSet privatedns.RecordSetListResultPage
 	errs := make([]string, 0)
 	for zName, z := range h.zones {
-		for i, hostedZone := range z {
-			newZ := file.NewZone(zName, "")
-			if hostedZone.private {
-				for privateSet, err = h.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, ""); privateSet.NotDone(); err = privateSet.NextWithContext(ctx) {
-					updateZoneFromPrivateResourceSet(privateSet, newZ)
-				}
-			} else {
-				for publicSet, err = h.publicClient.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, ""); publicSet.NotDone(); err = publicSet.NextWithContext(ctx) {
-					updateZoneFromPublicResourceSet(publicSet, newZ)
-				}
+		for _, hostedZone := range z {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
-			if err != nil {
-				errs = append(errs, fmt.Sprintf("failed to list resource records for %v from azure: %v", hostedZone.zone, err))
+			if err := h.updateZone(ctx, zName, hostedZone); err != nil {
+				errs = append(errs, fmt.Sprintf("failed to update %s:%s from azure: %v", hostedZone.id, hostedZone.zone, err))
 			}
-			newZ.Upstream = h.upstream
-			h.zMu.Lock()
-			(*z[i]).z = newZ
-			h.zMu.Unlock()
 		}
 	}
 
 	if len(errs) != 0 {
 		return fmt.Errorf("errors updating zones: %v", errs)
 	}
+	return nil
+}
+
+func (h *Azure) updateZone(ctx context.Context, name string, hostedZone *zone) error {
+	// Bound the entire listing, including SDK retries and all pages, so a
+	// failing zone cannot indefinitely prevent other zones from updating.
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	newZ := file.NewZone(name, "")
+	if hostedZone.private {
+		page, err := h.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, "")
+		if err != nil {
+			return err
+		}
+		for page.NotDone() {
+			updateZoneFromPrivateResourceSet(page, newZ)
+			if err := page.NextWithContext(ctx); err != nil {
+				return err
+			}
+		}
+	} else {
+		page, err := h.publicClient.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, "")
+		if err != nil {
+			return err
+		}
+		for page.NotDone() {
+			updateZoneFromPublicResourceSet(page, newZ)
+			if err := page.NextWithContext(ctx); err != nil {
+				return err
+			}
+		}
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if newZ.SOA == nil {
+		return fmt.Errorf("zone has no SOA record")
+	}
+	newZ.Upstream = h.upstream
+	h.zMu.Lock()
+	hostedZone.z = newZ
+	h.zMu.Unlock()
 	return nil
 }
 

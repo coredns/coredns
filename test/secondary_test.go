@@ -212,7 +212,7 @@ func TestSecondaryZoneTransfer(t *testing.T) {
 	// This is now async; we need to wait for it to be transferred.
 	for range 10 {
 		r, _ = dns.Exchange(m, udp)
-		if len(r.Answer) != 0 {
+		if r != nil && len(r.Answer) != 0 {
 			break
 		}
 		time.Sleep(100 * time.Microsecond)
@@ -424,7 +424,7 @@ func TestSecondaryZoneNotify(t *testing.T) {
 	// This is now async; we need to wait for it to be transferred.
 	for range 10 {
 		r, _ = dns.Exchange(m, udp)
-		if len(r.Answer) != 0 {
+		if r != nil && len(r.Answer) != 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -436,7 +436,7 @@ func TestSecondaryZoneNotify(t *testing.T) {
 	m = new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
 	r, _ = dns.Exchange(m, udp)
-	if len(r.Answer) != 0 {
+	if r != nil && len(r.Answer) != 0 {
 		t.Fatalf("Expected no answer section, got %d answers", len(r.Answer))
 	}
 
@@ -457,7 +457,7 @@ www    IN A    127.0.0.1
 	// This is now async; we need to wait for it to be transferred.
 	for range 10 {
 		r, _ = dns.Exchange(m, udp)
-		if len(r.Answer) != 0 {
+		if r != nil && len(r.Answer) != 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
