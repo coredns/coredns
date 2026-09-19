@@ -2,7 +2,7 @@
 
 ## Name
 
-*multisocket* - allows to start multiple servers that will listen on one port.
+*multisocket* - allows starting multiple servers that will listen on one port.
 
 ## Description
 
