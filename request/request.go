@@ -3,6 +3,7 @@ package request
 
 import (
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/edns"
@@ -40,15 +41,44 @@ func (r *Request) NewWithQuestion(name string, typ uint16) Request {
 	return req1
 }
 
+// hostFromIP formats ip and zone the way net.SplitHostPort would return them for
+// the address they came from, so the type assertion fast paths below stay a pure
+// optimization.
+//
+// Two details make this more than ip.String(). A zone is part of the host, and
+// dropping it would merge fe80::1%eth0 and fe80::1%eth1 into one address for
+// everything that matches on IP, such as acl and metrics labels. And an address
+// with no IP prints as the empty string, where ip.String() would give "<nil>".
+func hostFromIP(ip net.IP, zone string) string {
+	host := ""
+	if len(ip) != 0 {
+		host = ip.String()
+	}
+	if zone != "" {
+		return host + "%" + zone
+	}
+	return host
+}
+
 // IP gets the (remote) IP address of the client making the request.
 func (r *Request) IP() string {
 	if r.ip != "" {
 		return r.ip
 	}
 
-	ip, _, err := net.SplitHostPort(r.W.RemoteAddr().String())
+	addr := r.W.RemoteAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.ip = hostFromIP(udp.IP, udp.Zone)
+		return r.ip
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.ip = hostFromIP(tcp.IP, tcp.Zone)
+		return r.ip
+	}
+
+	ip, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
-		r.ip = r.W.RemoteAddr().String()
+		r.ip = addr.String()
 		return r.ip
 	}
 
@@ -62,9 +92,19 @@ func (r *Request) LocalIP() string {
 		return r.localIP
 	}
 
-	ip, _, err := net.SplitHostPort(r.W.LocalAddr().String())
+	addr := r.W.LocalAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.localIP = hostFromIP(udp.IP, udp.Zone)
+		return r.localIP
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.localIP = hostFromIP(tcp.IP, tcp.Zone)
+		return r.localIP
+	}
+
+	ip, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
-		r.localIP = r.W.LocalAddr().String()
+		r.localIP = addr.String()
 		return r.localIP
 	}
 
@@ -78,7 +118,17 @@ func (r *Request) Port() string {
 		return r.port
 	}
 
-	_, port, err := net.SplitHostPort(r.W.RemoteAddr().String())
+	addr := r.W.RemoteAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.port = strconv.Itoa(udp.Port)
+		return r.port
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.port = strconv.Itoa(tcp.Port)
+		return r.port
+	}
+
+	_, port, err := net.SplitHostPort(addr.String())
 	if err != nil {
 		r.port = "0"
 		return r.port
@@ -94,7 +144,17 @@ func (r *Request) LocalPort() string {
 		return r.localPort
 	}
 
-	_, port, err := net.SplitHostPort(r.W.LocalAddr().String())
+	addr := r.W.LocalAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.localPort = strconv.Itoa(udp.Port)
+		return r.localPort
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.localPort = strconv.Itoa(tcp.Port)
+		return r.localPort
+	}
+
+	_, port, err := net.SplitHostPort(addr.String())
 	if err != nil {
 		r.localPort = "0"
 		return r.localPort
