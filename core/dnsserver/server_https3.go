@@ -77,18 +77,15 @@ func (l *limitQUICListener) Accept(ctx context.Context) (*quic.Conn, error) {
 
 // NewServerHTTPS3 builds the HTTP/3 (DoH3) server.
 func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
+	tlsConfig, err := sharedTLSConfig(addr, group)
+	if err != nil {
+		return nil, err
+	}
 	s, err := NewServer(addr, group)
 	if err != nil {
 		return nil, err
 	}
 
-	// Extract TLS config (CoreDNS guarantees it is consistent)
-	var tlsConfig *tls.Config
-	for _, z := range s.zones {
-		for _, conf := range z {
-			tlsConfig = conf.TLSConfig
-		}
-	}
 	if tlsConfig == nil {
 		return nil, fmt.Errorf("DoH3 requires TLS, no TLS config found")
 	}
