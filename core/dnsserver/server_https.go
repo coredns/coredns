@@ -58,18 +58,13 @@ type HTTPRequestKey struct{}
 
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
-	s, err := NewServer(addr, group)
+	tlsConfig, err := sharedTLSConfig(addr, group)
 	if err != nil {
 		return nil, err
 	}
-	// The *tls* plugin must make sure that multiple conflicting
-	// TLS configuration returns an error: it can only be specified once.
-	var tlsConfig *tls.Config
-	for _, z := range s.zones {
-		for _, conf := range z {
-			// Should we error if some configs *don't* have TLS?
-			tlsConfig = conf.TLSConfig
-		}
+	s, err := NewServer(addr, group)
+	if err != nil {
+		return nil, err
 	}
 
 	// http/2 is recommended when using DoH. We need to specify it in next protos
