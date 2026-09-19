@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.19.2
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.69.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.48.0
-	github.com/coredns/caddy v1.1.4-0.20250930002214-15135a999495
+	github.com/coredns/caddy v1.1.4
 	github.com/dnstap/golang-dnstap v0.4.0
 	github.com/expr-lang/expr v1.17.8
 	github.com/farsightsec/golang-framestream v0.3.0
