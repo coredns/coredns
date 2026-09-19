@@ -147,6 +147,13 @@ func fileParse(c *caddy.Controller) (Zones, fall.F, error) {
 			z[origins[i]].ReloadInterval = reload
 			z[origins[i]].Upstream = upstream.New()
 			z[origins[i]].ReloadByMtime = reload_by_mtime
+			if reload_by_mtime {
+				// Parse runs before reload_by_mtime is known, so initialize the
+				// baseline mtime after applying the server block options.
+				if fi, err := os.Stat(z[origins[i]].File()); err == nil {
+					z[origins[i]].file_mtime = fi.ModTime()
+				}
+			}
 		}
 	}
 
