@@ -199,7 +199,21 @@ func startKeaDynUpdate(t *testing.T, executable, dnsAddr, reverseZone string) fu
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(dir, "kea.json")
+	configDir := dir
+	if root := os.Getenv("COREDNS_KEA_CONFIG_DIR"); root != "" {
+		configDir, err = os.MkdirTemp(root, "coredns-ddns-") //nolint:usetesting // Must use a path permitted by the distribution's AppArmor profile.
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := os.RemoveAll(configDir); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	// Distribution AppArmor profiles may require this config basename and
+	// fixed runtime directories. CI provisions them without changing the profile.
+	path := filepath.Join(configDir, "kea-dhcp-ddns.conf")
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +223,12 @@ func startKeaDynUpdate(t *testing.T, executable, dnsAddr, reverseZone string) fu
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	cmd := exec.CommandContext(ctx, executable, "-c", path)
-	cmd.Env = append(os.Environ(), "KEA_PIDFILE_DIR="+dir, "KEA_LOCKFILE_DIR="+dir)
+	cmd.Env = os.Environ()
+	for _, name := range []string{"KEA_PIDFILE_DIR", "KEA_LOCKFILE_DIR"} {
+		if os.Getenv(name) == "" {
+			cmd.Env = append(cmd.Env, name+"="+dir)
+		}
+	}
 	cmd.Stdout, cmd.Stderr = logfile, logfile
 	if err := cmd.Start(); err != nil {
 		cancel()
@@ -223,8 +242,15 @@ func startKeaDynUpdate(t *testing.T, executable, dnsAddr, reverseZone string) fu
 		close(done)
 	}()
 	t.Cleanup(func() {
+		// Graceful shutdown removes the PID file before the next lifecycle case.
+		_ = cmd.Process.Signal(os.Interrupt)
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			cancel()
+			<-done
+		}
 		cancel()
-		<-done
 		logfile.Close()
 		if t.Failed() {
 			out, _ := os.ReadFile(logfile.Name())

@@ -180,6 +180,23 @@ func TestDynUpdateFailedStartupReleasesDatabase(t *testing.T) {
 	exchangeDynUpdate(t, &dns.Client{Net: "udp"}, udp, query, dns.RcodeSuccess)
 }
 
+func TestDynUpdateRejectsDuplicateDirective(t *testing.T) {
+	corefile, seed := persistentDynUpdateConfig(t, "udp")
+	duplicate := fmt.Sprintf(`
+		dynupdate example.org. {
+			file "%s"
+			allow %s restricted.example.org. TXT
+		}
+`, filepath.ToSlash(seed), dynUpdateKey)
+	corefile = strings.Replace(corefile, "\n\t\tcache", duplicate+"\n\t\tcache", 1)
+	if s, err := CoreDNSServer(corefile); err == nil {
+		stopDynUpdateServer(t, s)
+		t.Fatal("duplicate dynupdate directive was silently accepted")
+	} else if !strings.Contains(err.Error(), "can only be used once") {
+		t.Fatalf("unexpected startup failure: %v", err)
+	}
+}
+
 func TestDynUpdateCorefileReload(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Caddy listener file-descriptor inheritance is unavailable on Windows")

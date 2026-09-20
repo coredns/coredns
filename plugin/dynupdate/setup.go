@@ -122,6 +122,9 @@ func parse(c *caddy.Controller) (*DynUpdate, error) {
 		}
 	}
 
+	if c.Next() {
+		return nil, plugin.ErrOnce
+	}
 	if !seedDefined {
 		return nil, c.Err("file is required")
 	}

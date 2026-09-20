@@ -8,8 +8,10 @@ explicit, opt-in authoritative zone.
 ## Description
 
 The *dynupdate* plugin serves one writable authoritative zone through the
-normal CoreDNS authoritative file implementation. An RFC 1035-style zone file
-provides the initial data and is never modified. Configure `database` for a
+normal CoreDNS authoritative file implementation and may be used only once
+per server block. Use separate server blocks for separate writable zones.
+An RFC 1035-style zone file provides the initial data and is never modified.
+Configure `database` for a
 persistent primary: a successful UPDATE is committed to the local database
 before its new snapshot becomes visible or the success response is sent.
 Without `database`, updates are in memory only and are lost on restart or
@@ -218,6 +220,11 @@ process and verifies IPv4 and IPv6 forward/reverse creation, renewal,
 ownership conflicts, removal, and name reuse. It is not a DHCP address
 allocation, lease-expiration, or physical-network test. Missing client
 binaries skip the corresponding local tests; Linux CI installs both.
+Distribution confinement may require approved paths for the Kea test
+process. `COREDNS_KEA_CONFIG_DIR`, `KEA_PIDFILE_DIR`, and `KEA_LOCKFILE_DIR`
+can select prepared writable directories. Linux CI uses this facility to
+keep Ubuntu's AppArmor policy enabled. Do not point a test at runtime
+directories used by a live Kea service.
 
 The benchmark changes a record in 100-, 1000-, and 10000-record zones,
 with and without synchronous persistence and four concurrent query workers.

@@ -2,6 +2,7 @@ package dynupdate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -618,6 +619,40 @@ func TestParseRejectsUnsafeConfiguration(t *testing.T) {
 	dnsserver.GetConfig(c).Root = dir
 	if _, err := parse(c); err == nil {
 		t.Fatalf("parse accepted a server block with multiple implicit zones")
+	}
+}
+
+func TestParseRejectsDuplicateDirective(t *testing.T) {
+	for _, durable := range []bool{false, true} {
+		t.Run(fmt.Sprintf("durable=%t", durable), func(t *testing.T) {
+			dir := t.TempDir()
+			seed := filepath.Join(dir, "seed.zone")
+			if err := os.WriteFile(seed, []byte("example.org. 60 IN SOA ns.example.org. hostmaster.example.org. 1 60 60 60 60\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			database := ""
+			if durable {
+				database = "database updates.db"
+			}
+			body := fmt.Sprintf(`dynupdate example.org. {
+				file seed.zone
+				%s
+				allow update-key.example.org. * A
+			}
+			dynupdate example.org. {
+				file seed.zone
+				allow update-key.example.org. restricted.example.org. TXT
+			}`, database)
+			c := caddy.NewTestController("dns", body)
+			c.ServerBlockKeys = []string{testZone}
+			dnsserver.GetConfig(c).Root = dir
+			if _, err := parse(c); !errors.Is(err, plugin.ErrOnce) {
+				t.Errorf("duplicate directive: got %v, want %v", err, plugin.ErrOnce)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "updates.db")); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("invalid configuration created a database: %v", err)
+			}
+		})
 	}
 }
 
