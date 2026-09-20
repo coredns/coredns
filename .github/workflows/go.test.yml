@@ -112,11 +112,12 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-      - name: Install nsupdate for DDNS interoperability tests
+      - name: Install clients for DDNS interoperability tests
         run: |
           sudo apt-get update
-          sudo apt-get install -y bind9-dnsutils
+          sudo apt-get install -y --no-install-recommends bind9-dnsutils kea-dhcp-ddns-server
           nsupdate -V
+          kea-dhcp-ddns -v
 
       - name: Test
         run: |

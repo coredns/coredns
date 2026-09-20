@@ -174,6 +174,62 @@ server block with its own seed, database and least-privilege `allow` rules.
 The DHCP server remains responsible for lease expiry, record cleanup, and
 coordinating its forward and reverse requests.
 
+### DHCP Client Permissions
+
+The required permissions depend on the UPDATE messages sent by the DHCP
+implementation, not just the address records it creates. For example, Kea
+2.0.2 D2 writes DHCID records in both the forward and reverse zones and uses
+an `ANY` deletion when releasing a name. Allowing only A/AAAA or PTR lets
+some steps succeed but refuses later steps. Forward and reverse updates are
+separate transactions: a rejected reverse update does not undo a successful
+forward update.
+
+For a DHCP-managed `host.example.org.` at `192.0.2.10`, the forward-zone
+rule can be:
+
+~~~ text
+allow update-key.example.org. host.example.org. A AAAA DHCID ANY
+~~~
+
+The corresponding rule in `2.0.192.in-addr.arpa.` can be:
+
+~~~ text
+allow update-key.example.org. 10.2.0.192.in-addr.arpa. PTR DHCID ANY
+~~~
+
+`ANY` explicitly permits deleting all RRsets at the authorized name; it
+does not mean only the other types listed in the rule. Do not place unrelated
+static records at those names. Use `*` for the name only when the DHCP
+updater is trusted to manage the entire zone. Keep DHCID conflict resolution
+enabled on the DHCP side; a TSIG key identifies the updater, not the client
+that owns a lease.
+
+### Interoperability And Sizing
+
+With BIND `nsupdate` and Kea `kea-dhcp-ddns` installed, run:
+
+~~~ sh
+go test -race ./test -run '^TestDynUpdate' -count=3
+go test ./plugin/dynupdate -run '^$' -bench '^BenchmarkUpdate$' -benchmem -count=3
+~~~
+
+The Kea test supplies synthetic lease-change notifications to a real D2
+process and verifies IPv4 and IPv6 forward/reverse creation, renewal,
+ownership conflicts, removal, and name reuse. It is not a DHCP address
+allocation, lease-expiration, or physical-network test. Missing client
+binaries skip the corresponding local tests; Linux CI installs both.
+
+The benchmark changes a record in 100-, 1000-, and 10000-record zones,
+with and without synchronous persistence and four concurrent query workers.
+`ns/op` measures one protocol-engine transaction, excluding transport and
+TSIG verification, while the query metrics report concurrent query latency
+and throughput. Allocations include the query workers when
+enabled. Measure on the filesystem and hardware used for deployment:
+updates rebuild the entire zone and queries can wait for the update and
+disk commit. The record limits bound accepted data, not update latency or
+peak process memory. This backend is intended for small, infrequently
+updated zones, not a high-throughput DHCP service.
+
 ## See Also
 
 See the *file*, *transfer*, and *tsig* plugins for authoritative data,
