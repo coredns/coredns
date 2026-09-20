@@ -35,7 +35,7 @@ func TestServerTLSSetsTsigSecret(t *testing.T) {
 		t.Fatalf("NewServerTLS() failed: %v", err)
 	}
 
-	server.tsigSecret = map[string]string{
+	server.TsigSecret = map[string]string{
 		"test.": "abcd",
 	}
 

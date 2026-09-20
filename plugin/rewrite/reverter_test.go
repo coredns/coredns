@@ -370,3 +370,22 @@ func noQuestionMsgPrinter(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (
 
 	return dns.RcodeSuccess, nil
 }
+
+func TestResponseReverterWriteMsgNilResponse(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("service.example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	rw := NewResponseReverter(rec, req, NewRevertPolicy(false, false))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("ResponseReverter.WriteMsg panicked on nil response: %v", r)
+		}
+	}()
+
+	err := rw.WriteMsg(nil)
+	if err == nil {
+		t.Error("Expected error when passing nil response to WriteMsg, got nil")
+	}
+}

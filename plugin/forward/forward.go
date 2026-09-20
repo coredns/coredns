@@ -1,7 +1,6 @@
-// Package forward implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
-// client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
-// 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses
-// inband healthchecking.
+// Package forward implements a DNS forwarding proxy. It reuses upstream
+// connections across DNS, DoT, DoH, and DoQ transports and uses in-band
+// health checking.
 package forward
 
 import (
@@ -142,6 +141,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		maxConnectAttempts = uint64(defaultConnectAttemptsPerUpstream) * uint64(len(list))
 	}
 	connectAttempts := uint64(0)
+	tlsDeadline := deadline
+	if d, ok := ctx.Deadline(); ok && d.Before(tlsDeadline) {
+		tlsDeadline = d
+	}
+	tlsConnectTimeout := time.Until(tlsDeadline)
+	if maxConnectAttempts != 1 {
+		// Reserve time for a fresh connection if the first TLS handshake stalls.
+		tlsConnectTimeout /= 2
+	}
 
 	for time.Now().Before(deadline) && ctx.Err() == nil && (maxConnectAttempts == 0 || connectAttempts < maxConnectAttempts) {
 		if i >= len(list) {
@@ -188,9 +196,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		opts := f.opts
 
 		for {
+			opts.TLSConnectDeadline = time.Now().Add(tlsConnectTimeout)
+			if opts.TLSConnectDeadline.After(tlsDeadline) {
+				opts.TLSConnectDeadline = tlsDeadline
+			}
 			ret, localAddr, upstreamProto, err = proxy.Connect(ctx, state, opts)
 
-			if err == proxyPkg.ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
+			if err == proxyPkg.ErrCachedClosed { // The peer closed a cached TCP or QUIC connection before the query was sent.
 				continue
 			}
 			// Retry with TCP if truncated and prefer_udp configured.
@@ -214,6 +226,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		if err != nil {
 			if errors.Is(err, proxyPkg.ErrInvalidRequest) {
 				return dns.RcodeFormatError, err
+			}
+			if errors.Is(err, proxyPkg.ErrUnsupportedRequest) {
+				return dns.RcodeNotImplemented, err
 			}
 
 			// Kick off health check to see if *our* upstream is broken.

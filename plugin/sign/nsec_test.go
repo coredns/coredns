@@ -10,11 +10,12 @@ import (
 func TestNames(t *testing.T) {
 	f, err := os.Open("testdata/db.miek.nl_ns")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
-	z, err := file.Parse(f, "db.miek.nl_ns", "miek.nl", 0)
+	defer f.Close()
+	z, err := file.Parse(f, "miek.nl.", "testdata/db.miek.nl_ns", 0)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	names := names("miek.nl.", z)

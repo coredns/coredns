@@ -107,6 +107,30 @@ func TestRequestSizeAndDo(t *testing.T) {
 	}
 }
 
+func TestRequestSizeAndDoDoesNotEchoEDNSOptions(t *testing.T) {
+	st := testRequest()
+	requestOPT := st.Req.IsEdns0()
+	requestOPT.Option = []dns.EDNS0{
+		&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: "request-nsid"},
+		&dns.EDNS0_EXPIRE{Code: dns.EDNS0EXPIRE, Expire: 60},
+		&dns.EDNS0_COOKIE{Code: dns.EDNS0COOKIE, Cookie: "abcdef0123456789"},
+		&dns.EDNS0_TCP_KEEPALIVE{Code: dns.EDNS0TCPKEEPALIVE, Timeout: 10},
+		&dns.EDNS0_PADDING{Padding: []byte{0, 0, 0, 0}},
+	}
+
+	response := new(dns.Msg)
+	if !st.SizeAndDo(response) {
+		t.Fatal("Expected SizeAndDo to add an OPT record")
+	}
+	responseOPT := response.IsEdns0()
+	if responseOPT == nil {
+		t.Fatal("Expected response to contain an OPT record")
+	}
+	if len(responseOPT.Option) != 0 {
+		t.Errorf("Expected request EDNS options to be ignored, got %v", responseOPT.Option)
+	}
+}
+
 // TestRequestNewWithQuestion tests the NewWithQuestion method
 func TestRequestNewWithQuestion(t *testing.T) {
 	st := testRequest()

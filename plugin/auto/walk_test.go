@@ -49,6 +49,36 @@ func TestWalk(t *testing.T) {
 	}
 }
 
+func TestWalkSOAOrigin(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "db.example.org")
+	invalid := strings.Replace(zoneContent, "@", "example.net.", 1)
+	if err := os.WriteFile(path, []byte(invalid), 0644); err != nil {
+		t.Fatal(err)
+	}
+	a := Auto{
+		loader: loader{directory: dir, re: regexp.MustCompile(`^db\.(.*)$`), template: `${1}`},
+		Zones:  &Zones{},
+	}
+	if err := a.Walk(); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Names()) != 0 {
+		t.Fatal("loaded a zone with a mismatched SOA owner")
+	}
+
+	if err := os.WriteFile(path, []byte(zoneContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Walk(); err != nil {
+		t.Fatal(err)
+	}
+	z := a.Zones.Zones("example.org.")
+	if z == nil || z.SOA == nil || z.SOA.Hdr.Name != "example.org." {
+		t.Fatal("did not load the corrected zone")
+	}
+}
+
 func TestWalkSymlinkedDirectory(t *testing.T) {
 	t.Parallel()
 	tempdir, err := createFiles(t)

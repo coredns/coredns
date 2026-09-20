@@ -12,11 +12,15 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
 func init() {
+	if err := dnsserver.Register(); err != nil {
+		panic(err)
+	}
 	caddy.DefaultConfigFile = "Corefile"
 	caddy.Quiet = true // don't show init stuff from caddy
 	setVersion()
@@ -26,6 +30,7 @@ func init() {
 	flag.StringVar(&caddy.PidFile, "pidfile", "", "Path to write pid file")
 	flag.BoolVar(&version, "version", false, "Show version")
 	flag.BoolVar(&dnsserver.Quiet, "quiet", false, "Quiet mode (no initialization output)")
+	flag.StringVar(&logFormat, "log-format", "text", "Log format (text or json)")
 
 	caddy.RegisterCaddyfileLoader("flag", caddy.LoaderFunc(confLoader))
 	caddy.SetDefaultCaddyfileLoader("default", caddy.LoaderFunc(defaultLoader))
@@ -41,13 +46,20 @@ func init() {
 func Run() {
 	caddy.TrapSignals()
 	flag.Parse()
+	if logFormat != "text" {
+		if err := clog.Configure(logFormat, os.Stdout); err != nil {
+			mustLogFatal(err)
+		}
+	}
 
 	if len(flag.Args()) > 0 {
 		mustLogFatal(fmt.Errorf("extra command line arguments: %s", flag.Args()))
 	}
 
-	log.SetOutput(os.Stdout)
-	log.SetFlags(LogFlags)
+	clog.SetOutput(os.Stdout)
+	if !clog.IsJSON() {
+		log.SetFlags(LogFlags)
+	}
 
 	if version {
 		showVersion()
@@ -60,7 +72,7 @@ func Run() {
 
 	_, err := maxprocs.Set(maxprocs.Logger(log.Printf))
 	if err != nil {
-		log.Println("[WARNING] Failed to set GOMAXPROCS:", err)
+		clog.Warningf("Failed to set GOMAXPROCS: %v", err)
 	}
 
 	// Get Corefile input
@@ -76,7 +88,14 @@ func Run() {
 	}
 
 	if !dnsserver.Quiet {
-		showVersion()
+		if clog.IsJSON() {
+			clog.Info(strings.TrimSuffix(versionString()+releaseString(), "\n"))
+			if devBuild && gitShortStat != "" {
+				clog.Infof("%s\n%s", gitShortStat, gitFilesModified)
+			}
+		} else {
+			showVersion()
+		}
 	}
 
 	// Twiddle your thumbs
@@ -91,7 +110,10 @@ func Run() {
 // log and exits.
 func mustLogFatal(args ...any) {
 	if !caddy.IsUpgrade() {
-		log.SetOutput(os.Stderr)
+		clog.SetOutput(os.Stderr)
+	}
+	if clog.IsJSON() {
+		clog.Fatal(args...)
 	}
 	log.Fatal(args...)
 }
@@ -173,9 +195,10 @@ func setVersion() {
 
 // Flags that control program flow or startup
 var (
-	conf    string
-	version bool
-	plugins bool
+	conf      string
+	version   bool
+	plugins   bool
+	logFormat string
 
 	// LogFlags are initially set to 0 for no extra output
 	LogFlags int

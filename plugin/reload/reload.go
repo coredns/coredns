@@ -22,10 +22,29 @@ const (
 )
 
 type reload struct {
-	dur  time.Duration
-	u    int
-	mtx  sync.RWMutex
-	quit chan bool
+	dur          time.Duration
+	u            int
+	mtx          sync.RWMutex
+	quit         chan struct{}
+	shutdownOnce sync.Once
+}
+
+func newReload() *reload {
+	return &reload{dur: defaultInterval, quit: make(chan struct{})}
+}
+
+func (r *reload) shutdown() error {
+	r.shutdownOnce.Do(func() {
+		close(r.quit)
+	})
+	return nil
+}
+
+func reloadForInstance(instance *caddy.Instance) *reload {
+	instance.StorageMu.RLock()
+	defer instance.StorageMu.RUnlock()
+	state, _ := instance.Storage[reloadStorageKey{}].(*reload)
+	return state
 }
 
 func (r *reload) setUsage(u int) {
@@ -64,15 +83,13 @@ func hook(event caddy.EventName, info any) error {
 	if event != caddy.InstanceStartupEvent {
 		return nil
 	}
-	// if reload is removed from the Corefile, then the hook
-	// is still registered but setup is never called again
-	// so we need a flag to tell us not to reload
-	if r.usage() == unused {
-		return nil
-	}
 
 	// this should be an instance. ok to panic if not
 	instance := info.(*caddy.Instance)
+	r := reloadForInstance(instance)
+	if r == nil || r.usage() == unused {
+		return nil
+	}
 	parsedCorefile, err := parse(instance.Caddyfile())
 	if err != nil {
 		return err
@@ -80,9 +97,11 @@ func hook(event caddy.EventName, info any) error {
 
 	sha512sum := sha512.Sum512(parsedCorefile)
 	log.Infof("Running configuration SHA512 = %x\n", sha512sum)
+	quit := r.quit
+	interval := r.interval()
 
 	go func() {
-		tick := time.NewTicker(r.interval())
+		tick := time.NewTicker(interval)
 		defer tick.Stop()
 
 		for {
@@ -106,7 +125,7 @@ func hook(event caddy.EventName, info any) error {
 					// change status of usage will be reset in setup if the plugin appears in config file
 					r.setUsage(maybeUsed)
 					// If shutdown is in progress, avoid attempting a restart.
-					if shutdownRequested(r.quit) {
+					if shutdownRequested(quit) {
 						return
 					}
 					_, err := instance.Restart(corefile)
@@ -122,7 +141,7 @@ func hook(event caddy.EventName, info any) error {
 					}
 					return
 				}
-			case <-r.quit:
+			case <-quit:
 				return
 			}
 		}
@@ -133,7 +152,7 @@ func hook(event caddy.EventName, info any) error {
 
 // shutdownRequested reports whether a shutdown has been requested via quit channel.
 // helps with unit testing of the shutdown gate logic.
-func shutdownRequested(quit <-chan bool) bool {
+func shutdownRequested(quit <-chan struct{}) bool {
 	select {
 	case <-quit:
 		return true

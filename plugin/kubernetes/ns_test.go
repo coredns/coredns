@@ -12,7 +12,29 @@ import (
 	api "k8s.io/api/core/v1"
 )
 
-type APIConnTest struct{}
+type APIConnTest struct {
+	services []*object.Service
+}
+
+func newAPIConnTest() *APIConnTest {
+	return &APIConnTest{services: []*object.Service{
+		{
+			Name:       "dns-service",
+			Namespace:  "kube-system",
+			ClusterIPs: []string{"10.0.0.111"},
+		},
+		{
+			Name:       "hdls-dns-service",
+			Namespace:  "kube-system",
+			ClusterIPs: []string{api.ClusterIPNone},
+		},
+		{
+			Name:       "dns6-service",
+			Namespace:  "kube-system",
+			ClusterIPs: []string{"10::111"},
+		},
+	}}
+}
 
 func (APIConnTest) HasSynced() bool                                  { return true }
 func (APIConnTest) Run()                                             {}
@@ -39,26 +61,8 @@ func (a APIConnTest) SvcIndex(s string) []*object.Service {
 	return nil
 }
 
-var svcs = []*object.Service{
-	{
-		Name:       "dns-service",
-		Namespace:  "kube-system",
-		ClusterIPs: []string{"10.0.0.111"},
-	},
-	{
-		Name:       "hdls-dns-service",
-		Namespace:  "kube-system",
-		ClusterIPs: []string{api.ClusterIPNone},
-	},
-	{
-		Name:       "dns6-service",
-		Namespace:  "kube-system",
-		ClusterIPs: []string{"10::111"},
-	},
-}
-
-func (APIConnTest) ServiceList() []*object.Service {
-	return svcs
+func (a APIConnTest) ServiceList() []*object.Service {
+	return a.services
 }
 
 func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
@@ -104,7 +108,7 @@ func (APIConnTest) GetNamespaceByName(_name string) (*object.Namespace, error) {
 
 func TestNsAddrs(t *testing.T) {
 	k := New([]string{"inter.webs.test."})
-	k.APIConn = &APIConnTest{}
+	k.APIConn = newAPIConnTest()
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
 	cdrs := k.nsAddrs(false, false, k.Zones[0])
@@ -143,7 +147,7 @@ func TestNsAddrs(t *testing.T) {
 
 func TestNsAddrsExternalHeadless(t *testing.T) {
 	k := New([]string{"example.com."})
-	k.APIConn = &APIConnTest{}
+	k.APIConn = newAPIConnTest()
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
 	// there are only headless services
@@ -166,7 +170,8 @@ func TestNsAddrsExternalHeadless(t *testing.T) {
 
 func TestNsAddrsExternal(t *testing.T) {
 	k := New([]string{"example.com."})
-	k.APIConn = &APIConnTest{}
+	apiConn := newAPIConnTest()
+	k.APIConn = apiConn
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
 	// initially no services have an external IP ...
@@ -177,7 +182,7 @@ func TestNsAddrsExternal(t *testing.T) {
 	}
 
 	// Add an external IP to one of the services ...
-	svcs[0].ExternalIPs = []string{"1.2.3.4"}
+	apiConn.services[0].ExternalIPs = []string{"1.2.3.4"}
 	cdrs = k.nsAddrs(true, false, k.Zones[0])
 
 	if len(cdrs) != 1 {
@@ -196,10 +201,11 @@ func TestNsAddrsExternal(t *testing.T) {
 
 func TestNsAddrsExternalWithPreexistingExternalIP(t *testing.T) {
 	k := New([]string{"example.com."})
-	k.APIConn = &APIConnTest{}
+	apiConn := newAPIConnTest()
+	k.APIConn = apiConn
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
-	svcs[0].ExternalIPs = []string{"1.2.3.4"}
+	apiConn.services[0].ExternalIPs = []string{"1.2.3.4"}
 
 	// initially no services have an external IP ...
 	cdrs := k.nsAddrs(true, false, k.Zones[0])

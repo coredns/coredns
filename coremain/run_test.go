@@ -7,10 +7,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/coredns/caddy"
 )
+
+func TestServerTypeRegistration(t *testing.T) {
+	if !slices.Contains(caddy.ListPlugins()["server_types"], serverType) {
+		t.Fatal("coremain must register the DNS server type in both build modes")
+	}
+}
 
 func TestConfLoader(t *testing.T) {
 	tests := []struct {

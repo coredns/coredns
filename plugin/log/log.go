@@ -62,7 +62,11 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		if ok || ok1 {
 			logstr := l.repl.Replace(ctx, state, rrw, rule.Format)
-			clog.Info(logstr)
+			if clog.IsJSON() {
+				logJSON(logstr, state, rrw)
+			} else {
+				clog.Info(logstr)
+			}
 		}
 
 		return rc, err

@@ -247,7 +247,7 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 				return fmt.Errorf("MX Mx should be %q, but is %q", tt.Mx, x.Mx)
 			}
 			if x.Preference != tt.Preference {
-				return fmt.Errorf("MX Preference should be %q, but is %q", tt.Preference, x.Preference)
+				return fmt.Errorf("MX Preference should be %d, but is %d", tt.Preference, x.Preference)
 			}
 		case *dns.NS:
 			tt := section[i].(*dns.NS)

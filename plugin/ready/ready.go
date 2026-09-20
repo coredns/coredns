@@ -80,10 +80,12 @@ func (rd *ready) onStartup() error {
 
 func (rd *ready) onFinalShutdown() error {
 	rd.Lock()
-	defer rd.Unlock()
 	if !rd.done {
+		rd.Unlock()
 		return nil
 	}
+	rd.done = false
+	rd.Unlock()
 
 	uniqAddr.Unset(rd.Addr)
 
@@ -92,6 +94,5 @@ func (rd *ready) onFinalShutdown() error {
 	if err := rd.srv.Shutdown(ctx); err != nil {
 		log.Infof("Failed to stop ready http server: %s", err)
 	}
-	rd.done = false
 	return nil
 }
