@@ -131,6 +131,12 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		}
 		//  The rcode in the response should be the rcode received from the target lookup. RFC 6604 section 3
 		m.Rcode = dns.RcodeServerFailure
+	case Refused:
+		// Refused can only come from chasing an external CNAME, so the answer
+		// always holds that CNAME. It is returned as-is rather than folded into
+		// NXDOMAIN, because a refusal to answer is not proof that the name does
+		// not exist. RFC 6604 section 3
+		m.Rcode = dns.RcodeRefused
 	}
 
 	w.WriteMsg(m)

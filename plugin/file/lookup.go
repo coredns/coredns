@@ -26,6 +26,9 @@ const (
 	NoData
 	// ServerFailure indicates a server failure during the lookup.
 	ServerFailure
+	// Refused indicates the lookup was refused, i.e. the target is not
+	// served by this process.
+	Refused
 )
 
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
@@ -469,6 +472,9 @@ func delegationFromElem(tr *tree.Tree, elem *tree.Elem, qname string, qtype uint
 }
 
 func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
+	if z.Upstream == nil {
+		return nil, ServerFailure
+	}
 	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
 	if e != nil {
 		return nil, ServerFailure
@@ -481,6 +487,9 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 	}
 	if m.Rcode == dns.RcodeServerFailure {
 		return m.Answer, ServerFailure
+	}
+	if m.Rcode == dns.RcodeRefused {
+		return m.Answer, Refused
 	}
 	if m.Rcode == dns.RcodeSuccess && len(m.Answer) == 0 {
 		return m.Answer, NoData
