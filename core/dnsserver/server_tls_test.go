@@ -78,6 +78,16 @@ func TestNewServerTLSRejectsConflictingSharedTLSConfig(t *testing.T) {
 			wantErr: "server certificates differ",
 		},
 		{
+			name: "dynamic TLS callbacks",
+			first: &tls.Config{
+				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return nil, nil },
+			},
+			second: &tls.Config{
+				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return nil, nil },
+			},
+			wantErr: "dynamic TLS callbacks differ",
+		},
+		{
 			name: "matching policies",
 			first: &tls.Config{
 				Certificates: []tls.Certificate{certificateA},

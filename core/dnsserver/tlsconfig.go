@@ -25,7 +25,7 @@ func sharedTLSConfig(addr string, group []*Config) (*tls.Config, error) {
 		if conf == nil {
 			return nil, fmt.Errorf("nil config for shared listener %s", addr)
 		}
-		if err := compatibleTLSConfig(first.TLSConfig, conf.TLSConfig, sameServerBlock(first, conf)); err != nil {
+		if err := compatibleTLSConfig(first, conf); err != nil {
 			return nil, fmt.Errorf("conflicting TLS configuration for shared listener %s between zones %q and %q: %w", addr, first.Zone, conf.Zone, err)
 		}
 	}
@@ -48,7 +48,9 @@ func sameServerBlock(a, b *Config) bool {
 	return aFirst == bFirst
 }
 
-func compatibleTLSConfig(a, b *tls.Config, sameBlock bool) error {
+func compatibleTLSConfig(aConfig, bConfig *Config) error {
+	a := aConfig.TLSConfig
+	b := bConfig.TLSConfig
 	if a == nil || b == nil {
 		if a == b {
 			return nil
@@ -66,7 +68,12 @@ func compatibleTLSConfig(a, b *tls.Config, sameBlock bool) error {
 		return fmt.Errorf("server certificates differ")
 	}
 
-	if !sameBlock && a != b && (a.GetCertificate != nil || b.GetCertificate != nil ||
+	// Dynamic callbacks cannot be compared directly. Allow them only when the
+	// configs came from the same server block, are the same config object, or a
+	// plugin supplied a trusted identity proving the policies are equivalent.
+	trustedDynamicPolicy := sameServerBlock(aConfig, bConfig) || a == b ||
+		(aConfig.tlsConfigIdentity != nil && aConfig.tlsConfigIdentity == bConfig.tlsConfigIdentity)
+	if !trustedDynamicPolicy && (a.GetCertificate != nil || b.GetCertificate != nil ||
 		a.GetConfigForClient != nil || b.GetConfigForClient != nil ||
 		a.VerifyPeerCertificate != nil || b.VerifyPeerCertificate != nil ||
 		a.VerifyConnection != nil || b.VerifyConnection != nil) {

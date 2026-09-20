@@ -72,6 +72,34 @@ func TestParseACMETLS(t *testing.T) {
 	}
 }
 
+func TestEquivalentACMEConfigsShareTLSListener(t *testing.T) {
+	root := t.TempDir()
+	runtime := newACMERuntime(nil)
+
+	config := func(zone string) *dnsserver.Config {
+		c := caddy.NewTestController("dns", `tls {
+			acme dns.example
+		}`)
+		c.Set(acmeRuntimeStorageKey{}, runtime)
+		cfg := dnsserver.GetConfig(c)
+		cfg.Root = root
+		cfg.Zone = zone
+		if err := setup(c); err != nil {
+			t.Fatalf("setup %s failed: %v", zone, err)
+		}
+		return cfg
+	}
+
+	first := config("a.example.")
+	second := config("b.example.")
+	if first.TLSConfig == second.TLSConfig {
+		t.Fatal("equivalent ACME entries unexpectedly reused the same tls.Config")
+	}
+	if _, err := dnsserver.NewServerTLS("tls://127.0.0.1:0", []*dnsserver.Config{first, second}); err != nil {
+		t.Fatalf("equivalent ACME configs rejected: %v", err)
+	}
+}
+
 func TestACMEDirectiveOrder(t *testing.T) {
 	indexes := make(map[string]int)
 	for i, directive := range dnsserver.Directives {
