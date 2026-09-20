@@ -11,6 +11,10 @@ With *cache* enabled, all records except zone transfers and metadata records wil
 database, etc.) is expensive.
 
 *Cache* will pass DNSSEC (DNSSEC OK; DO) options through the plugin for upstream queries.
+Responses acquired with DO set can also serve clients without DO, with DNSSEC
+authentication records omitted unless explicitly requested. A DO query upgrades
+an entry acquired without DO. Prefetch and stale refresh retain the entry's DO
+setting. Queries with different Checking Disabled (CD) bits remain separate.
 
 This plugin can only be used once per Server Block.
 

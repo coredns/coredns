@@ -28,10 +28,9 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	now := c.now()
 	server := metrics.WithServer(ctx)
 
-	// On cache refresh, we will just use the DO bit from the incoming query for the refresh since we key our cache
-	// with the query DO bit. That means two separate cache items for the query DO bit true or false. In the situation
-	// in which upstream doesn't support DNSSEC, the two cache items will effectively be the same. Regardless, any
-	// DNSSEC RRs in the response are written to cache with the response.
+	// A DO=1 acquisition can also answer DO=0 clients. A DO=0 entry cannot
+	// answer DO=1: that miss upgrades the shared slot without forcing DO on
+	// ordinary misses.
 
 	i := c.getIfNotStale(now, state, server)
 	if i == nil {
@@ -50,7 +49,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			trackRefresh := failureRecheck > 0
 			if !trackRefresh || i.beginRefresh(now, failureRecheck) {
 				refreshState := authenticatedRefreshState(state)
-				crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd}
+				refreshState = dnssecRefreshState(refreshState, i.do)
+				crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd, refreshItem: i}
 				if c.verifyStaleTimeout > 0 {
 					// Background verify: cache the response but do not write to the wire.
 					// On timeout, we serve the stale entry below and let the goroutine continue.
@@ -127,6 +127,8 @@ func (c *Cache) tryPrefetch(ctx context.Context, i *item, server string, req *dn
 		return
 	}
 	cw := newPrefetchResponseWriter(server, req, do, cd, c)
+	cw.refreshItem = i
+	cw.state = dnssecRefreshState(cw.state, i.do)
 	go func() {
 		refreshed := c.doPrefetch(ctx, cw, i, now, stale)
 		i.endRefresh(nowFunc(), failureRecheck, refreshed)
@@ -152,7 +154,7 @@ func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered sofar. See we copy the frequencies info back
 	// into the new item that was stored in the cache.
-	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.state.QClass(), cw.do, cw.cd); i1 != nil {
+	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.state.QClass(), cw.cd); i1 != nil {
 		i1.Reset(now, i.Hits())
 	}
 	return true
@@ -227,12 +229,27 @@ func authenticatedRefreshState(state request.Request) request.Request {
 	return state
 }
 
+// dnssecRefreshState preserves an entry's acquisition capability when an
+// unsigned client triggers refresh. The caller already owns the request copy.
+func dnssecRefreshState(state request.Request, do bool) request.Request {
+	if do {
+		if opt := state.Req.IsEdns0(); opt != nil {
+			opt.SetDo()
+		} else {
+			state.Req.SetEdns0(dns.DefaultMsgSize, true)
+		}
+		// Request caches its EDNS lookup; discard it after changing the OPT.
+		state = request.Request{Req: state.Req, W: state.W}
+	}
+	return state
+}
+
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
 // getIfNotStale returns an item if it exists in the cache and has not expired.
 func (c *Cache) getIfNotStale(now time.Time, state request.Request, server string) *item {
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Req.CheckingDisabled)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
 	if c.preferPositive && c.staleUpTo > 0 {
@@ -278,8 +295,8 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 }
 
 // exists unconditionally returns an item if it exists in the cache.
-func (c *Cache) exists(name string, qtype, qclass uint16, do, cd bool) *item {
-	k := hash(name, qtype, qclass, do, cd)
+func (c *Cache) exists(name string, qtype, qclass uint16, cd bool) *item {
+	k := hash(name, qtype, qclass, cd)
 	if i, ok := c.ncache.Get(k); ok {
 		return i
 	}
