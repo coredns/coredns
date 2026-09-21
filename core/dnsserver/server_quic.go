@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"time"
 
 	"github.com/coredns/coredns/plugin/metrics/vars"
@@ -225,7 +226,7 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 	// server's read timeout (the same deadline used for reading a query on
 	// TCP), so a stalled stream cannot hold a worker forever. A deadline
 	// hit surfaces as a read error handled by the existing error path below,
-	// which closes the connection and frees the worker.
+	// which frees the worker by cancelling just this stream.
 	if s.ReadTimeout != 0 {
 		_ = stream.SetReadDeadline(time.Now().Add(s.ReadTimeout))
 	}
@@ -236,6 +237,23 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 	// the STREAM FIN indicating that there will be no data to read
 	// anymore from this stream.
 	if err != nil && err != io.EOF {
+		if isTransientStreamError(err) {
+			// The server's own read deadline expired, or the peer reset
+			// just this one stream. Neither is a DoQ framing violation by
+			// the peer (RFC 9250 §4.3.3 lists the conditions that require
+			// aborting the connection, and this isn't one of them), so
+			// only this stream is cancelled. In DoQ, a client multiplexes
+			// many independent queries as separate streams on one
+			// connection; tearing down the whole connection here would
+			// spuriously fail every other query in flight on it merely
+			// because one stream was slow or abandoned.
+			stream.CancelRead(quic.StreamErrorCode(DoQCodeProtocolError))
+			stream.CancelWrite(quic.StreamErrorCode(DoQCodeProtocolError))
+			s.countResponse(DoQCodeProtocolError)
+
+			return
+		}
+
 		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
@@ -422,6 +440,27 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	}
 
 	return buf, err
+}
+
+// isTransientStreamError reports whether err reflects a condition scoped to
+// a single QUIC stream — the server's own read deadline expiring, or the
+// peer resetting just that stream — rather than a DoQ message-framing
+// violation by the peer. RFC 9250 §4.3.3 requires the latter to abort the
+// whole connection; the former must not, since DoQ multiplexes many
+// independent queries as separate streams on one connection.
+//
+// A deadline timeout is identified specifically via os.ErrDeadlineExceeded
+// (what stream.SetReadDeadline produces) rather than the broader net.Error
+// Timeout() check, because connection-level failures such as
+// quic.IdleTimeoutError also report Timeout() == true but must still take
+// the existing connection-closing path.
+func isTransientStreamError(err error) bool {
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return true
+	}
+
+	var streamErr *quic.StreamError
+	return errors.As(err, &streamErr)
 }
 
 // isExpectedErr returns true if err is an expected error, likely related to
