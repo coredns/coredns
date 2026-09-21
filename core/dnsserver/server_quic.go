@@ -238,18 +238,11 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 	// anymore from this stream.
 	if err != nil && err != io.EOF {
 		if isTransientStreamError(err) {
-			// The server's own read deadline expired, or the peer reset
-			// just this one stream. Neither is a DoQ framing violation by
-			// the peer (RFC 9250 §4.3.3 lists the conditions that require
-			// aborting the connection, and this isn't one of them), so
-			// only this stream is cancelled. In DoQ, a client multiplexes
-			// many independent queries as separate streams on one
-			// connection; tearing down the whole connection here would
-			// spuriously fail every other query in flight on it merely
-			// because one stream was slow or abandoned.
-			stream.CancelRead(quic.StreamErrorCode(DoQCodeProtocolError))
-			stream.CancelWrite(quic.StreamErrorCode(DoQCodeProtocolError))
-			s.countResponse(DoQCodeProtocolError)
+			// Abandon just this stream, not the whole connection (RFC 9250
+			// §4.3.3). Only RESET_STREAM (CancelWrite): STOP_SENDING is
+			// client-only (§4.3.1) and would itself force a connection abort.
+			stream.CancelWrite(quic.StreamErrorCode(DoQCodeInternalError))
+			s.countResponse(DoQCodeInternalError)
 
 			return
 		}
