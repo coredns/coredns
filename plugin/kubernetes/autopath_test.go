@@ -100,6 +100,21 @@ func TestAutoPath(t *testing.T) {
 			},
 		},
 		{
+			// Zone apex query - host pod
+			qname: "interwebs.test.",
+			ip:    "10.16.0.1",
+		},
+		{
+			// Query without namespace - host pod
+			qname: "svc.interwebs.test.",
+			ip:    "10.16.0.1",
+		},
+		{
+			// Query without the Kubernetes service label - host pod
+			qname: "example.other.not-svc.interwebs.test.",
+			ip:    "10.16.0.1",
+		},
+		{
 			// External service - second query
 			qname: "example.com.svc.interwebs.test.",
 			searchpath: []string{

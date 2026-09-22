@@ -1,6 +1,8 @@
 package kubernetes
 
 import (
+	"strings"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/request"
@@ -68,10 +70,19 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 
 // matchQuery only returns pods where the pod namespace matches the query namespace (if the query is <ns>.svc.<zone>)
 func (k *Kubernetes) matchQuery(pods []*object.Pod, query string, zone string) []*object.Pod {
+	if zone == "" {
+		return nil
+	}
+
 	zoneLength := dns.CountLabel(zone)
 	queryParts := dns.SplitDomainName(query)
-	// The namespace is always at the position before "svc", the second to last label before the zone.
-	namespace := queryParts[len(queryParts)-zoneLength-2]
+	svcIndex := len(queryParts) - zoneLength - 1
+	if svcIndex < 1 || svcIndex >= len(queryParts) || !strings.EqualFold(queryParts[svcIndex], Svc) {
+		return nil
+	}
+
+	// The namespace is always at the position before "svc".
+	namespace := queryParts[svcIndex-1]
 	var matchedPods []*object.Pod
 	for _, pod := range pods {
 		if pod.Namespace == namespace {
