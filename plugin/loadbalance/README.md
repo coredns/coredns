@@ -2,7 +2,7 @@
 
 ## Name
 
-*loadbalance* - randomizes the order of A, AAAA and MX records.
+*loadbalance* - randomizes the order of A, AAAA and MX records  and optionally prefers specific subnets.
 
 ## Description
 
@@ -18,6 +18,7 @@ implementations (like glibc) are particular about that.
 ~~~
 loadbalance [round_robin | weighted WEIGHTFILE] {
 			reload DURATION
+			prefer CIDR [CIDR...]
 }
 ~~~
 * `round_robin` policy randomizes the order of  A, AAAA, and MX records applying a uniform probability distribution. This is the default load balancing policy.
@@ -25,6 +26,8 @@ loadbalance [round_robin | weighted WEIGHTFILE] {
 * `weighted` policy assigns weight values to IPs to control the relative likelihood of particular IPs to be returned as the first
 (top) A/AAAA record in the answer. Note that it does not shuffle all the records in the answer, it is only concerned about the first A/AAAA record
 returned in the answer.
+
+Additionally, the plugin supports subnet-based ordering using the `prefer` directive, which reorders A/AAAA records so that IPs from preferred subnets appear first.
 
  * **WEIGHTFILE** is the file containing the weight values assigned to IPs for various domain names. If the path is relative, the path from the **root** plugin will be prepended to it. The format is explained below in the *Weightfile* section.
 
@@ -88,3 +91,17 @@ www.example.com
 100.64.1.3 2
 ~~~
 
+### Subnet Prioritization
+
+Prioritize IPs from 10.9.20.0/24 and 192.168.1.0/24:
+
+```corefile
+. {
+    loadbalance round_robin {
+        prefer 10.9.20.0/24 192.168.1.0/24
+    }
+    forward . 1.1.1.1
+}
+```
+
+If the DNS response includes multiple A/AAAA records, the plugin will reorder them to place the ones matching preferred subnets first.

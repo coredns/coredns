@@ -167,3 +167,60 @@ func TestHostsInlineParse(t *testing.T) {
 		}
 	}
 }
+
+func TestHostsParseFallthroughUnsupported(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		shouldErr bool
+	}{
+		{
+			name: "with fallthrough",
+			input: `hosts {
+				fallthrough
+				fallthrough_unsupported
+			}`,
+		},
+		{
+			name: "before fallthrough",
+			input: `hosts {
+				fallthrough_unsupported
+				fallthrough example.org
+			}`,
+		},
+		{
+			name: "without fallthrough",
+			input: `hosts {
+				fallthrough_unsupported
+			}`,
+			shouldErr: true,
+		},
+		{
+			name: "with arguments",
+			input: `hosts {
+				fallthrough
+				fallthrough_unsupported example.org
+			}`,
+			shouldErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", test.input)
+			h, err := hostsParse(c)
+			if test.shouldErr {
+				if err == nil {
+					t.Fatal("Expected an error, got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+			if !h.fallthroughUnsupported {
+				t.Fatal("Expected fallthrough_unsupported to be enabled")
+			}
+		})
+	}
+}

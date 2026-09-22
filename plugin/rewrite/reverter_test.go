@@ -31,20 +31,21 @@ var tests = []struct {
 }
 
 func TestResponseReverter(t *testing.T) {
-	rules := []Rule{}
+	rules := make([]Rule, 0, 1)
 	r, _ := newNameRule("stop", "regex", `(core)\.(dns)\.(rocks)`, "{2}.{1}.{3}", "answer", "name", `(dns)\.(core)\.(rocks)`, "{2}.{1}.{3}")
 	rules = append(rules, r)
 
-	doReverterTests(rules, t)
+	doReverterTests(t, rules)
 
-	rules = []Rule{}
+	rules = make([]Rule, 0, 1)
 	r, _ = newNameRule("continue", "regex", `(core)\.(dns)\.(rocks)`, "{2}.{1}.{3}", "answer", "name", `(dns)\.(core)\.(rocks)`, "{2}.{1}.{3}")
 	rules = append(rules, r)
 
-	doReverterTests(rules, t)
+	doReverterTests(t, rules)
 }
 
-func doReverterTests(rules []Rule, t *testing.T) {
+func doReverterTests(t *testing.T, rules []Rule) {
+	t.Helper()
 	ctx := context.TODO()
 	for i, tc := range tests {
 		m := new(dns.Msg)
@@ -97,7 +98,7 @@ var valueTests = []struct {
 }
 
 func TestValueResponseReverter(t *testing.T) {
-	rules := []Rule{}
+	rules := make([]Rule, 0, 1)
 	r, err := newNameRule("stop", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
 	if err != nil {
 		t.Errorf("cannot parse rule: %s", err)
@@ -105,9 +106,9 @@ func TestValueResponseReverter(t *testing.T) {
 	}
 	rules = append(rules, r)
 
-	doValueReverterTests("stop", rules, t)
+	doValueReverterTests(t, "stop", rules)
 
-	rules = []Rule{}
+	rules = make([]Rule, 0, 1)
 	r, err = newNameRule("continue", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
 	if err != nil {
 		t.Errorf("cannot parse rule: %s", err)
@@ -115,9 +116,9 @@ func TestValueResponseReverter(t *testing.T) {
 	}
 	rules = append(rules, r)
 
-	doValueReverterTests("continue", rules, t)
+	doValueReverterTests(t, "continue", rules)
 
-	rules = []Rule{}
+	rules = make([]Rule, 0, 1)
 	r, err = newNameRule("stop", "suffix", `.domain.uk`, ".cluster.local", "answer", "auto", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
 	if err != nil {
 		t.Errorf("cannot parse rule: %s", err)
@@ -125,10 +126,10 @@ func TestValueResponseReverter(t *testing.T) {
 	}
 	rules = append(rules, r)
 
-	doValueReverterTests("suffix", rules, t)
+	doValueReverterTests(t, "suffix", rules)
 
 	// multiple rules
-	rules = []Rule{}
+	rules = make([]Rule, 0, 1)
 	r, err = newNameRule("continue", "suffix", `.domain.uk`, ".domain.us", "answer", "auto")
 	if err != nil {
 		t.Errorf("cannot parse rule: %s", err)
@@ -143,10 +144,11 @@ func TestValueResponseReverter(t *testing.T) {
 	}
 	rules = append(rules, r)
 
-	doValueReverterTests("suffix_multiple", rules, t)
+	doValueReverterTests(t, "suffix_multiple", rules)
 }
 
-func doValueReverterTests(name string, rules []Rule, t *testing.T) {
+func doValueReverterTests(t *testing.T, name string, rules []Rule) {
+	t.Helper()
 	ctx := context.TODO()
 	for i, tc := range valueTests {
 		m := new(dns.Msg)
@@ -191,5 +193,199 @@ func doValueReverterTests(name string, rules []Rule, t *testing.T) {
 		if resp.Extra[0].Header().Name != tc.expectAddlName {
 			t.Errorf("Test %s.%d: Expected Extra Name to be %q but was %q", name, i, tc.expectAddlName, resp.Extra[0].Header().Name)
 		}
+	}
+}
+
+var edns0NoOPTRevertTests = []struct {
+	name string
+	args []string
+	req  func() *dns.Msg
+}{
+	{
+		name: "local_set_revert",
+		args: []string{
+			"edns0", "local", "set",
+			"0xffee", "0xabcdef",
+			"revert",
+		},
+		req: func() *dns.Msg {
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+			m.Question[0].Qclass = dns.ClassINET
+			return m
+		},
+	},
+	{
+		name: "local_replace_revert",
+		args: []string{
+			"edns0", "local", "replace",
+			"0xffee", "0x222222",
+			"revert",
+		},
+		req: func() *dns.Msg {
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+			m.Question[0].Qclass = dns.ClassINET
+
+			opt := new(dns.OPT)
+			opt.Hdr.Name = "."
+			opt.Hdr.Rrtype = dns.TypeOPT
+
+			opt.Option = append(opt.Option,
+				&dns.EDNS0_LOCAL{
+					Code: 0xffee,
+					Data: []byte{0x11, 0x11, 0x11},
+				},
+			)
+
+			m.Extra = append(m.Extra, opt)
+
+			return m
+		},
+	},
+}
+
+func TestEDNS0ResponseReverterNoOPT(t *testing.T) {
+	ctx := context.TODO()
+
+	for _, tc := range edns0NoOPTRevertTests {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := newRule(tc.args...)
+			if err != nil {
+				t.Fatalf("cannot parse rule: %s", err)
+			}
+
+			rw := Rewrite{
+				Next:         plugin.HandlerFunc(noOPTMsgPrinter),
+				Rules:        []Rule{r},
+				RevertPolicy: NewRevertPolicy(false, false),
+			}
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			rw.ServeDNS(ctx, rec, tc.req())
+
+			resp := rec.Msg
+			if resp == nil {
+				t.Fatal("expected response")
+			}
+
+			if resp.Rcode != dns.RcodeSuccess {
+				t.Fatalf(
+					"expected rcode %d got %d",
+					dns.RcodeSuccess,
+					resp.Rcode,
+				)
+			}
+
+			if len(resp.Answer) != 1 {
+				t.Fatalf(
+					"expected 1 answer got %d",
+					len(resp.Answer),
+				)
+			}
+
+			if resp.IsEdns0() != nil {
+				t.Fatalf("expected response without OPT record")
+			}
+		})
+	}
+}
+
+func TestResponseReverterRestoresMissingQuestion(t *testing.T) {
+	ctx := context.TODO()
+
+	r, err := newNameRule("stop", "suffix", ".example.org", ".example.net", "answer", "auto")
+	if err != nil {
+		t.Fatalf("cannot parse rule: %s", err)
+	}
+
+	req := new(dns.Msg)
+	req.SetQuestion("service.example.org.", dns.TypeA)
+	req.Question[0].Qclass = dns.ClassINET
+
+	rw := Rewrite{
+		Next:         plugin.HandlerFunc(noQuestionMsgPrinter),
+		Rules:        []Rule{r},
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := rw.ServeDNS(ctx, rec, req); err != nil {
+		t.Fatalf("ServeDNS returned error: %v", err)
+	}
+
+	resp := rec.Msg
+	if resp == nil {
+		t.Fatal("expected response")
+	}
+
+	if len(resp.Question) != 1 {
+		t.Fatalf("expected 1 question got %d", len(resp.Question))
+	}
+
+	if got := resp.Question[0].Name; got != "service.example.org." {
+		t.Fatalf("question name = %q, want %q", got, "service.example.org.")
+	}
+
+	if got := resp.Question[0].Qtype; got != dns.TypeA {
+		t.Fatalf("question type = %d, want %d", got, dns.TypeA)
+	}
+
+	if len(resp.Answer) != 1 {
+		t.Fatalf("expected 1 answer got %d", len(resp.Answer))
+	}
+
+	if got := resp.Answer[0].Header().Name; got != "service.example.org." {
+		t.Fatalf("answer name = %q, want %q", got, "service.example.org.")
+	}
+}
+
+func noOPTMsgPrinter(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+
+	m.Answer = []dns.RR{
+		test.A("example.org. 60 IN A 127.0.0.1"),
+	}
+
+	// Deliberately do NOT add an OPT RR.
+
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+
+	return dns.RcodeSuccess, nil
+}
+
+func noQuestionMsgPrinter(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.Answer = []dns.RR{
+		test.A("service.example.net. 60 IN A 127.0.0.1"),
+	}
+
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+
+	return dns.RcodeSuccess, nil
+}
+
+func TestResponseReverterWriteMsgNilResponse(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("service.example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	rw := NewResponseReverter(rec, req, NewRevertPolicy(false, false))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("ResponseReverter.WriteMsg panicked on nil response: %v", r)
+		}
+	}()
+
+	err := rw.WriteMsg(nil)
+	if err == nil {
+		t.Error("Expected error when passing nil response to WriteMsg, got nil")
 	}
 }

@@ -25,7 +25,7 @@ func TestDoH(t *testing.T) {
 			m := new(dns.Msg)
 			m.SetQuestion("example.org.", dns.TypeDNSKEY)
 
-			req, err := NewRequest(test.method, test.url, m)
+			req, err := NewRequest(test.method, test.url, "example.org", m)
 			if err != nil {
 				t.Errorf("Failure to make request: %s", err)
 			}
@@ -42,5 +42,28 @@ func TestDoH(t *testing.T) {
 				t.Errorf("Qname expected %d, got %d", x, dns.TypeDNSKEY)
 			}
 		})
+	}
+}
+
+func TestDoHGETRejectsOversizedDNSQuery(t *testing.T) {
+	// Exceeding max size 65536
+	raw := make([]byte, 65536+1)
+	b64 := b64Enc.EncodeToString(raw)
+
+	req, err := http.NewRequest(
+		http.MethodGet,
+		"https://example.org"+Path+"?dns="+b64,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+
+	_, err = RequestToMsg(req)
+	if err == nil {
+		t.Fatalf("expected oversized GET dns query to be rejected")
+	}
+	if err.Error() != "dns query too large" {
+		t.Fatalf("expected %q, got %v", "dns query too large", err)
 	}
 }

@@ -7,12 +7,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
+
+const maxCNAMERewriteDepth = 8
 
 // UpstreamInt wraps the Upstream API for dependency injection during testing
 type UpstreamInt interface {
@@ -25,7 +29,8 @@ type cnameTargetRule struct {
 	paramFromTarget string
 	paramToTarget   string
 	nextAction      string
-	Upstream        UpstreamInt // Upstream for looking up external names during the resolution process.
+	pattern         *regexp.Regexp // Compiled paramFromTarget regex for RegexMatch
+	Upstream        UpstreamInt    // Upstream for looking up external names during the resolution process.
 }
 
 // cnameTargetRuleWithReqState is cname target rewrite rule state
@@ -40,27 +45,26 @@ func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to
 	case ExactMatch:
 		return r.paramFromTarget, r.paramToTarget
 	case PrefixMatch:
-		if strings.HasPrefix(inputCName, r.paramFromTarget) {
-			return inputCName, r.paramToTarget + strings.TrimPrefix(inputCName, r.paramFromTarget)
+		if after, ok := strings.CutPrefix(inputCName, r.paramFromTarget); ok {
+			return inputCName, r.paramToTarget + after
 		}
 	case SuffixMatch:
-		if strings.HasSuffix(inputCName, r.paramFromTarget) {
-			return inputCName, strings.TrimSuffix(inputCName, r.paramFromTarget) + r.paramToTarget
+		if before, ok := strings.CutSuffix(inputCName, r.paramFromTarget); ok {
+			return inputCName, before + r.paramToTarget
 		}
 	case SubstringMatch:
 		if strings.Contains(inputCName, r.paramFromTarget) {
-			return inputCName, strings.Replace(inputCName, r.paramFromTarget, r.paramToTarget, -1)
+			return inputCName, strings.ReplaceAll(inputCName, r.paramFromTarget, r.paramToTarget)
 		}
 	case RegexMatch:
-		pattern := regexp.MustCompile(r.paramFromTarget)
-		regexGroups := pattern.FindStringSubmatch(inputCName)
+		regexGroups := r.pattern.FindStringSubmatch(inputCName)
 		if len(regexGroups) == 0 {
 			return "", ""
 		}
 		substitution := r.paramToTarget
 		for groupIndex, groupValue := range regexGroups {
 			groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
-			substitution = strings.Replace(substitution, groupIndexStr, groupValue, -1)
+			substitution = strings.ReplaceAll(substitution, groupIndexStr, groupValue)
 		}
 		return inputCName, substitution
 	}
@@ -69,40 +73,61 @@ func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to
 
 func (r *cnameTargetRuleWithReqState) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	// logic to rewrite the cname target of dns response
-	switch rr.Header().Rrtype {
-	case dns.TypeCNAME:
-		// rename the target of the cname response
+	if rr.Header().Rrtype != dns.TypeCNAME {
+		return
+	}
+	// rename the target of the cname response
+	cname, ok := rr.(*dns.CNAME)
+	if !ok {
+		return
+	}
+	fromTarget, toTarget := r.rule.getFromAndToTarget(cname.Target)
+	if cname.Target != fromTarget {
+		return
+	}
+
+	// Limit internal lookups that re-enter the server.
+	loop, _ := r.ctx.Value(dnsserver.LoopKey{}).(int)
+	if loop > maxCNAMERewriteDepth {
+		return
+	}
+	ctx := context.WithValue(r.ctx, dnsserver.LoopKey{}, loop+1)
+
+	// create upstream request with the new target with the same qtype
+	r.state.Req.Question[0].Name = toTarget
+	// upRes can be nil if the internal query path didn't write a response
+	// (e.g. a plugin returned a success rcode without writing, dropped the query,
+	// or the context was canceled). Guard upRes before dereferencing.
+	upRes, err := r.rule.Upstream.Lookup(ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
+	if err != nil {
+		log.Errorf("upstream lookup failed: %v", err)
+		return
+	}
+	if upRes == nil {
+		log.Errorf("upstream lookup returned nil")
+		return
+	}
+
+	var newAnswer []dns.RR
+	// iterate over first upstream response
+	// add the cname record to the new answer
+	for _, rr := range res.Answer {
 		if cname, ok := rr.(*dns.CNAME); ok {
-			fromTarget, toTarget := r.rule.getFromAndToTarget(cname.Target)
+			// preserve CNAME records until the rewrite target
+			newAnswer = append(newAnswer, rr)
 			if cname.Target == fromTarget {
-				// create upstream request with the new target with the same qtype
-				r.state.Req.Question[0].Name = toTarget
-				upRes, err := r.rule.Upstream.Lookup(r.ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
-
-				if err != nil {
-					log.Errorf("Error upstream request %v", err)
-				}
-
-				var newAnswer []dns.RR
-				// iterate over first upstram response
-				// add the cname record to the new answer
-				for _, rr := range res.Answer {
-					if cname, ok := rr.(*dns.CNAME); ok {
-						// change the target name in the response
-						cname.Target = toTarget
-						newAnswer = append(newAnswer, rr)
-					}
-				}
-				// iterate over upstream response received
-				for _, rr := range upRes.Answer {
-					if rr.Header().Name == toTarget {
-						newAnswer = append(newAnswer, rr)
-					}
-				}
-				res.Answer = newAnswer
+				// change the target name in the response
+				cname.Target = toTarget
+				break
 			}
 		}
 	}
+	// add the upstream response to the new answer
+	newAnswer = append(newAnswer, upRes.Answer...)
+	res.Answer = newAnswer
+	// if not propagated, the truncated response might get cached,
+	// and it will be impossible to resolve the full response
+	res.Truncated = upRes.Truncated
 }
 
 func newCNAMERule(nextAction string, args ...string) (Rule, error) {
@@ -126,12 +151,26 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 	} else {
 		return nil, fmt.Errorf("too few (%d) arguments for a cname rule", len(args))
 	}
+	if rewriteType == ExactMatch {
+		paramFromTarget = plugin.Name(paramFromTarget).Normalize()
+		paramToTarget = plugin.Name(paramToTarget).Normalize()
+	}
 	rule := cnameTargetRule{
 		rewriteType:     rewriteType,
 		paramFromTarget: paramFromTarget,
 		paramToTarget:   paramToTarget,
 		nextAction:      nextAction,
 		Upstream:        upstream.New(),
+	}
+	if rewriteType == RegexMatch {
+		if len(paramFromTarget) > maxRegexpLen {
+			return nil, fmt.Errorf("regex pattern too long in a cname rule: %d > %d", len(paramFromTarget), maxRegexpLen)
+		}
+		re, err := regexp.Compile(paramFromTarget)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cname rewrite regex pattern: %w", err)
+		}
+		rule.pattern = re
 	}
 	return &rule, nil
 }

@@ -12,7 +12,7 @@ import (
 
 type testProvider map[string]Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, _state request.Request) context.Context {
 	for k, v := range tp {
 		SetValueFunc(ctx, k, v)
 	}
@@ -23,7 +23,7 @@ type testHandler struct{ ctx context.Context }
 
 func (m *testHandler) Name() string { return "test" }
 
-func (m *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (m *testHandler) ServeDNS(ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 	m.ctx = ctx
 	return 0, nil
 }
@@ -34,7 +34,7 @@ func TestMetadataServeDNS(t *testing.T) {
 		{"test/key2": func() string { return "two" }, "test/key3": func() string { return "testvalue3" }},
 	}
 	// Create fake Providers based on expectedMetadata
-	providers := []Provider{}
+	providers := make([]Provider, 0, len(expectedMetadata))
 	for _, e := range expectedMetadata {
 		providers = append(providers, e)
 	}

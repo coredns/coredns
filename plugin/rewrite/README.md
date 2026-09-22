@@ -74,7 +74,8 @@ The match type, e.g., `exact`, `substring`, etc., triggers rewrite:
 * **substring**: on a partial match of the name in the question section of a request
 * **prefix**: when the name begins with the matching string
 * **suffix**: when the name ends with the matching string
-* **regex**: when the name in the question section of a request matches a regular expression
+* **regex**: when the name in the question section of a request matches a regular expression.
+  Regex patterns must not exceed 10000 characters.
 
 If the match type is omitted, the `exact` match type is assumed. If OPTIONS are
 given, the type must be specified.
@@ -394,11 +395,12 @@ The values of FROM and TO can be any of the following, text value or numeric:
 
 ## EDNS0 Options
 
-Using the FIELD edns0, you can set, append, or replace specific EDNS0 options in the request.
+Using the FIELD edns0, you can set, append, replace, or unset specific EDNS0 options in the request.
 
 * `replace` will modify any "matching" option with the specified option. The criteria for "matching" varies based on EDNS0 type.
 * `append` will add the option only if no matching option exists
 * `set` will modify a matching option or add one if none is found
+* `unset` will remove the matching option if one exists
 
 Currently supported are `EDNS0_LOCAL`, `EDNS0_NSID` and `EDNS0_SUBNET`.
 
@@ -444,10 +446,17 @@ some-plugin
 rewrite edns0 local set 0xffee {some-plugin/some-label}
 ~~~
 
+A local option may be removed by unsetting its code. Example:
+
+~~~
+rewrite edns0 local unset 0xffee
+~~~
+
 ### EDNS0_NSID
 
 This has no fields; it will add an NSID option with an empty string for the NSID. If the option already exists
 and the action is `replace` or `set`, then the NSID in the option will be set to the empty string.
+The option can be removed with the `unset` action.
 
 ### EDNS0_SUBNET
 
@@ -462,6 +471,12 @@ rewrite edns0 subnet set 24 56
 
 * If the query's source IP address is an IPv4 address, the first 24 bits in the IP will be the network subnet.
 * If the query's source IP address is an IPv6 address, the first 56 bits in the IP will be the network subnet.
+
+This option can be removed by using `unset`:
+
+~~~
+rewrite edns0 subnet unset
+~~~
 
 ### EDNS0 Revert
 
@@ -488,9 +503,9 @@ If only some calls contain the `revert` flag, then the value in the response wil
 
 ## CNAME Field Rewrites
 
-There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. This will generate new answer records according to the new `CNAME` target.
+There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. Answer records preceding the `CNAME` target are kept unchanged, the `CNAME` target is rewritten, and the subsequent records are replaced with the lookup result of the rewritten `CNAME` target.
 
-The syntax for the CNAME rewrite rule is as follows. The meaning of
+The syntax for the `CNAME` rewrite rule is as follows. The meaning of
 `exact|prefix|suffix|substring|regex` is the same as with the name rewrite rules.
 An omitted type is defaulted to `exact`.
 
@@ -512,7 +527,8 @@ $ dig @10.1.1.1 my-app.com
 ;my-app.com. IN A
 
 ;; ANSWER SECTION:
-my-app.com.                  200  IN  CNAME  my-app.com.cdn.example.net.
+my-app.com.                  200  IN  CNAME  my-app.example.
+my-app.example.              200  IN  CNAME  my-app.com.cdn.example.net.
 my-app.com.cdn.example.net.  300  IN  A      20.2.0.1
 my-app.com.cdn.example.net.  300  IN  A      20.2.0.2
 ```
@@ -526,7 +542,9 @@ $ dig @10.1.1.1 my-app.com
 ;my-app.com. IN A
 
 ;; ANSWER SECTION:
-my-app.com.                  200  IN  CNAME  my-app.com.other.cdn.com.
+my-app.com.                  200  IN  CNAME  my-app.example.
+my-app.example.              200  IN  CNAME  my-app.com.other.cdn.com.
 my-app.com.other.cdn.com.    100  IN  A      30.3.1.2
 ```
+
 Note that the answer will contain a completely different set of answer records after rewriting the `CNAME` target.

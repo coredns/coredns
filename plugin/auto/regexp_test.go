@@ -1,8 +1,12 @@
 package auto
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestRewriteToExpand(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		in       string
 		expected string
@@ -12,9 +16,12 @@ func TestRewriteToExpand(t *testing.T) {
 		{in: "{1", expected: "${1"},
 	}
 	for i, tc := range tests {
-		got := rewriteToExpand(tc.in)
-		if got != tc.expected {
-			t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expected, got)
-		}
+		t.Run(fmt.Sprintf("test_%d", i), func(t *testing.T) {
+			t.Parallel()
+			got := rewriteToExpand(tc.in)
+			if got != tc.expected {
+				t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expected, got)
+			}
+		})
 	}
 }

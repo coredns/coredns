@@ -31,7 +31,6 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 		})
 
 		for k, v := range pod.Labels {
-			v := v
 			metadata.SetValueFunc(ctx, "kubernetes/client-label/"+k, func() string {
 				return v
 			})
@@ -41,8 +40,9 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 	if zone == "" {
 		return ctx
 	}
+	multicluster := plugin.Zones(k.opts.multiclusterZones).Contains(state.Zone)
 	// possible optimization: cache r so it doesn't need to be calculated again in ServeDNS
-	r, err := parseRequest(state.Name(), zone)
+	r, err := parseRequest(state.Name(), zone, multicluster, k.opts.zonal)
 	if err != nil {
 		metadata.SetValueFunc(ctx, "kubernetes/parse-error", func() string {
 			return err.Error()
@@ -61,6 +61,18 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 	metadata.SetValueFunc(ctx, "kubernetes/endpoint", func() string {
 		return r.endpoint
 	})
+
+	if multicluster {
+		metadata.SetValueFunc(ctx, "kubernetes/cluster", func() string {
+			return r.cluster
+		})
+	}
+
+	if k.opts.zonal {
+		metadata.SetValueFunc(ctx, "kubernetes/zone", func() string {
+			return r.zone
+		})
+	}
 
 	metadata.SetValueFunc(ctx, "kubernetes/service", func() string {
 		return r.service

@@ -9,12 +9,11 @@ import (
 )
 
 func setupProxyTargetCoreDNS(t *testing.T, fn func(string)) {
+	t.Helper()
 	tmpdir := t.TempDir()
 
 	content := `
-example.org. IN SOA sns.dns.icann.org. noc.dns.icann.org. 1 3600 3600 3600 3600
-
-google.com. IN SOA ns1.google.com. dns-admin.google.com. 1 3600 3600 3600 3600
+. IN SOA sns.dns.icann.org. noc.dns.icann.org. 1 3600 3600 3600 3600
 google.com. IN A 172.217.25.110
 `
 

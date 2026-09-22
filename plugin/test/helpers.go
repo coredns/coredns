@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -110,13 +111,19 @@ func DS(rr string) *dns.DS { r, _ := dns.NewRR(rr); return r.(*dns.DS) }
 // NAPTR returns a NAPTR record from rr. It panics on errors.
 func NAPTR(rr string) *dns.NAPTR { r, _ := dns.NewRR(rr); return r.(*dns.NAPTR) }
 
+// SVCB returns a SVCB record from rr. It panics on errors.
+func SVCB(rr string) *dns.SVCB { r, _ := dns.NewRR(rr); return r.(*dns.SVCB) }
+
+// HTTPS returns an HTTPS record from rr. It panics on errors.
+func HTTPS(rr string) *dns.HTTPS { r, _ := dns.NewRR(rr); return r.(*dns.HTTPS) }
+
 // OPT returns an OPT record with UDP buffer size set to bufsize and the DO bit set to do.
 func OPT(bufsize int, do bool) *dns.OPT {
 	o := new(dns.OPT)
 	o.Hdr.Name = "."
 	o.Hdr.Rrtype = dns.TypeOPT
 	o.SetVersion(0)
-	o.SetUDPSize(uint16(bufsize))
+	o.SetUDPSize(uint16(bufsize)) // #nosec G115 -- buffer size fits in uint16
 	if do {
 		o.SetDo()
 	}
@@ -206,11 +213,12 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 				return fmt.Errorf("RR %d should have a Address of %q, but has %q", i, section[i].(*dns.AAAA).AAAA.String(), x.AAAA.String())
 			}
 		case *dns.TXT:
-			for j, txt := range x.Txt {
-				if txt != section[i].(*dns.TXT).Txt[j] {
-					return fmt.Errorf("RR %d should have a Txt of %q, but has %q", i, section[i].(*dns.TXT).Txt[j], txt)
-				}
+			actualTxt := strings.Join(x.Txt, "")
+			expectedTxt := strings.Join(section[i].(*dns.TXT).Txt, "")
+			if actualTxt != expectedTxt {
+				return fmt.Errorf("RR %d should have a TXT value of %q, but has %q", i, expectedTxt, actualTxt)
 			}
+
 		case *dns.HINFO:
 			if x.Cpu != section[i].(*dns.HINFO).Cpu {
 				return fmt.Errorf("RR %d should have a Cpu of %s, but has %s", i, section[i].(*dns.HINFO).Cpu, x.Cpu)
@@ -239,7 +247,7 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 				return fmt.Errorf("MX Mx should be %q, but is %q", tt.Mx, x.Mx)
 			}
 			if x.Preference != tt.Preference {
-				return fmt.Errorf("MX Preference should be %q, but is %q", tt.Preference, x.Preference)
+				return fmt.Errorf("MX Preference should be %d, but is %d", tt.Preference, x.Preference)
 			}
 		case *dns.NS:
 			tt := section[i].(*dns.NS)
@@ -253,6 +261,28 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 			}
 			if x.Do() != tt.Do() {
 				return fmt.Errorf("OPT DO should be %t, but is %t", tt.Do(), x.Do())
+			}
+		case *dns.SVCB:
+			tt := section[i].(*dns.SVCB)
+			if x.Priority != tt.Priority {
+				return fmt.Errorf("RR %d should have a Priority of %d, but has %d", i, tt.Priority, x.Priority)
+			}
+			if x.Target != tt.Target {
+				return fmt.Errorf("RR %d should have a Target of %q, but has %q", i, tt.Target, x.Target)
+			}
+			if x.String() != tt.String() {
+				return fmt.Errorf("RR %d should have value %q, but has %q", i, tt.String(), x.String())
+			}
+		case *dns.HTTPS:
+			tt := section[i].(*dns.HTTPS)
+			if x.Priority != tt.Priority {
+				return fmt.Errorf("RR %d should have a Priority of %d, but has %d", i, tt.Priority, x.Priority)
+			}
+			if x.Target != tt.Target {
+				return fmt.Errorf("RR %d should have a Target of %q, but has %q", i, tt.Target, x.Target)
+			}
+			if x.String() != tt.String() {
+				return fmt.Errorf("RR %d should have value %q, but has %q", i, tt.String(), x.String())
 			}
 		}
 	}
@@ -295,7 +325,7 @@ func SortAndCheck(resp *dns.Msg, tc Case) error {
 
 // ErrorHandler returns a Handler that returns ServerFailure error when called.
 func ErrorHandler() Handler {
-	return HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		m := new(dns.Msg)
 		m.SetRcode(r, dns.RcodeServerFailure)
 		w.WriteMsg(m)
@@ -305,7 +335,7 @@ func ErrorHandler() Handler {
 
 // NextHandler returns a Handler that returns rcode and err.
 func NextHandler(rcode int, err error) Handler {
-	return HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return HandlerFunc(func(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 		return rcode, err
 	})
 }

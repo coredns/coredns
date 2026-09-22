@@ -57,6 +57,7 @@ func TestRewrite(t *testing.T) {
 }
 
 func testMX(t *testing.T, server string) {
+	t.Helper()
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeMX)
 
@@ -78,6 +79,7 @@ func testMX(t *testing.T, server string) {
 }
 
 func testEdns0(t *testing.T, server string) {
+	t.Helper()
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
 

@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -12,10 +13,11 @@ import (
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 func TestEndpointHostname(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		ip               string
 		hostname         string
 		expected         string
@@ -28,6 +30,8 @@ func TestEndpointHostname(t *testing.T) {
 		{"10.11.12.13", "epname", "epname", "hello-abcde", false},
 		{"10.11.12.13", "epname", "epname", "hello-abcde", true},
 		{"10.11.12.13", "", "hello-abcde", "hello-abcde", true},
+		{"2001:db8:3333:4444:5555:6666:7777:8888", "", "2001-db8-3333-4444-5555-6666-7777-8888", "", false},
+		{"2001:db8:3333:4444:5555:6666::", "", "2001-db8-3333-4444-5555-6666--0", "", false},
 	}
 	for _, test := range tests {
 		result := endpointHostname(object.EndpointAddress{IP: test.ip, Hostname: test.hostname, TargetRefName: test.podName}, test.endpointNameMode)
@@ -45,7 +49,7 @@ func (APIConnServiceTest) Stop() error                                 { return 
 func (APIConnServiceTest) SvcIndexReverse(string) []*object.Service    { return nil }
 func (APIConnServiceTest) SvcExtIndexReverse(string) []*object.Service { return nil }
 func (APIConnServiceTest) EpIndexReverse(string) []*object.Endpoints   { return nil }
-func (APIConnServiceTest) Modified(bool) int64                         { return 0 }
+func (APIConnServiceTest) Modified(ModifiedMode) int64                 { return 0 }
 
 func (APIConnServiceTest) PodIndex(ip string) []*object.Pod {
 	if ip == "10.240.0.1" { //Pod IP
@@ -253,7 +257,108 @@ func (APIConnServiceTest) EndpointsList() []*object.Endpoints {
 	return eps
 }
 
-func (APIConnServiceTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+func (APIConnServiceTest) SvcImportIndex(string) []*object.ServiceImport {
+	svcs := []*object.ServiceImport{
+		{
+			Name:       "svc1",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.1"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+		{
+			Name:       "svc-dual-stack",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.2", "10::2"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+		{
+			Name:       "hdls1",
+			Namespace:  "testns",
+			Type:       mcs.Headless,
+			ClusterIPs: []string{},
+		},
+	}
+	return svcs
+}
+
+func (APIConnServiceTest) ServiceImportList() []*object.ServiceImport {
+	svcs := []*object.ServiceImport{
+		{
+			Name:       "",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.1"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+		{
+			Name:       "svc-dual-stack",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.2", "10::2"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+		{
+			Name:      "hdls1",
+			Namespace: "testns",
+			Type:      mcs.Headless,
+		},
+	}
+	return svcs
+}
+
+func (APIConnServiceTest) McEpIndex(string) []*object.MultiClusterEndpoints {
+	eps := []*object.MultiClusterEndpoints{
+		{
+			Endpoints: object.Endpoints{
+				Subsets: []object.EndpointSubset{
+					{
+						Addresses: []object.EndpointAddress{
+							{IP: "172.0.0.1", Hostname: "ep1a"},
+						},
+						Ports: []object.EndpointPort{
+							{Port: 80, Protocol: "tcp", Name: "http"},
+						},
+					},
+				},
+				Name:      "svc1-slice1",
+				Namespace: "testns",
+				Index:     object.EndpointsKey("svc1", "testns"),
+			},
+			ClusterId: "cluster1",
+		},
+		{
+			Endpoints: object.Endpoints{
+				Subsets: []object.EndpointSubset{
+					{
+						Addresses: []object.EndpointAddress{
+							{IP: "172.0.0.2"},
+						},
+						Ports: []object.EndpointPort{
+							{Port: 80, Protocol: "tcp", Name: "http"},
+						},
+					},
+				},
+				Name:      "hdls1-slice1",
+				Namespace: "testns",
+				Index:     object.EndpointsKey("hdls1", "testns"),
+			},
+			ClusterId: "cluster1",
+		},
+	}
+	return eps
+}
+
+func (APIConnServiceTest) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) {
 	return &api.Node{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "test.node.foo.bar",
@@ -268,7 +373,8 @@ func (APIConnServiceTest) GetNamespaceByName(name string) (*object.Namespace, er
 }
 
 func TestServices(t *testing.T) {
-	k := New([]string{"interwebs.test."})
+	k := New([]string{"interwebs.test.", "clusterset.test."})
+	k.opts.multiclusterZones = []string{"clusterset.test."}
 	k.APIConn = &APIConnServiceTest{}
 
 	type svcAns struct {
@@ -301,12 +407,34 @@ func TestServices(t *testing.T) {
 
 		// Headless Services
 		{qname: "hdls1.testns.svc.interwebs.test.", qtype: dns.TypeA, answer: []svcAns{{host: "172.0.0.2", key: "/" + coredns + "/test/interwebs/svc/testns/hdls1/172-0-0-2"}}},
+
+		// ClusterSet MultiCluster IP Services
+		{qname: "svc1.testns.svc.clusterset.test.", qtype: dns.TypeA, answer: []svcAns{{host: "10.0.0.1", key: "/" + coredns + "/test/clusterset/svc/testns/svc1"}}},
+		{qname: "_http._tcp.svc1.testns.svc.clusterset.test.", qtype: dns.TypeSRV, answer: []svcAns{{host: "10.0.0.1", key: "/" + coredns + "/test/clusterset/svc/testns/svc1"}}},
+		{qname: "ep1a.cluster1.svc1.testns.svc.clusterset.test.", qtype: dns.TypeA, answer: []svcAns{{host: "172.0.0.1", key: "/" + coredns + "/test/clusterset/svc/testns/svc1/cluster1/ep1a"}}},
+
+		// Dual-Stack ClusterSet MultiCluster IP Service
+		{
+			qname: "_http._tcp.svc-dual-stack.testns.svc.clusterset.test.",
+			qtype: dns.TypeSRV,
+			answer: []svcAns{
+				{host: "10.0.0.2", key: "/" + coredns + "/test/clusterset/svc/testns/svc-dual-stack"},
+				{host: "10::2", key: "/" + coredns + "/test/clusterset/svc/testns/svc-dual-stack"},
+			},
+		},
+
+		// Headless MultiCluster Services
+		{qname: "hdls1.testns.svc.clusterset.test.", qtype: dns.TypeA, answer: []svcAns{{host: "172.0.0.2", key: "/" + coredns + "/test/clusterset/svc/testns/hdls1/cluster1/172-0-0-2"}}},
 	}
 
 	for i, test := range tests {
+		zone := "interwebs.test."
+		if strings.Contains(test.qname, "clusterset.test") {
+			zone = "clusterset.test."
+		}
 		state := request.Request{
 			Req:  &dns.Msg{Question: []dns.Question{{Name: test.qname, Qtype: test.qtype}}},
-			Zone: "interwebs.test.", // must match from k.Zones[0]
+			Zone: zone,
 		}
 		svcs, e := k.Services(context.TODO(), state, false, plugin.Options{})
 		if e != nil {
@@ -391,5 +519,35 @@ func TestServicesAuthority(t *testing.T) {
 				t.Errorf("Test %d, expected key '%v', got '%v'", i, answer.key, svcs[i].Key)
 			}
 		}
+	}
+}
+
+func BenchmarkServices(b *testing.B) {
+	k := New([]string{"inter.webs.tests."})
+	k.APIConn = APIConnServiceTest{}
+	ctx := context.TODO()
+
+	m := new(dns.Msg)
+	m.SetQuestion("svc1.testns.svc.inter.webs.tests.", dns.TypeA)
+	state := request.Request{Zone: k.Zones[0], Req: m}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = k.Services(ctx, state, false, plugin.Options{})
+	}
+}
+
+func BenchmarkServicesHeadless(b *testing.B) {
+	k := New([]string{"inter.webs.tests."})
+	k.APIConn = APIConnServiceTest{}
+	ctx := context.TODO()
+
+	m := new(dns.Msg)
+	m.SetQuestion("hdls1.testns.svc.inter.webs.tests.", dns.TypeA)
+	state := request.Request{Zone: k.Zones[0], Req: m}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = k.Services(ctx, state, false, plugin.Options{})
 	}
 }

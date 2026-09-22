@@ -71,12 +71,22 @@ your plugin handle reload events better.
 
 ## Context
 
-Every request get a context.Context these are pre-filled with 2 values:
+Every request gets a `context.Context` with values that provide information about the request and server state.
 
-* `Key`: holds a pointer to the current server, this can be useful for logging or metrics. It is
-  infact used in the *metrics* plugin to tie a request to a specific (internal) server.
-* `LoopKey`: holds an integer to detect loops within the current context. The *file* plugin uses
-  this to detect loops when resolving CNAMEs.
+### Core Context Values
+
+These values are available for all DNS requests:
+
+* `Key`: holds a pointer to the current server, useful for logging or metrics. Used by the *metrics* plugin to tie requests to specific (internal) server.
+* `LoopKey`: holds an integer to detect loops within the current context. Used by the *file* plugin when resolving CNAMEs.
+
+### Transport-Specific Context Values
+
+Depending on the DNS transport protocol, additional context values may be available:
+
+* **DNS-over-HTTPS**: `HTTPRequestKey` contains the original `*http.Request`, providing access to HTTP headers, client information, and request metadata.
+* **DNS-over-gRPC**: Standard gRPC context values are available, including peer information via `peer.FromContext()` and metadata via `metadata.FromIncomingContext()`.
+* **DNS-over-QUIC**: QUIC stream context is propagated, including timeouts and cancellation signals.
 
 ## Documentation
 

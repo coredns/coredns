@@ -1,4 +1,3 @@
-// Package auto implements a on-the-fly loading file backend.
 package auto
 
 import (

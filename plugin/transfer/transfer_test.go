@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -56,7 +57,7 @@ type terminatingPlugin struct{}
 func (*terminatingPlugin) Name() string { return "testplugin" }
 
 // ServeDNS implements plugin.Handler that returns NXDOMAIN for all requests.
-func (*terminatingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (*terminatingPlugin) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	m := new(dns.Msg)
 	m.SetRcode(r, dns.RcodeNameError)
 	w.WriteMsg(m)
@@ -218,6 +219,7 @@ func TestTransferIXFRFallback(t *testing.T) {
 }
 
 func validateAXFRResponse(t *testing.T, w *dnstest.MultiRecorder) {
+	t.Helper()
 	if len(w.Msgs) == 0 {
 		t.Fatal("Did not get back a zone response")
 	}
@@ -274,5 +276,229 @@ func TestTransferNotAllowed(t *testing.T) {
 
 	if w.Msg.Rcode != dns.RcodeRefused {
 		t.Errorf("Expected REFUSED response code, got %s", dns.RcodeToString[w.Msg.Rcode])
+	}
+}
+
+// errWriter is a dns.ResponseWriter that simulates a client error on write.
+type errWriter struct {
+	test.ResponseWriter
+}
+
+func (e *errWriter) WriteMsg(_m *dns.Msg) error { return fmt.Errorf("write error") }
+
+// blockingTransferer produces many records into the channel and signals when done.
+type blockingTransferer struct {
+	Zone string
+	done chan struct{}
+}
+
+func (b *blockingTransferer) Name() string { return "blockingtransferer" }
+func (b *blockingTransferer) ServeDNS(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
+	return 0, nil
+}
+func (b *blockingTransferer) Transfer(zone string, _serial uint32) (<-chan []dns.RR, error) {
+	if zone != b.Zone {
+		return nil, ErrNotAuthoritative
+	}
+	ch := make(chan []dns.RR, 2)
+	go func() {
+		defer close(ch)
+		defer close(b.done)
+		soa := test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", b.Zone, b.Zone, b.Zone, 1))
+		ch <- []dns.RR{soa}
+		for range 2000 {
+			ch <- []dns.RR{test.A("ns.dns." + b.Zone + " 100 IN A 1.2.3.4")}
+		}
+		ch <- []dns.RR{soa}
+	}()
+	return ch, nil
+}
+
+// Test that when the client errors mid-transfer, the server drains the producer channel
+// so the producer goroutine can complete (no leak/block on small buffer).
+func TestTransferDrainsProducerOnClientError(t *testing.T) {
+	b := &blockingTransferer{Zone: "example.org.", done: make(chan struct{})}
+
+	transfer := &Transfer{
+		Transferers: []Transferer{b},
+		xfrs:        []*xfr{{Zones: []string{"example.org."}, to: []string{"*"}}},
+		Next:        b,
+	}
+
+	ctx := context.TODO()
+	w := &errWriter{ResponseWriter: test.ResponseWriter{TCP: true}}
+	m := &dns.Msg{}
+	m.SetAxfr("example.org.")
+
+	_, _ = transfer.ServeDNS(ctx, w, m)
+
+	select {
+	case <-b.done:
+		// success
+	case <-time.After(2 * time.Second):
+		t.Fatal("producer goroutine did not finish; channel likely not drained on client error")
+	}
+}
+
+type nopHandler struct{}
+
+func (nopHandler) Name() string { return "nop" }
+func (nopHandler) ServeDNS(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
+	return dns.RcodeSuccess, nil
+}
+
+func TestAXFRZoneMatchCaseInsensitive(t *testing.T) {
+	next := &transfererPlugin{Zone: "example.org.", Serial: 12345}
+	next.Next = nopHandler{}
+
+	tr := &Transfer{
+		Transferers: []Transferer{next},
+		xfrs:        []*xfr{{Zones: []string{"example.org."}, to: []string{"*"}}},
+		Next:        next,
+	}
+
+	ctx := context.TODO()
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
+	m := new(dns.Msg)
+	m.SetAxfr("ExAmPlE.OrG.") // mixed case
+
+	_, err := tr.ServeDNS(ctx, w, m)
+	if err != nil {
+		t.Fatalf("ServeDNS error: %v", err)
+	}
+
+	validateAXFRResponse(t, w)
+}
+
+func TestLongestMatchMostSpecificZone(t *testing.T) {
+	x1 := &xfr{Zones: []string{"example.org."}}
+	x2 := &xfr{Zones: []string{"a.example.org."}}
+
+	got := longestMatch([]*xfr{x1, x2}, "host.a.example.org.")
+	if got != x2 {
+		t.Fatalf("expected most specific zone (a.example.org.) to match, got %+v", got)
+	}
+}
+
+func TestLongestMatchNilWhenNoMatch(t *testing.T) {
+	x1 := &xfr{Zones: []string{"example.org."}}
+
+	got := longestMatch([]*xfr{x1}, "other.net.")
+	if got != nil {
+		t.Fatalf("expected nil when no zones match, got %+v", got)
+	}
+}
+
+// largeRecordTransferer produces records that are large enough to exceed 64KB
+// if batched by a fixed record count.
+type largeRecordTransferer struct {
+	Zone    string
+	Count   int
+	TxtSize int
+}
+
+func (lr *largeRecordTransferer) Name() string { return "largerecordtransferer" }
+func (lr *largeRecordTransferer) ServeDNS(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+	return 0, nil
+}
+func (lr *largeRecordTransferer) Transfer(zone string, _ uint32) (<-chan []dns.RR, error) {
+	if zone != lr.Zone {
+		return nil, ErrNotAuthoritative
+	}
+	ch := make(chan []dns.RR, 2)
+	go func() {
+		defer close(ch)
+		soa := test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s 1 7200 1800 86400 100", lr.Zone, lr.Zone, lr.Zone))
+		ch <- []dns.RR{soa}
+		payload := make([]byte, lr.TxtSize)
+		for i := range payload {
+			payload[i] = 'x'
+		}
+		txt := string(payload)
+		for i := range lr.Count {
+			rr, _ := dns.NewRR(fmt.Sprintf("r%d.%s 3600 IN TXT \"%s\"", i, lr.Zone, txt))
+			ch <- []dns.RR{rr}
+		}
+		ch <- []dns.RR{soa}
+	}()
+	return ch, nil
+}
+
+func TestTransferLargeRecordBatching(t *testing.T) {
+	// 300 TXT records of ~250 bytes each = ~75KB total, exceeding a single
+	// 64KB TCP message. The transfer plugin must split them into multiple
+	// messages.
+	lr := &largeRecordTransferer{Zone: "example.org.", Count: 300, TxtSize: 240}
+
+	tr := &Transfer{
+		Transferers: []Transferer{lr},
+		xfrs:        []*xfr{{Zones: []string{"example.org."}, to: []string{"*"}}},
+		Next:        lr,
+	}
+
+	ctx := context.TODO()
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
+	m := new(dns.Msg)
+	m.SetAxfr("example.org.")
+
+	_, err := tr.ServeDNS(ctx, w, m)
+	if err != nil {
+		t.Fatalf("ServeDNS error: %v", err)
+	}
+
+	if len(w.Msgs) == 0 {
+		t.Fatal("no messages received")
+	}
+
+	// Count total records across all messages.
+	total := 0
+	for _, msg := range w.Msgs {
+		// Each message must fit in a TCP DNS message (65535 bytes).
+		packed, packErr := msg.Pack()
+		if packErr != nil {
+			t.Fatalf("message too large to pack: %v", packErr)
+		}
+		if len(packed) > dns.MaxMsgSize {
+			t.Errorf("message size %d exceeds max %d", len(packed), dns.MaxMsgSize)
+		}
+		total += len(msg.Answer)
+	}
+
+	// 300 TXT + 2 SOA = 302 records
+	if total != 302 {
+		t.Errorf("expected 302 records total, got %d", total)
+	}
+
+	// Must be split into multiple messages.
+	if len(w.Msgs) < 2 {
+		t.Errorf("expected multiple messages for large transfer, got %d", len(w.Msgs))
+	}
+}
+
+type emptyBatchTransferer struct{}
+
+func (emptyBatchTransferer) Transfer(_ string, _ uint32) (<-chan []dns.RR, error) {
+	ch := make(chan []dns.RR, 1)
+
+	ch <- []dns.RR{}
+
+	close(ch)
+	return ch, nil
+}
+
+func TestTransferEmptyBatch(t *testing.T) {
+	tr := &Transfer{
+		Transferers: []Transferer{emptyBatchTransferer{}},
+		xfrs:        []*xfr{{Zones: []string{"example.org."}, to: []string{"*"}}},
+	}
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeAXFR)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
+
+	_, err := tr.ServeDNS(context.Background(), rec, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

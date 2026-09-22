@@ -20,7 +20,7 @@ trace [ENDPOINT-TYPE] [ENDPOINT]
 * **ENDPOINT-TYPE** is the type of tracing destination. Currently only `zipkin` and `datadog` are supported.
   Defaults to `zipkin`.
 * **ENDPOINT** is the tracing destination, and defaults to `localhost:9411`. For Zipkin, if
-  **ENDPOINT** does not begin with `http`, then it will be transformed to `http://ENDPOINT/api/v1/spans`.
+  **ENDPOINT** does not begin with `http`, then it will be transformed to `http://ENDPOINT/api/v2/spans`.
 
 With this form, all queries will be traced.
 
@@ -82,7 +82,7 @@ If for some reason you are using an API reverse proxy or something and need to r
 the standard Zipkin URL you can do something like:
 
 ~~~
-trace http://tracinghost:9411/zipkin/api/v1/spans
+trace http://tracinghost:9411/zipkin/api/v2/spans
 ~~~
 
 Using DataDog:

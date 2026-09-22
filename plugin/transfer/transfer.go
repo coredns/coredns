@@ -23,8 +23,9 @@ type Transfer struct {
 }
 
 type xfr struct {
-	Zones []string
-	to    []string
+	Zones  []string
+	to     []string
+	source net.IP
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
@@ -63,7 +64,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return dns.RcodeRefused, nil
 	}
 
-	x := longestMatch(t.xfrs, state.QName())
+	x := longestMatch(t.xfrs, state.Name())
 	if x == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
@@ -93,7 +94,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	var pchan <-chan []dns.RR
 	var err error
 	for _, p := range t.Transferers {
-		pchan, err = p.Transfer(state.QName(), serial)
+		pchan, err = p.Transfer(state.Name(), serial)
 		if err == ErrNotAuthoritative {
 			// plugin was not authoritative for the zone, try next plugin
 			continue
@@ -124,20 +125,36 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 	rrs := []dns.RR{}
 	l := 0
+	batchSize := 0
 	var soa *dns.SOA
 	for records := range pchan {
+		if len(records) == 0 {
+			continue
+		}
 		if x, ok := records[0].(*dns.SOA); ok && soa == nil {
 			soa = x
 		}
-		rrs = append(rrs, records...)
-		if len(rrs) > 500 {
-			select {
-			case ch <- &dns.Envelope{RR: rrs}:
-			case err := <-errCh:
-				return dns.RcodeServerFailure, err
+		for _, rr := range records {
+			rrLen := dns.Len(rr)
+			// Flush the batch before it exceeds the 64KB TCP message limit.
+			// The 12-byte header and question section are not counted in rrLen,
+			// so we use a conservative threshold to leave room for framing.
+			if len(rrs) > 0 && batchSize+rrLen > 63000 {
+				select {
+				case ch <- &dns.Envelope{RR: rrs}:
+				case err := <-errCh:
+					go func() {
+						for range pchan {
+						}
+					}()
+					return dns.RcodeServerFailure, err
+				}
+				l += len(rrs)
+				rrs = []dns.RR{}
+				batchSize = 0
 			}
-			l += len(rrs)
-			rrs = []dns.RR{}
+			rrs = append(rrs, rr)
+			batchSize += rrLen
 		}
 	}
 
@@ -164,6 +181,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		select {
 		case ch <- &dns.Envelope{RR: rrs}:
 		case err := <-errCh:
+			close(ch)
 			return dns.RcodeServerFailure, err
 		}
 		l += len(rrs)
@@ -208,7 +226,7 @@ func longestMatch(xfrs []*xfr, name string) *xfr {
 	zone := "" // longest zone match wins
 	for _, xfr := range xfrs {
 		if z := plugin.Zones(xfr.Zones).Matches(name); z != "" {
-			if z > zone {
+			if len(z) > len(zone) || (len(z) == len(zone) && z > zone) {
 				zone = z
 				x = xfr
 			}

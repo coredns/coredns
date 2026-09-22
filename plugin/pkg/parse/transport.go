@@ -27,14 +27,17 @@ func Transport(s string) (trans string, addr string) {
 		s = s[len(transport.GRPC+"://"):]
 		return transport.GRPC, s
 
+	case strings.HasPrefix(s, transport.HTTPS3+"://"):
+		s = s[len(transport.HTTPS3+"://"):]
+		return transport.HTTPS3, s
+
 	case strings.HasPrefix(s, transport.HTTPS+"://"):
 		s = s[len(transport.HTTPS+"://"):]
-
 		return transport.HTTPS, s
+
 	case strings.HasPrefix(s, transport.UNIX+"://"):
 		s = s[len(transport.UNIX+"://"):]
 		return transport.UNIX, s
 	}
-
 	return transport.DNS, s
 }

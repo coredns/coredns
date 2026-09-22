@@ -8,18 +8,89 @@ import (
 
 func TestSetupReady(t *testing.T) {
 	tests := []struct {
-		input     string
+		input string
+
+		expectedAddr        string
+		expectedMonitorType monitorType
+
 		shouldErr bool
 	}{
-		{`ready`, false},
-		{`ready localhost:1234`, false},
-		{`ready localhost:1234 b`, true},
-		{`ready bla`, true},
-		{`ready bla bla`, true},
+		{
+			input:               `ready`,
+			expectedAddr:        ":8181",
+			expectedMonitorType: monitorTypeUntilReady,
+			shouldErr:           false,
+		},
+		{
+			input:               `ready localhost:1234`,
+			expectedAddr:        "localhost:1234",
+			expectedMonitorType: monitorTypeUntilReady,
+			shouldErr:           false,
+		},
+		{
+			input: `
+ready { 
+	monitor until-ready
+}`,
+			expectedAddr:        ":8181",
+			expectedMonitorType: monitorTypeUntilReady,
+			shouldErr:           false,
+		},
+		{
+			input: `
+ready { 
+	monitor continuously 
+}`,
+			expectedAddr:        ":8181",
+			expectedMonitorType: monitorTypeContinuously,
+			shouldErr:           false,
+		},
+		{
+			input: `
+ready localhost:1234 { 
+	monitor continuously 
+}`,
+			expectedAddr:        "localhost:1234",
+			expectedMonitorType: monitorTypeContinuously,
+			shouldErr:           false,
+		},
+		{
+			input: `
+ready localhost:1234 { 
+	monitor 404 
+}`,
+			shouldErr: true,
+		},
+		{
+			input: `
+ready {
+	monitro continuously
+}`,
+			shouldErr: true,
+		},
+		{
+			input:     `ready localhost:1234 b`,
+			shouldErr: true,
+		},
+		{
+			input:     `ready bla`,
+			shouldErr: true,
+		},
+		{
+			input:     `ready bla bla`,
+			shouldErr: true,
+		},
 	}
 
 	for i, test := range tests {
-		_, err := parse(caddy.NewTestController("dns", test.input))
+		actualAddress, actualMonitorType, err := parse(caddy.NewTestController("dns", test.input))
+
+		if actualAddress != test.expectedAddr {
+			t.Errorf("Test %d: Expected address %s but found %s for input %s", i, test.expectedAddr, actualAddress, test.input)
+		}
+		if actualMonitorType != test.expectedMonitorType {
+			t.Errorf("Test %d: Expected monitor type %s but found %s for input %s", i, test.expectedMonitorType, actualMonitorType, test.input)
+		}
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found none for input %s", i, test.input)

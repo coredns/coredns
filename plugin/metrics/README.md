@@ -16,7 +16,7 @@ the following metrics are exported:
 * `coredns_panics_total{}` - total number of panics.
 * `coredns_dns_requests_total{server, zone, view, proto, family, type}` - total query count.
 * `coredns_dns_request_duration_seconds{server, zone, view, type}` - duration to process each query.
-* `coredns_dns_request_size_bytes{server, zone, view, proto}` - size of the request in bytes.
+* `coredns_dns_request_size_bytes{server, zone, view, proto}` - size of the request in bytes. Uses the original size before any plugin rewrites.
 * `coredns_dns_do_requests_total{server, view, zone}` -  queries that have the DO bit set
 * `coredns_dns_response_size_bytes{server, zone, view, proto}` - response size in bytes.
 * `coredns_dns_responses_total{server, zone, view, rcode, plugin}` - response per zone, rcode and plugin.
@@ -55,13 +55,21 @@ This plugin can only be used once per Server Block.
 ## Syntax
 
 ~~~
-prometheus [ADDRESS]
+prometheus [ADDRESS] {
+    runtime_metrics
+}
 ~~~
 
 For each zone that you want to see metrics for.
 
 It optionally takes a bind address to which the metrics are exported; the default
 listens on `localhost:9153`. The metrics path is fixed to `/metrics`.
+
+* `runtime_metrics` exports the full Go [runtime/metrics](https://pkg.go.dev/runtime/metrics)
+  set — notably `go_cpu_classes_*` for CPU attribution (GC mark/assist/pause vs user code)
+  and `go_sched_latencies_seconds` for goroutine scheduling delay. Adds roughly 100 scalars
+  and 8 histograms. This is a process-wide latch: enabling it in any server block enables it
+  for all, and it stays enabled across reloads until restart.
 
 ## Examples
 

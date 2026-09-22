@@ -76,6 +76,13 @@ var (
 		Help:      "Counter of DoH responses per server and http status code.",
 	}, []string{"server", "status"})
 
+	HTTPS3ResponsesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: subsystem,
+		Name:      "https3_responses_total",
+		Help:      "Counter of DoH3 responses per server and http status code.",
+	}, []string{"server", "status"})
+
 	QUICResponsesCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: subsystem,

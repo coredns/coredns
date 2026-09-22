@@ -19,6 +19,8 @@ import (
 	_ "github.com/coredns/coredns/plugin/pkg/trace" // Plugin the trace package.
 	"github.com/coredns/coredns/request"
 
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/ext"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	otext "github.com/opentracing/opentracing-go/ext"
@@ -26,10 +28,6 @@ import (
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -65,12 +63,12 @@ var tagByProvider = map[string]traceTags{
 }
 
 type trace struct {
-	count uint64 // as per Go spec, needs to be first element in a struct
+	count atomic.Uint64 // as per Go spec, needs to be first element in a struct
 
 	Next                   plugin.Handler
 	Endpoint               string
 	EndpointType           string
-	tracer                 ot.Tracer
+	zipkinTracer           ot.Tracer
 	serviceEndpoint        string
 	serviceName            string
 	clientServer           bool
@@ -84,7 +82,7 @@ type trace struct {
 }
 
 func (t *trace) Tracer() ot.Tracer {
-	return t.tracer
+	return t.zipkinTracer
 }
 
 // OnStartup sets up the tracer
@@ -95,21 +93,28 @@ func (t *trace) OnStartup() error {
 		case "zipkin":
 			err = t.setupZipkin()
 		case "datadog":
-			tracer := opentracer.New(
+			tracer.Start(
 				tracer.WithAgentAddr(t.Endpoint),
 				tracer.WithDebugMode(clog.D.Value()),
 				tracer.WithGlobalTag(ext.SpanTypeDNS, true),
-				tracer.WithServiceName(t.serviceName),
+				tracer.WithService(t.serviceName),
 				tracer.WithAnalyticsRate(t.datadogAnalyticsRate),
 				tracer.WithLogger(&loggerAdapter{log}),
 			)
-			t.tracer = tracer
 			t.tagSet = tagByProvider["datadog"]
 		default:
 			err = fmt.Errorf("unknown endpoint type: %s", t.EndpointType)
 		}
 	})
 	return err
+}
+
+// OnShutdown cleans up the tracer
+func (t *trace) OnShutdown() error {
+	if t.EndpointType == "datadog" {
+		tracer.Stop()
+	}
+	return nil
 }
 
 func (t *trace) setupZipkin() error {
@@ -137,7 +142,7 @@ func (t *trace) setupZipkin() error {
 	if err != nil {
 		return err
 	}
-	t.tracer = zipkinot.Wrap(tracer)
+	t.zipkinTracer = zipkinot.Wrap(tracer)
 
 	t.tagSet = tagByProvider["default"]
 	return err
@@ -148,16 +153,42 @@ func (t *trace) Name() string { return "trace" }
 
 // ServeDNS implements the plugin.Handle interface.
 func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	trace := false
+	shouldTrace := false
 	if t.every > 0 {
-		queryNr := atomic.AddUint64(&t.count, 1)
-
+		queryNr := t.count.Add(1)
 		if queryNr%t.every == 0 {
-			trace = true
+			shouldTrace = true
 		}
 	}
+
+	if t.EndpointType == "datadog" {
+		return t.serveDNSDatadog(ctx, w, r, shouldTrace)
+	}
+	return t.serveDNSZipkin(ctx, w, r, shouldTrace)
+}
+
+func (t *trace) serveDNSDatadog(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, shouldTrace bool) (int, error) {
+	if !shouldTrace {
+		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+	}
+
+	span, spanCtx := tracer.StartSpanFromContext(ctx, defaultTopLevelSpanName)
+	defer span.Finish()
+
+	metadata.SetValueFunc(ctx, metaTraceIdKey, func() string { return span.Context().TraceID() })
+
+	req := request.Request{W: w, Req: r}
+	rw := dnstest.NewRecorder(w)
+	status, err := plugin.NextOrFailure(t.Name(), t.Next, spanCtx, rw, r)
+
+	t.setDatadogSpanTags(span, req, rw, status, err)
+
+	return status, err
+}
+
+func (t *trace) serveDNSZipkin(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, shouldTrace bool) (int, error) {
 	span := ot.SpanFromContext(ctx)
-	if !trace || span != nil {
+	if !shouldTrace || span != nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
@@ -172,17 +203,39 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	span = t.Tracer().StartSpan(defaultTopLevelSpanName, otext.RPCServerOption(spanCtx))
 	defer span.Finish()
 
-	switch spanCtx := span.Context().(type) {
-	case zipkinot.SpanContext:
+	if spanCtx, ok := span.Context().(zipkinot.SpanContext); ok {
 		metadata.SetValueFunc(ctx, metaTraceIdKey, func() string { return spanCtx.TraceID.String() })
-	case ddtrace.SpanContext:
-		metadata.SetValueFunc(ctx, metaTraceIdKey, func() string { return fmt.Sprint(spanCtx.TraceID()) })
 	}
 
 	rw := dnstest.NewRecorder(w)
 	ctx = ot.ContextWithSpan(ctx, span)
 	status, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, rw, r)
 
+	t.setZipkinSpanTags(span, req, rw, status, err)
+
+	return status, err
+}
+
+// setDatadogSpanTags sets span tags using DataDog v2 API
+func (t *trace) setDatadogSpanTags(span *tracer.Span, req request.Request, rw *dnstest.Recorder, status int, err error) {
+	span.SetTag(t.tagSet.Name, req.Name())
+	span.SetTag(t.tagSet.Type, req.Type())
+	span.SetTag(t.tagSet.Proto, req.Proto())
+	span.SetTag(t.tagSet.Remote, req.IP())
+	rc := rw.Rcode
+	if !plugin.ClientWrite(status) {
+		rc = status
+	}
+	span.SetTag(t.tagSet.Rcode, rcode.ToString(rc))
+	if err != nil {
+		span.SetTag("error.message", err.Error())
+		span.SetTag("error", true)
+		span.SetTag("error.type", "dns_error")
+	}
+}
+
+// setZipkinSpanTags sets span tags for Zipkin/OpenTracing spans
+func (t *trace) setZipkinSpanTags(span ot.Span, req request.Request, rw *dnstest.Recorder, status int, err error) {
 	span.SetTag(t.tagSet.Name, req.Name())
 	span.SetTag(t.tagSet.Type, req.Type())
 	span.SetTag(t.tagSet.Proto, req.Proto())
@@ -196,9 +249,8 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	}
 	span.SetTag(t.tagSet.Rcode, rcode.ToString(rc))
 	if err != nil {
+		// Use OpenTracing error handling
 		otext.Error.Set(span, true)
 		span.LogFields(otlog.Event("error"), otlog.Error(err))
 	}
-
-	return status, err
 }

@@ -22,11 +22,11 @@ type Dnssec struct {
 	keys      []*DNSKEY
 	splitkeys bool
 	inflight  *singleflight.Group
-	cache     *cache.Cache
+	cache     *cache.Cache[[]dns.RR]
 }
 
 // New returns a new Dnssec.
-func New(zones []string, keys []*DNSKEY, splitkeys bool, next plugin.Handler, c *cache.Cache) Dnssec {
+func New(zones []string, keys []*DNSKEY, splitkeys bool, next plugin.Handler, c *cache.Cache[[]dns.RR]) Dnssec {
 	return Dnssec{Next: next,
 		zones:     zones,
 		keys:      keys,
@@ -48,6 +48,9 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 
 	mt, _ := response.Typify(req, time.Now().UTC()) // TODO(miek): need opt record here?
 	if mt == response.Delegation {
+		if len(req.Ns) == 0 {
+			return req
+		}
 		// We either sign DS or NSEC of DS.
 		ttl := req.Ns[0].Header().Ttl
 
@@ -68,7 +71,7 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 	}
 
 	if mt == response.NameError || mt == response.NoData {
-		if req.Ns[0].Header().Rrtype != dns.TypeSOA || len(req.Ns) > 1 {
+		if len(req.Ns) != 1 || req.Ns[0].Header().Rrtype != dns.TypeSOA {
 			return req
 		}
 
@@ -90,21 +93,34 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 		return req
 	}
 
+	zones := plugin.Zones(d.zones) // only sign if CNAME is not outside of our zones
 	for _, r := range rrSets(req.Answer) {
+		signer := zones.Matches(r[0].Header().Name)
+		if signer == "" {
+			continue
+		}
 		ttl := r[0].Header().Ttl
-		if sigs, err := d.sign(r, state.Zone, ttl, incep, expir, server); err == nil {
+		if sigs, err := d.sign(r, signer, ttl, incep, expir, server); err == nil {
 			req.Answer = append(req.Answer, sigs...)
 		}
 	}
 	for _, r := range rrSets(req.Ns) {
+		signer := zones.Matches(r[0].Header().Name)
+		if signer == "" {
+			continue
+		}
 		ttl := r[0].Header().Ttl
-		if sigs, err := d.sign(r, state.Zone, ttl, incep, expir, server); err == nil {
+		if sigs, err := d.sign(r, signer, ttl, incep, expir, server); err == nil {
 			req.Ns = append(req.Ns, sigs...)
 		}
 	}
 	for _, r := range rrSets(req.Extra) {
+		signer := zones.Matches(r[0].Header().Name)
+		if signer == "" {
+			continue
+		}
 		ttl := r[0].Header().Ttl
-		if sigs, err := d.sign(r, state.Zone, ttl, incep, expir, server); err == nil {
+		if sigs, err := d.sign(r, signer, ttl, incep, expir, server); err == nil {
 			req.Extra = append(req.Extra, sigs...)
 		}
 	}
@@ -118,7 +134,7 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 		return sgs, nil
 	}
 
-	sigs, err := d.inflight.Do(k, func() (interface{}, error) {
+	sigs, err := d.inflight.Do(k, func() (any, error) {
 		var sigs []dns.RR
 		for _, k := range d.keys {
 			if d.splitkeys {
@@ -136,14 +152,19 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 			}
 			sig := k.newRRSIG(signerName, ttl, incep, expir)
 			if e := sig.Sign(k.s, rrs); e != nil {
-				return sigs, e
+				return nil, e
 			}
 			sigs = append(sigs, sig)
 		}
-		d.set(k, sigs)
+		if len(sigs) > 0 {
+			d.set(k, sigs)
+		}
 		return sigs, nil
 	})
-	return sigs.([]dns.RR), err
+	if err != nil {
+		return nil, err
+	}
+	return sigs.([]dns.RR), nil
 }
 
 func (d Dnssec) set(key uint64, sigs []dns.RR) { d.cache.Add(key, sigs) }
@@ -152,7 +173,7 @@ func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 	if s, ok := d.cache.Get(key); ok {
 		// we sign for 8 days, check if a signature in the cache reached 3/4 of that
 		is75 := time.Now().UTC().Add(twoDays)
-		for _, rr := range s.([]dns.RR) {
+		for _, rr := range s {
 			if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
 				cacheMisses.WithLabelValues(server).Inc()
 				return nil, false
@@ -160,15 +181,15 @@ func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 		}
 
 		cacheHits.WithLabelValues(server).Inc()
-		return s.([]dns.RR), true
+		return s, true
 	}
 	cacheMisses.WithLabelValues(server).Inc()
 	return nil, false
 }
 
 func incepExpir(now time.Time) (uint32, uint32) {
-	incep := uint32(now.Add(-3 * time.Hour).Unix()) // -(2+1) hours, be sure to catch daylight saving time and such
-	expir := uint32(now.Add(eightDays).Unix())      // sign for 8 days
+	incep := uint32(now.Add(-3 * time.Hour).Unix()) // #nosec G115 -- DNSSEC inception, Year 2106 problem accepted // -(2+1) hours, be sure to catch daylight saving time and such
+	expir := uint32(now.Add(eightDays).Unix())      // #nosec G115 -- DNSSEC expiration, Year 2106 problem accepted      // sign for 8 days
 	return incep, expir
 }
 

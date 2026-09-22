@@ -3,6 +3,7 @@ package rewrite
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -73,22 +74,22 @@ func TestNewTTLRule(t *testing.T) {
 }
 
 func TestTtlRewrite(t *testing.T) {
-	rules := []Rule{}
 	ruleset := []struct {
 		args         []string
 		expectedType reflect.Type
 	}{
-		{[]string{"stop", "ttl", "srv1.coredns.rocks", "1"}, reflect.TypeOf(&exactTTLRule{})},
-		{[]string{"stop", "ttl", "exact", "srv15.coredns.rocks", "15"}, reflect.TypeOf(&exactTTLRule{})},
-		{[]string{"stop", "ttl", "prefix", "srv30", "30"}, reflect.TypeOf(&prefixTTLRule{})},
-		{[]string{"stop", "ttl", "suffix", "45.coredns.rocks", "45"}, reflect.TypeOf(&suffixTTLRule{})},
-		{[]string{"stop", "ttl", "substring", "rv50", "50"}, reflect.TypeOf(&substringTTLRule{})},
-		{[]string{"stop", "ttl", "regex", `(srv10)\.(coredns)\.(rocks)`, "10"}, reflect.TypeOf(&regexTTLRule{})},
-		{[]string{"stop", "ttl", "regex", `(srv20)\.(coredns)\.(rocks)`, "20"}, reflect.TypeOf(&regexTTLRule{})},
-		{[]string{"stop", "ttl", "range.example.com.", "30-300"}, reflect.TypeOf(&exactTTLRule{})},
-		{[]string{"stop", "ttl", "ceil.example.com.", "-11"}, reflect.TypeOf(&exactTTLRule{})},
-		{[]string{"stop", "ttl", "floor.example.com.", "5-"}, reflect.TypeOf(&exactTTLRule{})},
+		{[]string{"stop", "ttl", "srv1.coredns.rocks", "1"}, reflect.TypeFor[*exactTTLRule]()},
+		{[]string{"stop", "ttl", "exact", "srv15.coredns.rocks", "15"}, reflect.TypeFor[*exactTTLRule]()},
+		{[]string{"stop", "ttl", "prefix", "srv30", "30"}, reflect.TypeFor[*prefixTTLRule]()},
+		{[]string{"stop", "ttl", "suffix", "45.coredns.rocks", "45"}, reflect.TypeFor[*suffixTTLRule]()},
+		{[]string{"stop", "ttl", "substring", "rv50", "50"}, reflect.TypeFor[*substringTTLRule]()},
+		{[]string{"stop", "ttl", "regex", `(srv10)\.(coredns)\.(rocks)`, "10"}, reflect.TypeFor[*regexTTLRule]()},
+		{[]string{"stop", "ttl", "regex", `(srv20)\.(coredns)\.(rocks)`, "20"}, reflect.TypeFor[*regexTTLRule]()},
+		{[]string{"stop", "ttl", "range.example.com.", "30-300"}, reflect.TypeFor[*exactTTLRule]()},
+		{[]string{"stop", "ttl", "ceil.example.com.", "-11"}, reflect.TypeFor[*exactTTLRule]()},
+		{[]string{"stop", "ttl", "floor.example.com.", "5-"}, reflect.TypeFor[*exactTTLRule]()},
 	}
+	rules := make([]Rule, 0, len(ruleset))
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)
 		if err != nil {
@@ -99,10 +100,11 @@ func TestTtlRewrite(t *testing.T) {
 		}
 		rules = append(rules, rule)
 	}
-	doTTLTests(rules, t)
+	doTTLTests(t, rules)
 }
 
-func doTTLTests(rules []Rule, t *testing.T) {
+func doTTLTests(t *testing.T, rules []Rule) {
+	t.Helper()
 	tests := []struct {
 		from      string
 		fromType  uint16
@@ -153,5 +155,16 @@ func doTTLTests(rules []Rule, t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+func TestNewTTLRuleLargeRegex(t *testing.T) {
+	largeRegex := strings.Repeat("a", maxRegexpLen+1)
+	_, err := newTTLRule("stop", "regex", largeRegex, "300")
+	if err == nil {
+		t.Fatal("Expected error for large regex, got nil")
+	}
+	if !strings.Contains(err.Error(), "too long") {
+		t.Errorf("Expected 'too long' error, got: %v", err)
 	}
 }

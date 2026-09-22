@@ -19,7 +19,7 @@ large number of CPU cores.
 multisocket [NUM_SOCKETS]
 ~~~
 
-* **NUM_SOCKETS** - the number of servers that will listen on one port. Default value is equal to GOMAXPROCS.
+* **NUM_SOCKETS** - the number of servers that will listen on one port. Default value is equal to GOMAXPROCS. Maximum value is 1024.
 
 ## Examples
 
@@ -61,6 +61,10 @@ If conducting such tests is difficult, follow these recommendations:
    - If CoreDNS consumes 8 CPUs and 64 CPUs are available, set `NUM_SOCKETS` to 8.
 
 ## Limitations
+
+The `multisocket` value used for a given listen address is taken from the first server block that binds to that address
+in the Corefile. Subsequent server blocks using the same address will not change it. Different addresses may use
+different values.
 
 The SO_REUSEPORT socket option is not available for some operating systems. It is available since Linux Kernel 3.9 and 
 not available for Windows at all.

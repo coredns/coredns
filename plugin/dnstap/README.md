@@ -14,6 +14,8 @@ Every message is sent to the socket as soon as it comes in, the *dnstap* plugin 
 
 ## Syntax
 
+### Outgoing Connections (Connect to Sink)
+
 ~~~ txt
 dnstap SOCKET [full] [writebuffer] [queue] {
   [identity IDENTITY]
@@ -25,10 +27,35 @@ dnstap SOCKET [full] [writebuffer] [queue] {
 
 * **SOCKET** is the socket (path) supplied to the dnstap command line tool.
 * `full` to include the wire-format DNS message.
+* **writebuffer** sets the TCP write buffer multiplier in MiB. Valid range: [1, 1024].
+* **queue** sets the queue multiplier, applied to 10,000 messages. Valid range: [1, 4096].
 * **IDENTITY** to override the identity of the server. Defaults to the hostname.
 * **VERSION** to override the version field. Defaults to the CoreDNS version.
 * **EXTRA** to define "extra" field in dnstap payload, [metadata](../metadata/) replacement available here.
 * `skipverify` to skip tls verification during connection. Default to be secure
+
+### Incoming Connections (Accept from Sinks)
+
+~~~ txt
+dnstap listen SOCKET [full] {
+  [identity IDENTITY]
+  [version VERSION]
+  [extra EXTRA]
+  [tls CERT KEY [CA]]
+  [skipverify]
+}
+~~~
+
+* `listen` indicates this is a listening socket that accepts incoming connections from dnstap sinks.
+* **SOCKET** is the socket address to listen on (e.g., `tcp://127.0.0.1:6000`, `unix:///tmp/dnstap.sock`).
+* `full` to include the wire-format DNS message.
+* **IDENTITY** to override the identity of the server. Defaults to the hostname.
+* **VERSION** to override the version field. Defaults to the CoreDNS version.
+* **EXTRA** to define "extra" field in dnstap payload, [metadata](../metadata/) replacement available here.
+* `tls CERT KEY [CA]` to enable TLS for the listener. **CERT** and **KEY** are paths to the server certificate and key files. Optional **CA** is the path to the CA certificate for client verification.
+* `skipverify` to skip client certificate verification. Default is to verify client certificates. Equivalent to the **CA** option above being unspecified.
+
+**Note:** Incoming connections use unbuffered channels to broadcast events. If a connected sink becomes slow or disconnected, messages are dropped for that sink only, and the connection is closed.
 
 ## Examples
 
@@ -38,7 +65,7 @@ Log information about client requests and responses to */tmp/dnstap.sock*.
 dnstap /tmp/dnstap.sock
 ~~~
 
-Log information about client requests and responses and tcp write buffer is 1024*Mb and queue is 2048*10000. 
+Log information about client requests and responses with a custom TCP write buffer (1024 MiB) and queue capacity (2048 x 10000).
 
 ~~~ txt
 dnstap /tmp/dnstap.sock full 1024 2048
@@ -89,6 +116,35 @@ dnstap tls://127.0.0.1:6000 full {
 }
 ~~~
 
+Listen for incoming dnstap sink connections on a Unix socket.
+
+~~~ txt
+dnstap listen /tmp/dnstap.sock full
+~~~
+
+Listen for incoming dnstap sink connections on TCP.
+
+~~~ txt
+dnstap listen tcp://127.0.0.1:6000 full
+~~~
+
+Listen for incoming dnstap sink connections on TLS with mTLS client authentication.
+
+~~~ txt
+dnstap listen tls://127.0.0.1:6000 full {
+  tls /path/to/server-cert.pem /path/to/server-key.pem /path/to/ca.pem
+}
+~~~
+
+Listen for incoming dnstap sink connections on TLS without client certificate verification.
+
+~~~ txt
+dnstap listen tls://127.0.0.1:6000 full {
+  tls /path/to/server-cert.pem /path/to/server-key.pem
+  skipverify
+}
+~~~
+
 You can use _dnstap_ more than once to define multiple taps. The following logs information including the
 wire-format DNS message about client requests and responses to */tmp/dnstap.sock*,
 and also sends client requests and responses without wire-format DNS messages to a remote FQDN.
@@ -96,6 +152,13 @@ and also sends client requests and responses without wire-format DNS messages to
 ~~~ txt
 dnstap /tmp/dnstap.sock full
 dnstap tcp://example.com:6000
+~~~
+
+You can also combine outgoing connections with incoming listeners:
+
+~~~ txt
+dnstap tcp://remote-collector.example.com:6000 full
+dnstap listen tcp://127.0.0.1:6001 full
 ~~~
 
 ## Command Line Tool

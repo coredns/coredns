@@ -47,7 +47,7 @@ type zones map[string][]*zone
 // that each domain name/zone id pair does exist, and returns a new *CloudDNS.
 // In addition to this, upstream is passed for doing recursive queries against CNAMEs.
 // Returns error if it cannot verify any given domain name/zone id pair.
-func New(ctx context.Context, c gcpDNS, keys map[string][]string, up *upstream.Upstream) (*CloudDNS, error) {
+func New(_ctx context.Context, c gcpDNS, keys map[string][]string, up *upstream.Upstream) (*CloudDNS, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for dnsName, hostedZoneDetails := range keys {
@@ -211,7 +211,7 @@ func (h *CloudDNS) updateZones(ctx context.Context) error {
 	// Collect errors (if any). This will also sync on all zones updates
 	// completion.
 	var errs []string
-	for i := 0; i < len(h.zones); i++ {
+	for range len(h.zones) {
 		err := <-errc
 		if err != nil {
 			errs = append(errs, err.Error())

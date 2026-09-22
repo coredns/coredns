@@ -4,7 +4,6 @@
 ![CodeQL](https://github.com/coredns/coredns/actions/workflows/codeql-analysis.yml/badge.svg)
 ![Go Tests](https://github.com/coredns/coredns/actions/workflows/go.test.yml/badge.svg)
 [![CircleCI](https://circleci.com/gh/coredns/coredns.svg?style=shield)](https://circleci.com/gh/coredns/coredns)
-[![Code Coverage](https://img.shields.io/codecov/c/github/coredns/coredns/master.svg)](https://codecov.io/github/coredns/coredns?branch=master)
 [![Docker Pulls](https://img.shields.io/docker/pulls/coredns/coredns.svg)](https://hub.docker.com/r/coredns/coredns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coredns/coredns)](https://goreportcard.com/report/coredns/coredns)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1250/badge)](https://bestpractices.coreinfrastructure.org/projects/1250)
@@ -23,6 +22,7 @@ CoreDNS can listen for DNS requests coming in over:
 * UDP/TCP (go'old DNS).
 * TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
 * DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
+* DNS over HTTP/3 - DoH3
 * DNS over QUIC - DoQ ([RFC 9250](https://tools.ietf.org/html/rfc9250)). 
 * [gRPC](https://grpc.io) (not a standard).
 
@@ -57,7 +57,7 @@ out-of-tree plugins.
 To compile CoreDNS, we assume you have a working Go setup. See various tutorials if you don’t have
 that already configured.
 
-First, make sure your golang version is 1.21 or higher as `go mod` support and other api is needed.
+First, make sure your golang version is 1.26.0 or higher as `go mod` support and other api is needed.
 See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
 Then, check out the project and run `make` to compile the binary:
 
@@ -66,6 +66,8 @@ $ git clone https://github.com/coredns/coredns
 $ cd coredns
 $ make
 ~~~
+
+> **_NOTE:_**  extra plugins may be enabled when building by setting the `COREDNS_PLUGINS` environment variable with comma separate list of plugins in the same format as plugin.cfg
 
 This should yield a `coredns` binary.
 
@@ -77,12 +79,60 @@ setup a Go environment, you could build CoreDNS easily:
 ```
 docker run --rm -i -t \
     -v $PWD:/go/src/github.com/coredns/coredns -w /go/src/github.com/coredns/coredns \
-        golang:1.22 sh -c 'GOFLAGS="-buildvcs=false" make gen && GOFLAGS="-buildvcs=false" make'
+        golang:1.25 sh -c 'GOFLAGS="-buildvcs=false" make gen && GOFLAGS="-buildvcs=false" make'
 ```
 
 The above command alone will have `coredns` binary generated.
 
+## Quick Start
+
+Create a minimal Corefile:
+
+```bash
+cat > Corefile <<EOF
+.:53 {
+    forward . 8.8.8.8
+    log
+}
+EOF
+```
+Run CoreDNS:
+```
+$ ./coredns -conf Corefile
+```
+
+Test it:
+```
+$ dig @127.0.0.1 google.com
+```
+
 ## Examples
+
+### JSON Logging
+
+Start CoreDNS with `-log-format=json` to emit operational logs as single-line JSON.
+The default `-log-format=text` retains the existing text output. The format applies
+to the whole process, including all server blocks, and persists across Corefile
+reloads. Query logging still requires the `log` plugin.
+
+```sh
+./coredns -conf Corefile -log-format=json
+```
+
+Records contain `time` (RFC3339 with fractional seconds), `level` (`DEBUG`, `INFO`,
+`WARN`, `ERROR`, or `FATAL`), and `msg`. Named plugin loggers also include `plugin`.
+Messages, including embedded newlines and DNS escapes, are JSON-encoded rather
+than concatenated into JSON templates. Debug output still requires `debug`.
+See the [log plugin](plugin/log/README.md#json-output) for typed query fields.
+
+The standard library's default logger (including Caddy's lifecycle messages) is
+routed through the same backend at `INFO` level; its original message is retained
+without guessing severity or fields from text. Independently configured third-party
+loggers, direct stdout/stderr writes, and Go runtime diagnostics are not intercepted.
+Command-line help, flag parsing errors, `-version`, and `-plugins` remain human-readable.
+Normal startup, Corefile errors, and query/error plugin logs use the selected format.
+
+### Querying CoreDNS
 
 When starting CoreDNS without any configuration, it loads the
 [*whoami*](https://coredns.io/plugins/whoami) and [*log*](https://coredns.io/plugins/log) plugins
@@ -251,6 +301,17 @@ grpc://example.org:1443 https://example.org:1444 {
     # ...
 }
 ~~~
+
+And for DNS over HTTP/3 (DoH3) use:
+
+~~~ corefile
+https3://example.org {
+    whoami
+    tls mycert mykey
+}
+~~~
+in this setup, the CoreDNS will be responsible for TLS termination
+
 
 When no transport protocol is specified the default `dns://` is assumed.
 

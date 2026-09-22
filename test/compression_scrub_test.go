@@ -46,7 +46,7 @@ func TestCompressScrub(t *testing.T) {
 	// compression. This means we're looking for a combo where the pointers is detected and the offset is 12
 	// the position of the first name after the header. The erratic plugin adds 30 RRs that should all be compressed.
 	found := 0
-	for i := 0; i < len(buf)-1; i++ {
+	for i := range len(buf) - 1 {
 		if buf[i]&0xC0 == 0xC0 {
 			off := (int(buf[i])^0xC0)<<8 | int(buf[i+1])
 			if off == 12 {

@@ -1,6 +1,7 @@
 package bind
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -8,6 +9,12 @@ import (
 )
 
 func TestSetup(t *testing.T) {
+	// Skip on non-Linux systems as some tests refer to for e.g. loopback interfaces which
+	// are not present on all systems.
+	if runtime.GOOS != "linux" {
+		t.Skipf("Skipping bind test on %s", runtime.GOOS)
+	}
+
 	for i, test := range []struct {
 		config   string
 		expected []string

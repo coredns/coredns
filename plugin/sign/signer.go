@@ -41,10 +41,10 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 		return nil, err
 	}
 
-	mttl := z.Apex.SOA.Minttl
-	ttl := z.Apex.SOA.Header().Ttl
+	mttl := z.SOA.Minttl
+	ttl := z.SOA.Header().Ttl
 	inception, expiration := lifetime(now, s.jitterIncep, s.jitterExpir)
-	z.Apex.SOA.Serial = uint32(now.Unix())
+	z.SOA.Serial = uint32(now.Unix()) // #nosec G115 -- Unix time to SOA serial, Year 2106 problem accepted
 
 	for _, pair := range s.keys {
 		pair.Public.Header().Ttl = ttl // set TTL on key so it matches the RRSIG.
@@ -58,14 +58,14 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 	ln := len(names)
 
 	for _, pair := range s.keys {
-		rrsig, err := pair.signRRs([]dns.RR{z.Apex.SOA}, s.origin, ttl, inception, expiration)
+		rrsig, err := pair.signRRs([]dns.RR{z.SOA}, s.origin, ttl, inception, expiration)
 		if err != nil {
 			return nil, err
 		}
 		z.Insert(rrsig)
 		// NS apex may not be set if RR's have been discarded because the origin doesn't match.
-		if len(z.Apex.NS) > 0 {
-			rrsig, err = pair.signRRs(z.Apex.NS, s.origin, ttl, inception, expiration)
+		if len(z.NS) > 0 {
+			rrsig, err = pair.signRRs(z.NS, s.origin, ttl, inception, expiration)
 			if err != nil {
 				return nil, err
 			}
@@ -133,8 +133,7 @@ func resign(rd io.Reader, now time.Time) (why error) {
 	i := 0
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		switch x := rr.(type) {
-		case *dns.RRSIG:
+		if x, ok := rr.(*dns.RRSIG); ok {
 			if x.TypeCovered != dns.TypeSOA {
 				continue
 			}
@@ -178,7 +177,7 @@ func signAndLog(s *Signer, why error) {
 		log.Warningf("Error signing %q: failed to move zone file into place: %s", s.origin, err)
 		return
 	}
-	log.Infof("Successfully signed zone %q in %q with key tags %q and %d SOA serial, elapsed %f, next: %s", s.origin, filepath.Join(s.directory, s.signedfile), keyTag(s.keys), z.Apex.SOA.Serial, time.Since(now).Seconds(), now.Add(durationRefreshHours).Format(timeFmt))
+	log.Infof("Successfully signed zone %q in %q with key tags %q and %d SOA serial, elapsed %f, next: %s", s.origin, filepath.Join(s.directory, s.signedfile), keyTag(s.keys), z.SOA.Serial, time.Since(now).Seconds(), now.Add(durationRefreshHours).Format(timeFmt))
 }
 
 // refresh checks every val if some zones need to be resigned.
@@ -200,7 +199,7 @@ func (s *Signer) refresh(val time.Duration) {
 }
 
 func lifetime(now time.Time, jitterInception, jitterExpiration time.Duration) (uint32, uint32) {
-	incep := uint32(now.Add(durationSignatureInceptionHours).Add(jitterInception).Unix())
-	expir := uint32(now.Add(durationSignatureExpireDays).Add(jitterExpiration).Unix())
+	incep := uint32(now.Add(durationSignatureInceptionHours).Add(jitterInception).Unix()) // #nosec G115 -- DNSSEC signature inception, Year 2106 problem accepted
+	expir := uint32(now.Add(durationSignatureExpireDays).Add(jitterExpiration).Unix())    // #nosec G115 -- DNSSEC signature expiration, Year 2106 problem accepted
 	return incep, expir
 }

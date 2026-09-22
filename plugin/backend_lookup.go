@@ -13,6 +13,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+const maxCnameChainLength = 10
+
 // A returns A records from Backend or an error.
 func A(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
 	services, err := checkForApex(ctx, b, zone, state, opt)
@@ -34,7 +36,7 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -62,7 +64,7 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			target := newRecord.Target
 			// Lookup
 			m1, e1 := b.Lookup(ctx, state, target, state.QType())
-			if e1 != nil {
+			if e1 != nil || m1 == nil {
 				continue
 			}
 			if m1.Truncated {
@@ -108,7 +110,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -135,7 +137,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
 			m1, e1 := b.Lookup(ctx, state, target, state.QType())
-			if e1 != nil {
+			if e1 != nil || m1 == nil {
 				continue
 			}
 			if m1.Truncated {
@@ -217,12 +219,12 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 
 			if !dns.IsSubDomain(zone, srv.Target) {
 				m1, e1 := b.Lookup(ctx, state, srv.Target, dns.TypeA)
-				if e1 == nil {
+				if e1 == nil && m1 != nil {
 					extra = append(extra, m1.Answer...)
 				}
 
 				m1, e1 = b.Lookup(ctx, state, srv.Target, dns.TypeAAAA)
-				if e1 == nil {
+				if e1 == nil && m1 != nil {
 					// If we have seen CNAME's we *assume* that they are already added.
 					for _, a := range m1.Answer {
 						if _, ok := a.(*dns.CNAME); !ok {
@@ -284,12 +286,12 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 
 			if !dns.IsSubDomain(zone, mx.Mx) {
 				m1, e1 := b.Lookup(ctx, state, mx.Mx, dns.TypeA)
-				if e1 == nil {
+				if e1 == nil && m1 != nil {
 					extra = append(extra, m1.Answer...)
 				}
 
 				m1, e1 = b.Lookup(ctx, state, mx.Mx, dns.TypeAAAA)
-				if e1 == nil {
+				if e1 == nil && m1 != nil {
 					// If we have seen CNAME's we *assume* that they are already added.
 					for _, a := range m1.Answer {
 						if _, ok := a.(*dns.CNAME); !ok {
@@ -325,7 +327,7 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 }
 
 // CNAME returns CNAME records from the backend or an error.
-func CNAME(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, err error) {
+func CNAME(ctx context.Context, b ServiceBackend, _zone string, state request.Request, opt Options) (records []dns.RR, err error) {
 	services, err := b.Services(ctx, state, true, opt)
 	if err != nil {
 		return nil, err
@@ -361,7 +363,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -388,7 +390,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			target := newRecord.Target
 			// Lookup
 			m1, e1 := b.Lookup(ctx, state, target, state.QType())
-			if e1 != nil {
+			if e1 != nil || m1 == nil {
 				continue
 			}
 			// Len(m1.Answer) > 0 here is well?
@@ -408,7 +410,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 }
 
 // PTR returns the PTR records from the backend, only services that have a domain name as host are included.
-func PTR(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, err error) {
+func PTR(ctx context.Context, b ServiceBackend, _zone string, state request.Request, opt Options) (records []dns.RR, err error) {
 	services, err := b.Reverse(ctx, state, true, opt)
 	if err != nil {
 		return nil, err
@@ -427,20 +429,20 @@ func PTR(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 	return records, nil
 }
 
-// NS returns NS records from  the backend
+// NS returns NS records from the backend
 func NS(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records, extra []dns.RR, err error) {
-	// NS record for this zone live in a special place, ns.dns.<zone>. Fake our lookup.
-	// only a tad bit fishy...
+	// NS record for this zone lives in a special place, ns.dns.<zone>. Fake our lookup.
+	// Only a tad bit fishy...
 	old := state.QName()
 
 	state.Clear()
 	state.Req.Question[0].Name = dnsutil.Join("ns.dns.", zone)
 	services, err := b.Services(ctx, state, false, opt)
+	// reset the query name to the original
+	state.Req.Question[0].Name = old
 	if err != nil {
 		return nil, nil, err
 	}
-	// ... and reset
-	state.Req.Question[0].Name = old
 
 	seen := map[string]bool{}
 
@@ -465,12 +467,9 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 }
 
 // SOA returns a SOA record from the backend.
-func SOA(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) ([]dns.RR, error) {
+func SOA(_ctx context.Context, b ServiceBackend, zone string, state request.Request, _opt Options) ([]dns.RR, error) {
 	minTTL := b.MinTTL(state)
-	ttl := uint32(300)
-	if minTTL < ttl {
-		ttl = minTTL
-	}
+	ttl := min(minTTL, uint32(300))
 
 	header := dns.RR_Header{Name: zone, Rrtype: dns.TypeSOA, Ttl: ttl, Class: dns.ClassINET}
 
@@ -524,12 +523,11 @@ func checkForApex(ctx context.Context, b ServiceBackend, zone string, state requ
 	state.Req.Question[0].Name = dnsutil.Join("apex.dns", zone)
 
 	services, err := b.Services(ctx, state, false, opt)
-	if err == nil {
-		state.Req.Question[0].Name = old
+	state.Req.Question[0].Name = old
+	if err == nil || !b.IsNameError(err) || opt.NoApexFallback {
 		return services, err
 	}
 
-	state.Req.Question[0].Name = old
 	return b.Services(ctx, state, false, opt)
 }
 

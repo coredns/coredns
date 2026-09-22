@@ -3,9 +3,11 @@ package file
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -84,16 +86,16 @@ func TestShouldTransfer(t *testing.T) {
 		t.Fatalf("ShouldTransfer should return true for serial: %d", soa.serial)
 	}
 	// Serial smaller
-	z.Apex.SOA = test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0 ", testZone, soa.serial-1))
+	z.SOA = test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0 ", testZone, soa.serial-1))
 	should, err = z.shouldTransfer()
 	if err != nil {
 		t.Fatalf("Unable to run shouldTransfer: %v", err)
 	}
 	if !should {
-		t.Fatalf("ShouldTransfer should return true for serial: %q", soa.serial-1)
+		t.Fatalf("ShouldTransfer should return true for serial: %d", soa.serial-1)
 	}
 	// Serial equal
-	z.Apex.SOA = test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0 ", testZone, soa.serial))
+	z.SOA = test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0 ", testZone, soa.serial))
 	should, err = z.shouldTransfer()
 	if err != nil {
 		t.Fatalf("Unable to run shouldTransfer: %v", err)
@@ -113,11 +115,32 @@ func TestTransferIn(t *testing.T) {
 	z.origin = testZone
 	z.TransferFrom = []string{s.Addr}
 
-	if err := z.TransferIn(); err != nil {
+	if err := z.TransferIn(nil); err != nil {
 		t.Fatalf("Unable to run TransferIn: %v", err)
 	}
-	if z.Apex.SOA.String() != fmt.Sprintf("%s	3600	IN	SOA	bla. bla. 250 0 0 0 0", testZone) {
+	if z.SOA.String() != fmt.Sprintf("%s	3600	IN	SOA	bla. bla. 250 0 0 0 0", testZone) {
 		t.Fatalf("Unknown SOA transferred")
+	}
+}
+
+func TestUpdateStopsBeforeInitialTransfer(t *testing.T) {
+	z := NewZone(testZone, "test")
+	updateShutdown := make(chan bool)
+	done := make(chan struct{})
+
+	go func() {
+		if err := z.Update(updateShutdown, nil); err != nil {
+			t.Errorf("Unexpected update error: %v", err)
+		}
+		close(done)
+	}()
+
+	close(updateShutdown)
+
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Update did not stop while waiting for initial SOA")
 	}
 }
 
@@ -138,9 +161,89 @@ func TestIsNotify(t *testing.T) {
 	}
 }
 
-func newRequest(zone string, qtype uint16) request.Request {
+func newRequest(_zone string, _qtype uint16) request.Request {
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
 	m.SetEdns0(4097, true)
 	return request.Request{W: &test.ResponseWriter{}, Req: m}
+}
+
+func TestUpdateWithZeroSOATimers(t *testing.T) {
+	z := NewZone(testZone, "test")
+	z.SOA = test.SOA(
+		fmt.Sprintf("%s IN SOA bla. bla. 1 0 0 0 0", testZone),
+	)
+
+	updateShutdown := make(chan bool)
+	time.AfterFunc(10*time.Millisecond, func() {
+		close(updateShutdown)
+	})
+
+	if err := z.UpdateWithTransfer(
+		updateShutdown,
+		nil,
+		func(*Zone, *transfer.Transfer) error { return nil },
+	); err != nil {
+		t.Fatalf("Unexpected update error: %v", err)
+	}
+}
+
+func TestTransferInDoesNotMergeRecordsFromFailedPrimary(t *testing.T) {
+	const serial = 250
+	injectedName := "evil." + testZone
+	legitimateName := "www." + testZone
+
+	soaRR := func() dns.RR {
+		return test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0", testZone, serial))
+	}
+
+	// The first primary sends a valid first AXFR envelope containing an injected
+	// record, but never sends the terminating SOA. Closing the connection makes
+	// the transfer fail with EOF after those records have been delivered.
+	malicious := dnstest.NewMultipleServer(func(w dns.ResponseWriter, req *dns.Msg) {
+		if len(req.Question) == 0 || req.Question[0].Qtype != dns.TypeAXFR {
+			return
+		}
+		m := new(dns.Msg)
+		m.SetReply(req)
+		m.Answer = []dns.RR{
+			soaRR(),
+			test.A(injectedName + " 3600 IN A 6.6.6.6"),
+		}
+		_ = w.WriteMsg(m)
+		_ = w.Close()
+	})
+	defer malicious.Close()
+
+	// The second primary completes a normal AXFR and does not contain the
+	// injected name.
+	legitimate := dnstest.NewMultipleServer(func(w dns.ResponseWriter, req *dns.Msg) {
+		if len(req.Question) == 0 || req.Question[0].Qtype != dns.TypeAXFR {
+			return
+		}
+		m := new(dns.Msg)
+		m.SetReply(req)
+		m.Answer = []dns.RR{
+			soaRR(),
+			test.A(legitimateName + " 3600 IN A 192.0.2.10"),
+			soaRR(),
+		}
+		_ = w.WriteMsg(m)
+	})
+	defer legitimate.Close()
+
+	z := NewZone(testZone, "test")
+	z.TransferFrom = []string{malicious.Addr, legitimate.Addr}
+	if err := z.TransferIn(nil); err != nil {
+		t.Fatalf("TransferIn failed: %v", err)
+	}
+
+	legitimateElem, found := z.Search(legitimateName)
+	if !found || len(legitimateElem.Type(dns.TypeA)) != 1 {
+		t.Fatalf("legitimate primary record %q was not transferred", legitimateName)
+	}
+
+	if injectedElem, found := z.Search(injectedName); found && len(injectedElem.Type(dns.TypeA)) != 0 {
+		t.Fatalf("record %q from failed primary was published: %v", injectedName, injectedElem.Type(dns.TypeA))
+	}
 }

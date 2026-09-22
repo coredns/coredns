@@ -15,8 +15,17 @@ func TestPrometheusParse(t *testing.T) {
 		// oks
 		{`prometheus`, false, "localhost:9153"},
 		{`prometheus localhost:53`, false, "localhost:53"},
+		{`prometheus {
+			runtime_metrics
+		}`, false, "localhost:9153"},
+		{`prometheus localhost:53 {
+			runtime_metrics
+		}`, false, "localhost:53"},
 		// fails
 		{`prometheus {}`, true, ""},
+		{`prometheus {
+			runtime_metrics extra_arg
+		}`, true, ""},
 		{`prometheus /foo`, true, ""},
 		{`prometheus a b c`, true, ""},
 	}
@@ -38,5 +47,12 @@ func TestPrometheusParse(t *testing.T) {
 		if test.addr != m.Addr {
 			t.Errorf("Test %v: Expected address %s but found: %s", i, test.addr, m.Addr)
 		}
+	}
+}
+
+func TestSetupBasic(t *testing.T) {
+	c := caddy.NewTestController("dns", "prometheus localhost:9153")
+	if err := setup(c); err != nil {
+		t.Fatalf("setup returned error: %v", err)
 	}
 }

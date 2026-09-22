@@ -22,7 +22,7 @@ import (
 // is prefixed with 'debug: ' so the data can be easily extracted.
 //
 // msg will prefix the pcap dump.
-func Hexdump(m *dns.Msg, v ...interface{}) {
+func Hexdump(m *dns.Msg, v ...any) {
 	if !log.D.Value() {
 		return
 	}
@@ -38,7 +38,7 @@ func Hexdump(m *dns.Msg, v ...interface{}) {
 }
 
 // Hexdumpf dumps a DNS message as Hexdump, but allows a format string.
-func Hexdumpf(m *dns.Msg, format string, v ...interface{}) {
+func Hexdumpf(m *dns.Msg, format string, v ...any) {
 	if !log.D.Value() {
 		return
 	}
@@ -57,7 +57,7 @@ func hexdump(data []byte) []byte {
 	b := new(bytes.Buffer)
 
 	newline := ""
-	for i := 0; i < len(data); i++ {
+	for i := range data {
 		if i%16 == 0 {
 			fmt.Fprintf(b, "%s%s%06x", newline, prefix, i)
 			newline = "\n"

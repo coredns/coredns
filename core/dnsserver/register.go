@@ -3,6 +3,8 @@ package dnsserver
 import (
 	"fmt"
 	"net"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -16,7 +18,22 @@ import (
 
 const serverType = "dns"
 
-func init() {
+// Register registers the DNS server type with Caddy. Repeated calls return the
+// result of the first call without registering again. An existing server type
+// registered by another caller is left unchanged and causes an error.
+//
+// Default builds call Register automatically. When built with the
+// coredns_manual_registration tag, an embedding host must call Register before
+// starting Caddy. Register neither registers plugins nor starts listeners.
+//
+// Concurrent calls to Register are safe, but the first call must not run
+// concurrently with other Caddy configuration or startup operations.
+func Register() error { return registerServerType() }
+
+var registerServerType = sync.OnceValue(func() error {
+	if slices.Contains(caddy.ListPlugins()["server_types"], serverType) {
+		return fmt.Errorf("dnsserver: server type %q already registered", serverType)
+	}
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return Directives },
 		DefaultInput: func() caddy.Input {
@@ -28,9 +45,10 @@ func init() {
 		},
 		NewContext: newContext,
 	})
-}
+	return nil
+})
 
-func newContext(i *caddy.Instance) caddy.Context {
+func newContext(_i *caddy.Instance) caddy.Context {
 	return &dnsContext{keysToConfigs: make(map[string]*Config)}
 }
 
@@ -52,7 +70,7 @@ var _ caddy.Context = &dnsContext{}
 // InspectServerBlocks make sure that everything checks out before
 // executing directives and otherwise prepares the directives to
 // be parsed and executed.
-func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
+func (h *dnsContext) InspectServerBlocks(_sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
 	// Normalize and check all the zone names and check for duplicates
 	for ib, s := range serverBlocks {
 		// Walk the s.Keys and expand any reverse address in their proper DNS in-addr zones. If the expansions leads for
@@ -88,6 +106,8 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 					port = transport.GRPCPort
 				case transport.HTTPS:
 					port = transport.HTTPSPort
+				case transport.HTTPS3:
+					port = transport.HTTPSPort
 				}
 			}
 
@@ -98,7 +118,7 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 				}
 			}
 			for i := range hosts {
-				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: dns.Fqdn(hosts[i]), Port: port, Transport: trans})
+				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: plugin.Name(hosts[i]).Normalize(), Port: port, Transport: trans})
 			}
 		}
 
@@ -182,6 +202,17 @@ func (c *Config) AddPlugin(m plugin.Plugin) {
 	c.Plugin = append(c.Plugin, m)
 }
 
+// AllowOpcode permits a non-default DNS opcode to reach this config's plugin chain
+// on UDP, TCP, and DNS-over-TLS listeners. Plugins should call it during setup.
+// The listener still requires exactly one question, and configs that do not opt in
+// continue to reject the opcode.
+func (c *Config) AllowOpcode(opcode int) {
+	if c.allowedOpcodes == nil {
+		c.allowedOpcodes = make(map[int]struct{})
+	}
+	c.allowedOpcodes[opcode] = struct{}{}
+}
+
 // registerHandler adds a handler to a site's handler registration. Handlers
 //
 //	use this to announce that they exist to other plugin.
@@ -235,11 +266,13 @@ func (h *dnsContext) validateZonesAndListeningAddresses() error {
 			akey := zoneAddr{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
 			var existZone, overlapZone *zoneAddr
 			if len(conf.FilterFuncs) > 0 {
-				// This config has filters. Check for overlap with other (unfiltered) configs.
-				existZone, overlapZone = checker.check(akey)
+				// This config has filters (e.g. view plugin). It is allowed to
+				// share a zone/port with an unfiltered server block, so we only
+				// check without registering and skip the "already defined" error.
+				_, overlapZone = checker.check(akey)
 			} else {
-				// This config has no filters. Check for overlap with other (unfiltered) configs,
-				// and register the zone to prevent subsequent zones from overlapping with it.
+				// This config has no filters. Check for overlap with other
+				// unfiltered configs and register the zone.
 				existZone, overlapZone = checker.registerAndCheck(akey)
 			}
 			if existZone != nil {
@@ -265,12 +298,28 @@ func propagateConfigParams(configs []*Config) {
 		c.Stacktrace = c.firstConfigInBlock.Stacktrace
 		c.NumSockets = c.firstConfigInBlock.NumSockets
 
-		// Fork TLSConfig for each encrypted connection
+		// Fork TLSConfig for each encrypted connection while preserving the
+		// listener-wide policy identity used to compare dynamic callbacks.
 		c.TLSConfig = c.firstConfigInBlock.TLSConfig.Clone()
+		c.tlsConfigIdentity = c.firstConfigInBlock.tlsConfigIdentity
 		c.ReadTimeout = c.firstConfigInBlock.ReadTimeout
 		c.WriteTimeout = c.firstConfigInBlock.WriteTimeout
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout
+		c.MaxTCPQueries = c.firstConfigInBlock.MaxTCPQueries
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
+		c.allowedOpcodes = c.firstConfigInBlock.allowedOpcodes
+
+		// Propagate HTTPRequestValidateFunc so that custom path validators work in
+		// multi-transport blocks. Otherwise HTTPS 404s on non-"/dns-query" paths.
+		c.HTTPRequestValidateFunc = c.firstConfigInBlock.HTTPRequestValidateFunc
+
+		// Propagate UDPDecorateWriterFunc so a decorator configured once in a
+		// server block applies to the block's UDP listener(s).
+		c.UDPDecorateWriterFunc = c.firstConfigInBlock.UDPDecorateWriterFunc
+
+		// Propagate MaxHTTPSStreams so a `https { max_streams N }` set once in a
+		// server block applies to the block's HTTPS key regardless of key order.
+		c.MaxHTTPSStreams = c.firstConfigInBlock.MaxHTTPSStreams
 	}
 }
 
@@ -347,6 +396,13 @@ func makeServersForGroup(addr string, group []*Config) ([]caddy.Server, error) {
 				return nil, err
 			}
 			servers = append(servers, s)
+
+		case transport.HTTPS3:
+			s, err := NewServerHTTPS3(addr, group)
+			if err != nil {
+				return nil, err
+			}
+			servers = append(servers, s)
 		}
 	}
 	return servers, nil
@@ -364,5 +420,3 @@ var (
 	// GracefulTimeout is the maximum duration of a graceful shutdown.
 	GracefulTimeout time.Duration
 )
-
-var _ caddy.GracefulServer = new(Server)

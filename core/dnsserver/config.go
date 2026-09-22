@@ -10,6 +10,9 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
+
+	"github.com/miekg/dns"
+	"github.com/pires/go-proxyproto"
 )
 
 // Config configuration for a single server.
@@ -47,6 +50,15 @@ type Config struct {
 	// may depend on it.
 	HTTPRequestValidateFunc func(*http.Request) bool
 
+	// If this function is not nil it is called once per Server in ServePacket
+	// (so each UDP listening socket gets its own decorator under multisocket)
+	// and its result is installed as the underlying dns.Server's
+	// DecorateWriter. Plain dns:// UDP listeners only. When several server
+	// blocks sharing a listener set it, the last one in config order wins.
+	// Although this isn't referenced in-tree, external plugins may depend
+	// on it.
+	UDPDecorateWriterFunc func(*Server) dns.DecorateWriter
+
 	// FilterFuncs is used to further filter access
 	// to this handler. E.g. to limit access to a reverse zone
 	// on a non-octet boundary, i.e. /17
@@ -58,13 +70,82 @@ type Config struct {
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 
-	// Timeouts for TCP, TLS and HTTPS servers.
+	// tlsConfigIdentity identifies dynamic TLS configurations that are known to
+	// represent the same listener-wide policy even after tls.Config.Clone.
+	tlsConfigIdentity *TLSConfigIdentity
+
+	// MaxQUICStreams defines the maximum number of concurrent QUIC streams for a QUIC server.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxQUICStreams *int
+
+	// MaxQUICConnections is the maximum number of concurrent connections.
+	MaxQUICConnections *int
+
+	// MaxQUICWorkerPoolSize defines the size of the worker pool for processing QUIC streams.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxQUICWorkerPoolSize *int
+
+	// ProxyProtoConnPolicy is the function that will be used to
+	// configure the PROXY protocol settings on listeners.
+	// If nil, PROXY protocol is disabled.
+	ProxyProtoConnPolicy proxyproto.ConnPolicyFunc
+
+	// ProxyProtoUDPSessionTrackingTTL enables per-UDP-session source address
+	// caching on the PacketConn listener when set to a positive duration.
+	// The first datagram of a Cloudflare Spectrum PPv2 session (which contains
+	// only the PROXY Protocol header and no DNS payload) is used to populate a
+	// short-lived cache keyed by the Spectrum-side remote address. Subsequent
+	// datagrams from the same remote address that carry no PROXY Protocol header
+	// are associated with the cached real client address for up to this duration
+	// (refreshed on each matching packet). A zero or negative value disables
+	// session tracking. Has no effect unless ProxyProtoConnPolicy is also set.
+	ProxyProtoUDPSessionTrackingTTL time.Duration
+
+	// ProxyProtoUDPSessionTrackingMaxSessions is the maximum number of concurrent
+	// UDP sessions held in the LRU cache. Zero means use the default (udpSessionMaxEntries).
+	// Has no effect unless ProxyProtoUDPSessionTrackingTTL is positive.
+	ProxyProtoUDPSessionTrackingMaxSessions int
+
+	// MaxGRPCStreams defines the maximum number of concurrent streams per gRPC connection.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxGRPCStreams *int
+
+	// MaxGRPCConnections defines the maximum number of concurrent gRPC connections.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxGRPCConnections *int
+
+	// MaxHTTPSConnections defines the maximum number of concurrent HTTPS connections.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPSConnections *int
+
+	// MaxHTTPSStreams defines the maximum number of concurrent HTTP/2 streams per HTTPS connection.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPSStreams *int
+
+	// MaxHTTPS3Streams defines the maximum number of concurrent QUIC streams for HTTPS3.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPS3Streams *int
+
+	// MaxHTTPS3Connections defines the maximum number of concurrent HTTPS3 connections.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPS3Connections *int
+
+	// Timeouts for connection-oriented servers. Exact applicability depends on transport.
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 
+	// MaxTCPQueries defines the maximum number of queries served on a single TCP/TLS
+	// connection before it is closed. -1 means unlimited. This is nil if not specified,
+	// allowing for a default to be used.
+	MaxTCPQueries *int
+
 	// TSIG secrets, [name]key.
 	TsigSecret map[string]string
+
+	// allowedOpcodes contains non-default DNS opcodes that plugins have explicitly
+	// requested for this server block. QUERY and NOTIFY are accepted by default.
+	allowedOpcodes map[int]struct{}
 
 	// Plugin stack.
 	Plugin []plugin.Plugin
@@ -88,6 +169,22 @@ type Config struct {
 // FilterFunc is a function that filters requests from the Config
 type FilterFunc func(context.Context, *request.Request) bool
 
+// TLSConfigIdentity is an opaque identity for equivalent dynamic TLS policies.
+// Plugins should share one identity only when they can prove that independently
+// constructed TLS configs are interchangeable on the same listener.
+type TLSConfigIdentity struct {
+	_ byte
+}
+
+// NewTLSConfigIdentity returns a new opaque TLS policy identity.
+func NewTLSConfigIdentity() *TLSConfigIdentity { return &TLSConfigIdentity{} }
+
+// SetTLSConfigIdentity associates an opaque listener-wide policy identity with
+// this config.
+func (c *Config) SetTLSConfigIdentity(identity *TLSConfigIdentity) {
+	c.tlsConfigIdentity = identity
+}
+
 // keyForConfig builds a key for identifying the configs during setup time
 func keyForConfig(blocIndex int, blocKeyIndex int) string {
 	return fmt.Sprintf("%d:%d", blocIndex, blocKeyIndex)
@@ -106,4 +203,23 @@ func GetConfig(c *caddy.Controller) *Config {
 	// the configs.
 	ctx.saveConfig(key, &Config{ListenHosts: []string{""}})
 	return GetConfig(c)
+}
+
+// AddPluginToAllServerBlocks adds m once to every server block in c's
+// instance. It is intended for directives that must handle traffic on a
+// listener other than the one where the directive is configured.
+func AddPluginToAllServerBlocks(c *caddy.Controller, m plugin.Plugin) {
+	ctx := c.Context().(*dnsContext)
+	seen := make(map[*Config]struct{})
+	for _, cfg := range ctx.configs {
+		first := cfg.firstConfigInBlock
+		if first == nil {
+			first = cfg
+		}
+		if _, ok := seen[first]; ok {
+			continue
+		}
+		seen[first] = struct{}{}
+		first.AddPlugin(m)
+	}
 }

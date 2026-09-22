@@ -33,6 +33,7 @@ func TestDebug(t *testing.T) {
 }
 
 func TestDebugx(t *testing.T) {
+	t.Cleanup(D.Clear)
 	var f bytes.Buffer
 	golog.SetOutput(&f)
 

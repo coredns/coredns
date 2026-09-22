@@ -73,3 +73,14 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
+
+// With setup validation in place, an invalid utf-8 dbfile token must cause parse() to error.
+func TestParseRejectsInvalidDbfileToken(t *testing.T) {
+	input := "sign \"\xff\" 8.44.in-addr.arpa. 9.44.in-addr.arpa. {}"
+	c := caddy.NewTestController("dns", input)
+
+	_, err := parse(c)
+	if err == nil {
+		t.Fatalf("expected parse to fail for invalid dbfile token")
+	}
+}

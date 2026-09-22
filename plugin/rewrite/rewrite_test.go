@@ -16,7 +16,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func msgPrinter(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if len(r.Answer) == 0 {
 		r.Answer = []dns.RR{
 			test.A(fmt.Sprintf("%s  5   IN  A  10.0.0.1", r.Question[0].Name)),
@@ -37,129 +37,143 @@ func TestNewRule(t *testing.T) {
 		{[]string{"name"}, true, nil},
 		{[]string{"name", "a.com"}, true, nil},
 		{[]string{"name", "a.com", "b.com", "c.com"}, true, nil},
-		{[]string{"name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
-		{[]string{"name", "exact", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
-		{[]string{"name", "prefix", "a.com", "b.com"}, false, reflect.TypeOf(&prefixNameRule{})},
-		{[]string{"name", "suffix", "a.com", "b.com"}, false, reflect.TypeOf(&suffixNameRule{})},
-		{[]string{"name", "substring", "a.com", "b.com"}, false, reflect.TypeOf(&substringNameRule{})},
-		{[]string{"name", "regex", "([a])\\.com", "new-{1}.com"}, false, reflect.TypeOf(&regexNameRule{})},
+		{[]string{"name", "a.com", "b.com"}, false, reflect.TypeFor[*exactNameRule]()},
+		{[]string{"name", "exact", "a.com", "b.com"}, false, reflect.TypeFor[*exactNameRule]()},
+		{[]string{"name", "prefix", "a.com", "b.com"}, false, reflect.TypeFor[*prefixNameRule]()},
+		{[]string{"name", "suffix", "a.com", "b.com"}, false, reflect.TypeFor[*suffixNameRule]()},
+		{[]string{"name", "substring", "a.com", "b.com"}, false, reflect.TypeFor[*substringNameRule]()},
+		{[]string{"name", "regex", "([a])\\.com", "new-{1}.com"}, false, reflect.TypeFor[*regexNameRule]()},
 		{[]string{"name", "regex", "([a]\\.com", "new-{1}.com"}, true, nil},
-		{[]string{"name", "regex", "(dns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, false, reflect.TypeOf(&regexNameRule{})},
+		{[]string{"name", "regex", "(dns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, false, reflect.TypeFor[*regexNameRule]()},
 		{[]string{"name", "regex", "(adns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(adns)\\.(rocks)", "{2}.{1}.{3}", "too.long", "way.too.long"}, true, nil},
 		{[]string{"name", "regex", "(bdns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "NoAnswer", "name", "(core)\\.(bdns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
 		{[]string{"name", "regex", "(cdns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "ttl", "(core)\\.(cdns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
 		{[]string{"name", "regex", "(ddns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "\xecore\\.(ddns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
 		{[]string{"name", "regex", "\xedns\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(edns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
-		{[]string{"name", "substring", "fcore.dns.rocks", "dns.fcore.rocks", "answer", "name", "(fcore)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, false, reflect.TypeOf(&substringNameRule{})},
+		{[]string{"name", "substring", "fcore.dns.rocks", "dns.fcore.rocks", "answer", "name", "(fcore)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, false, reflect.TypeFor[*substringNameRule]()},
 		{[]string{"name", "substring", "a.com", "b.com", "c.com"}, true, nil},
 		{[]string{"type"}, true, nil},
 		{[]string{"type", "a"}, true, nil},
 		{[]string{"type", "any", "a", "a"}, true, nil},
-		{[]string{"type", "any", "a"}, false, reflect.TypeOf(&typeRule{})},
+		{[]string{"type", "any", "a"}, false, reflect.TypeFor[*typeRule]()},
 		{[]string{"type", "XY", "WV"}, true, nil},
 		{[]string{"type", "ANY", "WV"}, true, nil},
 		{[]string{"class"}, true, nil},
 		{[]string{"class", "IN"}, true, nil},
 		{[]string{"class", "ch", "in", "in"}, true, nil},
-		{[]string{"class", "ch", "in"}, false, reflect.TypeOf(&classRule{})},
+		{[]string{"class", "ch", "in"}, false, reflect.TypeFor[*classRule]()},
 		{[]string{"class", "XY", "WV"}, true, nil},
 		{[]string{"class", "IN", "WV"}, true, nil},
 		{[]string{"edns0"}, true, nil},
+		{[]string{"edns0", "unknown-rule-type", "set"}, true, nil},
+		{[]string{"edns0", "unknown-rule-type", "unset"}, true, nil},
 		{[]string{"edns0", "local"}, true, nil},
 		{[]string{"edns0", "local", "set"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee"}, true, nil},
-		{[]string{"edns0", "local", "set", "65518", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "set", "invalid-uint", "abcdefg"}, true, nil},
+		{[]string{"edns0", "local", "set", "65518", "abcdefg"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "abcdefg", "revert"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "abcdefg"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "abcdefg", "revert"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg", "revert"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "unset", "0xffee"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "unset", "0xffee", "abcdefg"}, true, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"edns0", "local", "unset", "0xffee", "revert"}, true, reflect.TypeFor[*edns0LocalRule]()},
 		{[]string{"edns0", "local", "foo", "0xffee", "abcdefg"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "0xabcdefg"}, true, nil},
 		{[]string{"edns0", "nsid", "set", "junk"}, true, nil},
-		{[]string{"edns0", "nsid", "set"}, false, reflect.TypeOf(&edns0NsidRule{})},
-		{[]string{"edns0", "nsid", "set", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
-		{[]string{"edns0", "nsid", "append"}, false, reflect.TypeOf(&edns0NsidRule{})},
-		{[]string{"edns0", "nsid", "append", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
-		{[]string{"edns0", "nsid", "replace"}, false, reflect.TypeOf(&edns0NsidRule{})},
-		{[]string{"edns0", "nsid", "replace", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "set"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "set", "revert"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "append"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "append", "revert"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "replace"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "replace", "revert"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "unset"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"edns0", "nsid", "unset", "revert"}, true, reflect.TypeFor[*edns0NsidRule]()},
 		{[]string{"edns0", "nsid", "foo"}, true, nil},
+		{[]string{"edns0", "local", "set", "invalid-uint", "{qname}"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "{dummy}"}, true, nil},
-		{[]string{"edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{client_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{client_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "set", "0xffee", "{server_port}", "revert"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{qtype}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{client_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{client_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "set", "0xffee", "{server_port}", "revert"}, false, reflect.TypeFor[*edns0VariableRule]()},
 		{[]string{"edns0", "local", "append", "0xffee", "{dummy}"}, true, nil},
-		{[]string{"edns0", "local", "append", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{client_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{client_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "append", "0xffee", "{server_port}", "revert"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"edns0", "local", "append", "0xffee", "{qname}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{qtype}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{client_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{client_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{protocol}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{server_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{server_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "append", "0xffee", "{server_port}", "revert"}, false, reflect.TypeFor[*edns0VariableRule]()},
 		{[]string{"edns0", "local", "replace", "0xffee", "{dummy}"}, true, nil},
-		{[]string{"edns0", "local", "replace", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{client_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{client_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"edns0", "local", "replace", "0xffee", "{server_port}", "revert"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"edns0", "local", "replace", "0xffee", "{qname}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{qtype}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{client_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{client_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{protocol}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{server_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{server_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"edns0", "local", "replace", "0xffee", "{server_port}", "revert"}, false, reflect.TypeFor[*edns0VariableRule]()},
 		{[]string{"edns0", "subnet", "set", "-1", "56"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "24", "-56"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "33", "56"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "24", "129"}, true, nil},
-		{[]string{"edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"edns0", "subnet", "set", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "set", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "set", "24", "56", "revert"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "append", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
 		{[]string{"edns0", "subnet", "append", "24", "56", "72"}, true, nil},
-		{[]string{"edns0", "subnet", "append", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"edns0", "subnet", "replace", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "append", "24", "56", "revert"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "replace", "24", "56", "revert"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "unset"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "unset", "24", "56"}, true, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"edns0", "subnet", "unset", "revert"}, true, reflect.TypeFor[*edns0SubnetRule]()},
 		{[]string{"unknown-action", "name", "a.com", "b.com"}, true, nil},
-		{[]string{"stop", "name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
-		{[]string{"continue", "name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
+		{[]string{"stop", "name", "a.com", "b.com"}, false, reflect.TypeFor[*exactNameRule]()},
+		{[]string{"continue", "name", "a.com", "b.com"}, false, reflect.TypeFor[*exactNameRule]()},
 		{[]string{"unknown-action", "type", "any", "a"}, true, nil},
-		{[]string{"stop", "type", "any", "a"}, false, reflect.TypeOf(&typeRule{})},
-		{[]string{"continue", "type", "any", "a"}, false, reflect.TypeOf(&typeRule{})},
+		{[]string{"stop", "type", "any", "a"}, false, reflect.TypeFor[*typeRule]()},
+		{[]string{"continue", "type", "any", "a"}, false, reflect.TypeFor[*typeRule]()},
 		{[]string{"unknown-action", "class", "ch", "in"}, true, nil},
-		{[]string{"stop", "class", "ch", "in"}, false, reflect.TypeOf(&classRule{})},
-		{[]string{"continue", "class", "ch", "in"}, false, reflect.TypeOf(&classRule{})},
+		{[]string{"stop", "class", "ch", "in"}, false, reflect.TypeFor[*classRule]()},
+		{[]string{"continue", "class", "ch", "in"}, false, reflect.TypeFor[*classRule]()},
 		{[]string{"unknown-action", "edns0", "local", "set", "0xffee", "abcedef"}, true, nil},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeFor[*edns0LocalRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeFor[*edns0LocalRule]()},
 		{[]string{"unknown-action", "edns0", "nsid", "set"}, true, nil},
-		{[]string{"stop", "edns0", "nsid", "set"}, false, reflect.TypeOf(&edns0NsidRule{})},
-		{[]string{"continue", "edns0", "nsid", "set"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"stop", "edns0", "nsid", "set"}, false, reflect.TypeFor[*edns0NsidRule]()},
+		{[]string{"continue", "edns0", "nsid", "set"}, false, reflect.TypeFor[*edns0NsidRule]()},
 		{[]string{"unknown-action", "edns0", "local", "set", "0xffee", "{qname}"}, true, nil},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{client_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{client_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"stop", "edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{client_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{client_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
-		{[]string{"continue", "edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{qtype}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{client_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{client_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"stop", "edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{qtype}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{client_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{client_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeFor[*edns0VariableRule]()},
+		{[]string{"continue", "edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeFor[*edns0VariableRule]()},
 		{[]string{"unknown-action", "edns0", "subnet", "set", "24", "64"}, true, nil},
-		{[]string{"stop", "edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"stop", "edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"stop", "edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"continue", "edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"continue", "edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
-		{[]string{"continue", "edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"stop", "edns0", "subnet", "set", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"stop", "edns0", "subnet", "append", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"stop", "edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"stop", "edns0", "subnet", "unset"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"continue", "edns0", "subnet", "set", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"continue", "edns0", "subnet", "append", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"continue", "edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeFor[*edns0SubnetRule]()},
+		{[]string{"continue", "edns0", "subnet", "unset"}, false, reflect.TypeFor[*edns0SubnetRule]()},
 	}
 
 	for i, tc := range tests {
@@ -177,7 +191,7 @@ func TestNewRule(t *testing.T) {
 }
 
 func TestRewriteDefaultRevertPolicy(t *testing.T) {
-	rules := []Rule{}
+	rules := make([]Rule, 0, 4)
 
 	r, _ := newNameRule("stop", "prefix", "prefix", "to")
 	rules = append(rules, r)
@@ -230,7 +244,7 @@ func TestRewriteDefaultRevertPolicy(t *testing.T) {
 }
 
 func TestRewrite(t *testing.T) {
-	rules := []Rule{}
+	rules := make([]Rule, 0, 12)
 	r, _ := newNameRule("stop", "from.nl.", "to.nl.")
 	rules = append(rules, r)
 	r, _ = newNameRule("stop", "regex", "(core)\\.(dns)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}", "answer", "name", "(dns)\\.(core)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}")
@@ -652,42 +666,42 @@ func optsEqual(a, b []dns.EDNS0) bool {
 	for i := range a {
 		switch aa := a[i].(type) {
 		case *dns.EDNS0_LOCAL:
-			if bb, ok := b[i].(*dns.EDNS0_LOCAL); ok {
-				if aa.Code != bb.Code {
-					return false
-				}
-				if !bytes.Equal(aa.Data, bb.Data) {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_LOCAL)
+			if !ok {
+				return false
+			}
+			if aa.Code != bb.Code {
+				return false
+			}
+			if !bytes.Equal(aa.Data, bb.Data) {
 				return false
 			}
 		case *dns.EDNS0_NSID:
-			if bb, ok := b[i].(*dns.EDNS0_NSID); ok {
-				if aa.Nsid != bb.Nsid {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_NSID)
+			if !ok {
+				return false
+			}
+			if aa.Nsid != bb.Nsid {
 				return false
 			}
 		case *dns.EDNS0_SUBNET:
-			if bb, ok := b[i].(*dns.EDNS0_SUBNET); ok {
-				if aa.Code != bb.Code {
-					return false
-				}
-				if aa.Family != bb.Family {
-					return false
-				}
-				if aa.SourceNetmask != bb.SourceNetmask {
-					return false
-				}
-				if aa.SourceScope != bb.SourceScope {
-					return false
-				}
-				if !aa.Address.Equal(bb.Address) {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_SUBNET)
+			if !ok {
+				return false
+			}
+			if aa.Code != bb.Code {
+				return false
+			}
+			if aa.Family != bb.Family {
+				return false
+			}
+			if aa.SourceNetmask != bb.SourceNetmask {
+				return false
+			}
+			if aa.SourceScope != bb.SourceScope {
+				return false
+			}
+			if !aa.Address.Equal(bb.Address) {
 				return false
 			}
 
@@ -700,7 +714,7 @@ func optsEqual(a, b []dns.EDNS0) bool {
 
 type testProvider map[string]metadata.Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, _state request.Request) context.Context {
 	for k, v := range tp {
 		metadata.SetValueFunc(ctx, k, v)
 	}
@@ -1043,6 +1057,148 @@ func TestRewriteEDNS0Revert(t *testing.T) {
 		}
 		if !optsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
+		}
+	}
+}
+
+func TestRewriteEDNS0Unset(t *testing.T) {
+	rw := Rewrite{
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	tests := []struct {
+		fromOpts []dns.EDNS0
+		args     []string
+		toOpts   []dns.EDNS0
+	}{
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "unset", "0xffee"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
+			[]string{"local", "unset", "0xffee"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
+			[]string{"local", "unset", "0xffed"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"nsid", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x0,
+				SourceScope:   0x0,
+				Address:       []byte{0x00, 0x00, 0x00, 0x00},
+			}},
+			[]string{"subnet", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"subnet", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"nsid", "unset"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"local", "unset", "0xffee"},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"subnet", "unset"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+		},
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		m.Question[0].Qclass = dns.ClassINET
+		o := m.IsEdns0()
+		if tc.fromOpts != nil {
+			if o == nil {
+				m.SetEdns0(4096, true)
+				o = m.IsEdns0()
+			}
+			o.Option = append(o.Option, tc.fromOpts...)
+		}
+
+		r, err := newEdns0Rule("stop", tc.args...)
+		if err != nil {
+			t.Errorf("Error creating test rule: %s", err)
+			continue
+		}
+		rw.Rules = []Rule{r}
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+
+		respOpt := rec.Msg.IsEdns0()
+		if respOpt == nil {
+			t.Errorf("Test %d: EDNS0 options not set", i)
+			continue
+		}
+		if !optsEqual(respOpt.Option, tc.toOpts) {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, respOpt)
+		}
+	}
+}
+
+func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
+	rw := Rewrite{
+		Next: plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+			resp := new(dns.Msg)
+			resp.SetReply(r)
+			return 0, w.WriteMsg(resp)
+		}),
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	r, err := newEdns0Rule("stop", "local", "set", "0xffee", "0xabcdef", "revert")
+	if err != nil {
+		t.Fatalf("Error creating test rule: %s", err)
+	}
+	rw.Rules = []Rule{r}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	m.SetEdns0(4096, false)
+	m.IsEdns0().Option = append(m.IsEdns0().Option, &dns.EDNS0_COOKIE{Code: dns.EDNS0COOKIE, Cookie: "abcdef0123456789"})
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	scrub := request.NewScrubWriter(m, rec)
+	rw.ServeDNS(context.TODO(), scrub, m)
+
+	o := rec.Msg.IsEdns0()
+	if o == nil {
+		t.Fatal("expected EDNS0 option record in response")
+	}
+	for _, opt := range o.Option {
+		if opt.Option() == 0xffee {
+			t.Fatalf("expected rewritten EDNS0 option to be reverted, got %v", o.Option)
+		}
+		if opt.Option() == dns.EDNS0COOKIE {
+			t.Fatalf("expected request EDNS0 cookie option not to be copied to the response, got %v", o.Option)
 		}
 	}
 }

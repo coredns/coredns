@@ -1,6 +1,7 @@
 package timeouts
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -34,6 +35,19 @@ func parseTimeouts(c *caddy.Controller) error {
 			timeoutArgs := c.RemainingArgs()
 			if len(timeoutArgs) != 1 {
 				return c.ArgErr()
+			}
+
+			if block == "maxtcpqueries" {
+				n, err := strconv.Atoi(timeoutArgs[0])
+				if err != nil {
+					return c.Errf("invalid value for maxtcpqueries '%s': %v", timeoutArgs[0], err)
+				}
+				if n == 0 || n < -1 {
+					return c.Errf("maxtcpqueries provided '%d' needs to be -1 (unlimited) or a positive integer", n)
+				}
+				config.MaxTCPQueries = &n
+				b++
+				continue
 			}
 
 			timeout, err := durations.NewDurationFromArg(timeoutArgs[0])

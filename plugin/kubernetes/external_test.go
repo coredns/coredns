@@ -90,26 +90,30 @@ func TestExternal(t *testing.T) {
 
 type external struct{}
 
-func (external) HasSynced() bool                             { return true }
-func (external) Run()                                        {}
-func (external) Stop() error                                 { return nil }
-func (external) EpIndexReverse(string) []*object.Endpoints   { return nil }
-func (external) SvcIndexReverse(string) []*object.Service    { return nil }
-func (external) SvcExtIndexReverse(string) []*object.Service { return nil }
-func (external) Modified(bool) int64                         { return 0 }
+func (external) HasSynced() bool                                  { return true }
+func (external) Run()                                             {}
+func (external) Stop() error                                      { return nil }
+func (external) EpIndexReverse(string) []*object.Endpoints        { return nil }
+func (external) SvcIndexReverse(string) []*object.Service         { return nil }
+func (external) SvcExtIndexReverse(string) []*object.Service      { return nil }
+func (external) SvcImportIndex(string) []*object.ServiceImport    { return nil }
+func (external) ServiceImportList() []*object.ServiceImport       { return nil }
+func (external) McEpIndex(string) []*object.MultiClusterEndpoints { return nil }
+func (external) Modified(ModifiedMode) int64                      { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints {
 	return epIndexExternal[s]
 }
+
 func (external) EndpointsList() []*object.Endpoints {
-	var eps []*object.Endpoints
+	eps := make([]*object.Endpoints, 0, len(epIndexExternal))
 	for _, ep := range epIndexExternal {
 		eps = append(eps, ep...)
 	}
 	return eps
 }
-func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
-func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
-func (external) PodIndex(string) []*object.Pod                                     { return nil }
+func (external) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) { return nil, nil }
+func (external) SvcIndex(s string) []*object.Service                                 { return svcIndexExternal[s] }
+func (external) PodIndex(string) []*object.Pod                                       { return nil }
 
 func (external) GetNamespaceByName(name string) (*object.Namespace, error) {
 	return &object.Namespace{
@@ -185,7 +189,7 @@ var svcIndexExternal = map[string][]*object.Service{
 }
 
 func (external) ServiceList() []*object.Service {
-	var svcs []*object.Service
+	svcs := make([]*object.Service, 0, len(svcIndexExternal))
 	for _, svc := range svcIndexExternal {
 		svcs = append(svcs, svc...)
 	}

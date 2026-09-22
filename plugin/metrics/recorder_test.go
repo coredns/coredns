@@ -23,6 +23,34 @@ func (r *inmemoryWriter) Write(buf []byte) (int, error) {
 	return r.ResponseWriter.Write(buf)
 }
 
+func TestRecorder_PluginTracker(t *testing.T) {
+	tw := inmemoryWriter{ResponseWriter: test.ResponseWriter{}}
+	rec := NewRecorder(&tw)
+
+	// Initially Plugin should be empty
+	if rec.Plugin != "" {
+		t.Errorf("Expected empty Plugin, got %q", rec.Plugin)
+	}
+	if rec.GetPlugin() != "" {
+		t.Errorf("Expected GetPlugin() to return empty string, got %q", rec.GetPlugin())
+	}
+
+	// SetPlugin should set the plugin name
+	rec.SetPlugin("whoami")
+	if rec.Plugin != "whoami" {
+		t.Errorf("Expected Plugin to be 'whoami', got %q", rec.Plugin)
+	}
+	if rec.GetPlugin() != "whoami" {
+		t.Errorf("Expected GetPlugin() to return 'whoami', got %q", rec.GetPlugin())
+	}
+
+	// SetPlugin should overwrite previous value
+	rec.SetPlugin("cache")
+	if rec.Plugin != "cache" {
+		t.Errorf("Expected Plugin to be 'cache', got %q", rec.Plugin)
+	}
+}
+
 func TestRecorder_WriteMsg(t *testing.T) {
 	successResp := dns.Msg{}
 	successResp.Answer = []dns.RR{

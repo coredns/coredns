@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,8 +34,8 @@ func setup(c *caddy.Controller) error {
 	}
 	for i := range fs {
 		f := fs[i]
-		if f.Len() > max {
-			return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, f.Len()))
+		if len(f.toEntries) > max {
+			return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, len(f.toEntries)))
 		}
 
 		if i == len(fs)-1 {
@@ -97,6 +99,33 @@ func parseForward(c *caddy.Controller) ([]*Forward, error) {
 	return fs, nil
 }
 
+// Splits the zone, preserving any port that comes after the zone
+func splitZone(host string) (newHost string, zone string) {
+	trans, host, found := strings.Cut(host, "://")
+	if !found {
+		host, trans = trans, ""
+	}
+	newHost = host
+	if strings.Contains(host, "%") {
+		lastPercent := strings.LastIndex(host, "%")
+		newHost = host[:lastPercent]
+		if strings.HasPrefix(newHost, "[") {
+			newHost = newHost + "]"
+		}
+		zone = host[lastPercent+1:]
+		if strings.Contains(zone, ":") {
+			lastColon := strings.LastIndex(zone, ":")
+			newHost += zone[lastColon:]
+			zone = zone[:lastColon]
+			zone = strings.TrimSuffix(zone, "]")
+		}
+	}
+	if trans != "" {
+		newHost = trans + "://" + newHost
+	}
+	return
+}
+
 func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f := New()
 
@@ -119,32 +148,80 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, c.ArgErr()
 	}
 
-	toHosts, err := parse.HostPortOrFile(to...)
-	if err != nil {
-		return f, err
-	}
-
-	transports := make([]string, len(toHosts))
-	allowedTrans := map[string]bool{"dns": true, "tls": true}
-	for i, host := range toHosts {
-		trans, h := parse.Transport(host)
-
-		if !allowedTrans[trans] {
-			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
-		}
-		p := proxy.NewProxy("forward", h, trans)
-		f.proxies = append(f.proxies, p)
-		transports[i] = trans
-	}
-
+	// Parse block first to get resolver and other options before processing TO addresses.
 	for c.NextBlock() {
 		if err := parseBlock(c, f); err != nil {
 			return f, err
 		}
 	}
 
+	if f.maxAge > 0 && f.maxAge < f.expire {
+		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
+	}
+
+	// Reject HTTPS upstreams that include a path, the doh implementation default to /dns-query path.
+	for _, addr := range to {
+		trans, h := parse.Transport(addr)
+		if trans == transport.HTTPS && strings.Contains(h, "/") {
+			return f, fmt.Errorf("paths are not allowed in HTTPS upstream addresses (the /dns-query path is used by default): %s", addr)
+		}
+	}
+
+	// Classify TO addresses in order, preserving config ordering.
+	entries, err := classifyToAddrs(to)
+	if err != nil {
+		return f, err
+	}
+	f.toEntries = entries
+
+	// Expand hostnames and deduplicate globally (first-seen order wins).
+	toHosts, err := expandAndDedup(f.toEntries, f.resolver)
+	if err != nil {
+		return f, err
+	}
+	if len(toHosts) == 0 {
+		return f, fmt.Errorf("no valid upstream addresses found")
+	}
+
+	tlsServerNames := make([]string, len(toHosts))
+	perServerNameProxyCount := make(map[string]int)
+	transports := make([]string, len(toHosts))
+	allowedTrans := map[string]bool{
+		transport.DNS:   true,
+		transport.TLS:   true,
+		transport.QUIC:  true,
+		transport.HTTPS: true,
+	}
+	for i, hostWithZone := range toHosts {
+		host, serverName := splitZone(hostWithZone)
+		trans, h := parse.Transport(host)
+
+		if !allowedTrans[trans] {
+			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
+		}
+		if (trans == transport.TLS || trans == transport.QUIC) && serverName != "" {
+			if f.tlsServerName != "" {
+				return f, fmt.Errorf("both forward ('%s') and proxy level ('%s') TLS servernames are set for upstream proxy '%s'", f.tlsServerName, serverName, host)
+			}
+
+			tlsServerNames[i] = serverName
+			perServerNameProxyCount[serverName]++
+		}
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+		transports[i] = trans
+	}
+
+	perServerNameTlsConfig := make(map[string]*tls.Config)
 	if f.tlsServerName != "" {
 		f.tlsConfig.ServerName = f.tlsServerName
+	} else {
+		for serverName, proxyCount := range perServerNameProxyCount {
+			tlsConfig := f.tlsConfig.Clone()
+			tlsConfig.ServerName = serverName
+			tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(proxyCount)
+			perServerNameTlsConfig[serverName] = tlsConfig
+		}
 	}
 
 	// Initialize ClientSessionCache in tls.Config. This may speed up a TLS handshake
@@ -152,17 +229,41 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f.tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(len(f.proxies))
 
 	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS {
+		if transports[i] == transport.HTTPS {
+			httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+
+			c := http.Client{
+				Transport: httpTransport,
+				Timeout:   2 * time.Second,
+			}
+			f.proxies[i].SetHTTPClient(&c)
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
+			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
 		}
+
+		// Only set this for proxies that need it.
+		if transports[i] == transport.TLS || transports[i] == transport.QUIC {
+			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
+				f.proxies[i].SetTLSConfig(tlsConfig)
+			} else {
+				f.proxies[i].SetTLSConfig(f.tlsConfig)
+			}
+		}
+
 		f.proxies[i].SetExpire(f.expire)
+		f.proxies[i].SetMaxAge(f.maxAge)
+		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
+		f.proxies[i].SetReadTimeout(f.readTimeout)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
-		// when TLS is used, checks are set to tcp-tls
-		if f.opts.ForceTCP && transports[i] != transport.TLS {
+		// DoT and DoQ health checkers already use their configured transport.
+		if f.opts.ForceTCP && transports[i] != transport.TLS && transports[i] != transport.QUIC {
 			f.proxies[i].GetHealthchecker().SetTCPTransport()
 		}
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
+		if f.sourceAddress != nil {
+			f.proxies[i].SetLocalAddress(f.sourceAddress)
+			f.proxies[i].GetHealthchecker().SetLocalAddress(f.sourceAddress)
+		}
 	}
 
 	return f, nil
@@ -176,7 +277,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if len(ignore) == 0 {
 			return c.ArgErr()
 		}
-		for i := 0; i < len(ignore); i++ {
+		for i := range ignore {
 			f.ignored = append(f.ignored, plugin.Host(ignore[i]).NormalizeExact()...)
 		}
 	case "max_fails":
@@ -188,6 +289,16 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return err
 		}
 		f.maxfails = uint32(n)
+	case "max_connect_attempts":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.ParseUint(c.Val(), 10, 32)
+		if err != nil {
+			return err
+		}
+		f.maxConnectAttempts = uint32(n)
+		f.maxConnectAttemptsSet = true
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -263,6 +374,52 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
 		f.expire = dur
+	case "max_age":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("max_age can't be negative: %s", dur)
+		}
+		f.maxAge = dur
+	case "max_idle_conns":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.Atoi(c.Val())
+		if err != nil {
+			return err
+		}
+		if n < 0 {
+			return fmt.Errorf("max_idle_conns can't be negative: %d", n)
+		}
+		f.maxIdleConns = n
+	case "read_timeout":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur <= 0 {
+			return fmt.Errorf("read_timeout must be positive: %s", dur)
+		}
+		f.readTimeout = dur
+	case "doh_method":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		switch c.Val() {
+		case http.MethodPost, http.MethodGet:
+			f.dohMethod = c.Val()
+		default:
+			return fmt.Errorf("doh_method must be either %s or %s", http.MethodPost, http.MethodGet)
+		}
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -306,6 +463,59 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 
 			f.nextAlternateRcodes = append(f.nextAlternateRcodes, rc)
 		}
+	case "next_on_nodata":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		f.nextOnNodata = true
+	case "failfast_all_unhealthy_upstreams":
+		args := c.RemainingArgs()
+		if len(args) != 0 {
+			return c.ArgErr()
+		}
+		f.failfastUnhealthyUpstreams = true
+	case "failover":
+		args := c.RemainingArgs()
+		if len(args) == 0 {
+			return c.ArgErr()
+		}
+		toRcode := dns.StringToRcode
+
+		for _, rcode := range args {
+			rc, ok := toRcode[strings.ToUpper(rcode)]
+			if !ok {
+				return fmt.Errorf("%s is not a valid rcode", rcode)
+			}
+			if rc == dns.RcodeSuccess {
+				return fmt.Errorf("NoError cannot be used in failover")
+			}
+
+			f.failoverRcodes = append(f.failoverRcodes, rc)
+		}
+	case "resolver":
+		args := c.RemainingArgs()
+		if len(args) == 0 {
+			return c.ArgErr()
+		}
+		for _, arg := range args {
+			host := arg
+			if h, _, err := net.SplitHostPort(arg); err == nil {
+				host = h
+			}
+			if net.ParseIP(host) == nil {
+				return fmt.Errorf("resolver must be an IP address or IP:port: %q", arg)
+			}
+		}
+		f.resolver = args
+	case "source_address":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		addr := net.ParseIP(c.Val())
+		if addr == nil {
+			return c.Errf("invalid IP address: %s", c.Val())
+		}
+		f.sourceAddress = addr
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

@@ -7,6 +7,9 @@ on:
         description: "Commit (e.g., 52f0348)"
         default: "master"
 
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Release
@@ -15,14 +18,17 @@ jobs:
       contents: write
     steps:
       - name: Check out code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ github.event.inputs.commit }}
+          persist-credentials: false
       - name: Set up info
+        env:
+          INPUT_COMMIT: ${{ github.event.inputs.commit }}
         run: |
           set -x -e
           VERSION=$(make -f Makefile.release version)
-          COMMIT=$(git rev-parse --quiet --verify ${{ github.event.inputs.commit }})
+          COMMIT=$(git rev-parse --quiet --verify "${INPUT_COMMIT}")
           if [[ "$(git tag -l v${VERSION})" == "v${VERSION}" ]]; then
             echo "v${VERSION} already released"
             exit 1
@@ -33,19 +39,24 @@ jobs:
       - name: Build release binary
         run: make -f Makefile.release release
       - name: Build release binary sha256
-        run: (cd release; for asset in `ls -A *tgz`; do sha256sum $asset > $asset.sha256; done)
+        run: (cd release; for asset in `ls -A *.tgz *.zip`; do sha256sum $asset > $asset.sha256; done)
       - name: Remove hidden section
-        run: sed '/+++/,//d' notes/coredns-${{ steps.info.outputs.version}}.md > release.md
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+        run: sed '/+++/,//d' "notes/coredns-${VERSION}.md" > release.md
       - name: Log release info
+        env:
+          COMMIT: ${{ steps.info.outputs.commit }}
+          VERSION: ${{ steps.info.outputs.version }}
         run: |
           set -x -e
           git log -1
-          echo ${{ steps.info.outputs.commit }}
-          echo ${{ steps.info.outputs.version }}
+          echo "${COMMIT}"
+          echo "${VERSION}"
           cat release.md
-          sha256sum release/*.tgz
+          sha256sum release/*.tgz release/*.zip
       - name: Draft release
-        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
         with:
           body_path: release.md
           name: v${{ steps.info.outputs.version }}
@@ -54,4 +65,6 @@ jobs:
           files: |
             release/*.tgz
             release/*.tgz.sha256
+            release/*.zip
+            release/*.zip.sha256
           draft: true

@@ -1,6 +1,8 @@
 package kubernetes
 
 import (
+	"strings"
+
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 
 	"github.com/miekg/dns"
@@ -14,6 +16,15 @@ type recordRequest struct {
 	// SRV record.
 	protocol string
 	endpoint string
+	cluster  string
+	// The topology zone from a zone-scoped name
+	// (zone.pin._zone.service.namespace.svc.zone); only set when the zonal
+	// option is enabled.
+	zone string
+	// zonePrefer is set for the prefer directive: a zone holding no
+	// endpoints falls back to all endpoints. The zero value is the pin
+	// directive, which answers NODATA instead.
+	zonePrefer bool
 	// The servicename used in Kubernetes.
 	service string
 	// The namespace used in Kubernetes.
@@ -22,14 +33,31 @@ type recordRequest struct {
 	podOrSvc string
 }
 
+// zoneLabel anchors a zone-scoped name:
+// topozone.DIRECTIVE._zone.service.namespace.svc.zone. It sits three labels
+// left of the service — a shape that has always been "query too long"
+// (NXDOMAIN) — and the underscore keeps it out of every hostname-shaped
+// grammar, so nothing served or servable collides with it. The directive
+// label selects the semantics; bare words are safe there because the
+// subtree is only reachable through the anchor.
+const zoneLabel = "_zone"
+
+// Zone-scoped name directives.
+const (
+	directivePin    = "pin"    // zone-local endpoints, NODATA if none
+	directivePrefer = "prefer" // zone-local endpoints, all endpoints if none
+)
+
 // parseRequest parses the qname to find all the elements we need for querying k8s. Anything
 // that is not parsed will have the wildcard "*" value (except r.endpoint).
 // Potential underscores are stripped from _port and _protocol.
-func parseRequest(name, zone string) (r recordRequest, err error) {
-	// 3 Possible cases:
+func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest, err error) {
+	// 5 Possible cases:
 	// 1. _port._protocol.service.namespace.pod|svc.zone
 	// 2. (endpoint): endpoint.service.namespace.pod|svc.zone
 	// 3. (service): service.namespace.pod|svc.zone
+	// 4. (endpoint multicluster): endpoint.cluster.service.namespace.pod|svc.zone
+	// 5. (zonal): topozone.pin|prefer._zone.service.namespace.svc.zone
 
 	base, _ := dnsutil.TrimZone(name, zone)
 	// return NODATA for apex queries
@@ -63,17 +91,38 @@ func parseRequest(name, zone string) (r recordRequest, err error) {
 		return r, nil
 	}
 
-	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol.
+	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint
+	// and clusterid. 3 or more: a zone-scoped name (the zone value may span labels).
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
 	case 0: // endpoint only
 		r.endpoint = segs[last]
-	case 1: // service and port
-		r.protocol = stripUnderscore(segs[last])
-		r.port = stripUnderscore(segs[last-1])
+	case 1: // service and port or endpoint and clusterid
+		if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
+			r.protocol = stripUnderscore(segs[last])
+			r.port = stripUnderscore(segs[last-1])
+		} else {
+			r.cluster = segs[last]
+			r.endpoint = segs[last-1]
+		}
 
-	default: // too long
-		return r, errInvalidRequest
+	default: // zone-scoped name (topozone.pin|prefer._zone), or too long
+		// Kubernetes zone label values may contain dots, so the zone is
+		// every label left of the directive, joined. Not defined in
+		// multicluster zones; everything this arm rejects keeps the stock
+		// too-long NXDOMAIN, so behavior with the option off (or for
+		// unknown directives) is byte-identical to today.
+		if !zonal || multicluster || segs[last] != zoneLabel || r.podOrSvc != Svc {
+			return r, errInvalidRequest
+		}
+		switch segs[last-1] {
+		case directivePin:
+		case directivePrefer:
+			r.zonePrefer = true
+		default:
+			return r, errInvalidRequest
+		}
+		r.zone = strings.Join(segs[:last-1], ".")
 	}
 
 	return r, nil
@@ -96,6 +145,7 @@ func (r recordRequest) String() string {
 	s := r.port
 	s += "." + r.protocol
 	s += "." + r.endpoint
+	s += "." + r.cluster
 	s += "." + r.service
 	s += "." + r.namespace
 	s += "." + r.podOrSvc

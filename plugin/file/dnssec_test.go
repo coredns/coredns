@@ -167,9 +167,7 @@ func BenchmarkFileLookupDNSSEC(b *testing.B) {
 
 	m := tc.Msg()
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		fm.ServeDNS(ctx, rec, m)
 	}
 }

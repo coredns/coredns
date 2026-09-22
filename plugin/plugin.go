@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
@@ -67,21 +68,71 @@ func (f HandlerFunc) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 func (f HandlerFunc) Name() string { return "handlerfunc" }
 
 // Error returns err with 'plugin/name: ' prefixed to it.
-func Error(name string, err error) error { return fmt.Errorf("%s/%s: %s", "plugin", name, err) }
+func Error(name string, err error) error { return fmt.Errorf("%s/%s: %w", "plugin", name, err) }
 
 // NextOrFailure calls next.ServeDNS when next is not nil, otherwise it will return, a ServerFailure and a `no next plugin found` error.
-func NextOrFailure(name string, next Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) { // nolint: golint
+//
+//nolint:revive // ctx is not the first parameter to preserve the existing public API.
+func NextOrFailure(name string, next Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if next != nil {
 		if span := ot.SpanFromContext(ctx); span != nil {
 			child := span.Tracer().StartSpan(next.Name(), ot.ChildOf(span.Context()))
 			defer child.Finish()
 			ctx = ot.ContextWithSpan(ctx, child)
 		}
-		return next.ServeDNS(ctx, w, r)
+		// Wrap the ResponseWriter to track which plugin writes the response
+		pw := &pluginWriter{ResponseWriter: w, plugin: next.Name()}
+		return next.ServeDNS(ctx, pw, r)
 	}
 
 	return dns.RcodeServerFailure, Error(name, errors.New("no next plugin found"))
 }
+
+// PluginTracker is an interface for ResponseWriters that track which plugin wrote the response.
+type PluginTracker interface {
+	SetPlugin(name string)
+	GetPlugin() string
+}
+
+// pluginWriter wraps a dns.ResponseWriter to track which plugin writes the response.
+type pluginWriter struct {
+	dns.ResponseWriter
+	plugin string
+}
+
+// WriteMsg implements dns.ResponseWriter and tracks the plugin that wrote the response.
+func (pw *pluginWriter) WriteMsg(m *dns.Msg) error {
+	if tracker, ok := pw.ResponseWriter.(PluginTracker); ok {
+		tracker.SetPlugin(pw.plugin)
+	}
+	return pw.ResponseWriter.WriteMsg(m)
+}
+
+// Write implements dns.ResponseWriter.
+func (pw *pluginWriter) Write(b []byte) (int, error) {
+	if tracker, ok := pw.ResponseWriter.(PluginTracker); ok {
+		tracker.SetPlugin(pw.plugin)
+	}
+	return pw.ResponseWriter.Write(b)
+}
+
+// LocalAddr implements dns.ResponseWriter.
+func (pw *pluginWriter) LocalAddr() net.Addr { return pw.ResponseWriter.LocalAddr() }
+
+// RemoteAddr implements dns.ResponseWriter.
+func (pw *pluginWriter) RemoteAddr() net.Addr { return pw.ResponseWriter.RemoteAddr() }
+
+// Close implements dns.ResponseWriter.
+func (pw *pluginWriter) Close() error { return pw.ResponseWriter.Close() }
+
+// TsigStatus implements dns.ResponseWriter.
+func (pw *pluginWriter) TsigStatus() error { return pw.ResponseWriter.TsigStatus() }
+
+// TsigTimersOnly implements dns.ResponseWriter.
+func (pw *pluginWriter) TsigTimersOnly(b bool) { pw.ResponseWriter.TsigTimersOnly(b) }
+
+// Hijack implements dns.ResponseWriter.
+func (pw *pluginWriter) Hijack() { pw.ResponseWriter.Hijack() }
 
 // ClientWrite returns true if the response has been written to the client.
 // Each plugin to adhere to this protocol.

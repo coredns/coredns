@@ -2,31 +2,37 @@ package proxy
 
 import (
 	"crypto/tls"
+	"net"
+	"net/http"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
 )
 
-// a persistConn hold the dns.Conn and the last used time.
+// a persistConn holds the dns.Conn, its creation time, and the last used time.
 type persistConn struct {
-	c    *dns.Conn
-	used time.Time
+	c       *dns.Conn
+	created time.Time
+	used    time.Time
 }
 
 // Transport hold the persistent cache.
 type Transport struct {
-	avgDialTime int64                          // kind of average time of dial time
-	conns       [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
-	expire      time.Duration                  // After this duration a connection is expired.
-	addr        string
-	tlsConfig   *tls.Config
-	proxyName   string
+	avgDialTime  int64                          // kind of average time of dial time
+	conns        [typeTotalCount][]*persistConn // Buckets for udp and tcp connections
+	expire       time.Duration                  // After this duration an idle connection is expired.
+	maxAge       time.Duration                  // After this duration a connection is closed regardless of activity; 0 means unlimited.
+	maxIdleConns int                            // Max idle connections per protocol type; 0 means unlimited.
+	addr         string
+	tlsConfig    *tls.Config
+	httpClient   *http.Client
+	proxyName    string
+	localAddress net.IP
 
-	dial  chan string
-	yield chan *persistConn
-	ret   chan *persistConn
-	stop  chan bool
+	mu   sync.Mutex
+	stop chan struct{}
 }
 
 func newTransport(proxyName, addr string) *Transport {
@@ -35,12 +41,10 @@ func newTransport(proxyName, addr string) *Transport {
 		conns:       [typeTotalCount][]*persistConn{},
 		expire:      defaultExpire,
 		addr:        addr,
-		dial:        make(chan string),
-		yield:       make(chan *persistConn),
-		ret:         make(chan *persistConn),
-		stop:        make(chan bool),
+		stop:        make(chan struct{}),
 		proxyName:   proxyName,
 	}
+
 	return t
 }
 
@@ -48,38 +52,12 @@ func newTransport(proxyName, addr string) *Transport {
 func (t *Transport) connManager() {
 	ticker := time.NewTicker(defaultExpire)
 	defer ticker.Stop()
-Wait:
 	for {
 		select {
-		case proto := <-t.dial:
-			transtype := stringToTransportType(proto)
-			// take the last used conn - complexity O(1)
-			if stack := t.conns[transtype]; len(stack) > 0 {
-				pc := stack[len(stack)-1]
-				if time.Since(pc.used) < t.expire {
-					// Found one, remove from pool and return this conn.
-					t.conns[transtype] = stack[:len(stack)-1]
-					t.ret <- pc
-					continue Wait
-				}
-				// clear entire cache if the last conn is expired
-				t.conns[transtype] = nil
-				// now, the connections being passed to closeConns() are not reachable from
-				// transport methods anymore. So, it's safe to close them in a separate goroutine
-				go closeConns(stack)
-			}
-			t.ret <- nil
-
-		case pc := <-t.yield:
-			transtype := t.transportTypeFromConn(pc)
-			t.conns[transtype] = append(t.conns[transtype], pc)
-
 		case <-ticker.C:
 			t.cleanup(false)
-
 		case <-t.stop:
 			t.cleanup(true)
-			close(t.ret)
 			return
 		}
 	}
@@ -94,49 +72,82 @@ func closeConns(conns []*persistConn) {
 
 // cleanup removes connections from cache.
 func (t *Transport) cleanup(all bool) {
-	staleTime := time.Now().Add(-t.expire)
+	var toClose []*persistConn
+
+	t.mu.Lock()
+	now := time.Now()
+	staleTime := now.Add(-t.expire)
+	// Pre-compute max-age deadline outside the loop to avoid repeated time.Now() calls.
+	var maxAgeDeadline time.Time
+	if t.maxAge > 0 {
+		maxAgeDeadline = now.Add(-t.maxAge)
+	}
 	for transtype, stack := range t.conns {
 		if len(stack) == 0 {
 			continue
 		}
 		if all {
 			t.conns[transtype] = nil
-			// now, the connections being passed to closeConns() are not reachable from
-			// transport methods anymore. So, it's safe to close them in a separate goroutine
-			go closeConns(stack)
-			continue
-		}
-		if stack[0].used.After(staleTime) {
+			toClose = append(toClose, stack...)
 			continue
 		}
 
+		// When max-age is set, use a linear scan to evaluate both the idle-timeout
+		// (expire, based on last-used time) and the max-age (based on creation time).
+		if t.maxAge > 0 {
+			var alive []*persistConn
+			for _, pc := range stack {
+				if !pc.used.After(staleTime) || pc.created.Before(maxAgeDeadline) {
+					toClose = append(toClose, pc)
+				} else {
+					alive = append(alive, pc)
+				}
+			}
+			t.conns[transtype] = alive
+			continue
+		}
+
+		// Original expire-only path: connections are sorted by "used"; use binary search.
+		if stack[0].used.After(staleTime) {
+			continue
+		}
 		// connections in stack are sorted by "used"
 		good := sort.Search(len(stack), func(i int) bool {
 			return stack[i].used.After(staleTime)
 		})
 		t.conns[transtype] = stack[good:]
-		// now, the connections being passed to closeConns() are not reachable from
-		// transport methods anymore. So, it's safe to close them in a separate goroutine
-		go closeConns(stack[:good])
+		toClose = append(toClose, stack[:good]...)
 	}
-}
+	t.mu.Unlock()
 
-// It is hard to pin a value to this, the import thing is to no block forever, losing at cached connection is not terrible.
-const yieldTimeout = 25 * time.Millisecond
+	// Close connections after releasing lock
+	closeConns(toClose)
+}
 
 // Yield returns the connection to transport for reuse.
 func (t *Transport) Yield(pc *persistConn) {
+	// Check if transport is stopped before acquiring lock
+	select {
+	case <-t.stop:
+		// If stopped, don't return to pool, just close
+		pc.c.Close()
+		return
+	default:
+	}
+
 	pc.used = time.Now() // update used time
 
-	// Make this non-blocking, because in the case of a very busy forwarder we will *block* on this yield. This
-	// blocks the outer go-routine and stuff will just pile up.  We timeout when the send fails to as returning
-	// these connection is an optimization anyway.
-	select {
-	case t.yield <- pc:
-		return
-	case <-time.After(yieldTimeout):
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	transtype := t.transportTypeFromConn(pc)
+
+	if t.maxIdleConns > 0 && len(t.conns[transtype]) >= t.maxIdleConns {
+		pc.c.Close()
 		return
 	}
+
+	t.conns[transtype] = append(t.conns[transtype], pc)
 }
 
 // Start starts the transport's connection manager.
@@ -148,8 +159,24 @@ func (t *Transport) Stop() { close(t.stop) }
 // SetExpire sets the connection expire time in transport.
 func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
 
+// SetMaxAge sets the maximum lifetime of a connection regardless of activity.
+// A value of 0 (default) disables max-age and connections are only closed by expire (idle-timeout).
+func (t *Transport) SetMaxAge(maxAge time.Duration) { t.maxAge = maxAge }
+
+// SetMaxIdleConns sets the maximum idle connections per transport type.
+// A value of 0 means unlimited (default).
+func (t *Transport) SetMaxIdleConns(n int) { t.maxIdleConns = n }
+
 // SetTLSConfig sets the TLS config in transport.
 func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
+
+// GetTLSConfig returns the TLS config in transport.
+func (t *Transport) GetTLSConfig() *tls.Config { return t.tlsConfig }
+
+// SetLocalAddress sets the local address in transport.
+func (t *Transport) SetLocalAddress(addr net.IP) {
+	t.localAddress = addr
+}
 
 const (
 	defaultExpire  = 10 * time.Second

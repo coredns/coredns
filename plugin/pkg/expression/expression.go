@@ -10,8 +10,8 @@ import (
 )
 
 // DefaultEnv returns the default set of custom state variables and functions available to for use in expression evaluation.
-func DefaultEnv(ctx context.Context, state *request.Request) map[string]interface{} {
-	return map[string]interface{}{
+func DefaultEnv(ctx context.Context, state *request.Request) map[string]any {
+	return map[string]any{
 		"incidr": func(ipStr, cidrStr string) (bool, error) {
 			ip := net.ParseIP(ipStr)
 			if ip == nil {

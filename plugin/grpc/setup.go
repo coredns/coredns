@@ -103,7 +103,7 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		if len(ignore) == 0 {
 			return c.ArgErr()
 		}
-		for i := 0; i < len(ignore); i++ {
+		for i := range ignore {
 			g.ignored = append(g.ignored, plugin.Host(ignore[i]).NormalizeExact()...)
 		}
 	case "tls":
@@ -141,6 +141,8 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
+	case "fallthrough":
+		g.Fall.SetZonesFromArgs(c.RemainingArgs())
 	default:
 		if c.Val() != "}" {
 			return c.Errf("unknown property '%s'", c.Val())

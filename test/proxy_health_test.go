@@ -65,7 +65,7 @@ func TestProxyThreeWay(t *testing.T) {
 	c := new(dns.Client)
 	c.Timeout = 10 * time.Millisecond
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		r, _, err := c.Exchange(m, addr)
 		if err != nil {
 			continue

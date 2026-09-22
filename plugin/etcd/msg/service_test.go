@@ -8,7 +8,7 @@ func TestSplit255(t *testing.T) {
 		t.Errorf("Failure to split abc")
 	}
 	s := ""
-	for i := 0; i < 255; i++ {
+	for range 255 {
 		s += "a"
 	}
 	xs = split255(s)
@@ -20,7 +20,7 @@ func TestSplit255(t *testing.T) {
 	if len(xs) != 2 || xs[1] != "b" {
 		t.Errorf("Failure to split 256 char long string: %d", len(xs))
 	}
-	for i := 0; i < 255; i++ {
+	for range 255 {
 		s += "a"
 	}
 	xs = split255(s)

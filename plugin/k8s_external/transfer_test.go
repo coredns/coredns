@@ -13,8 +13,7 @@ import (
 )
 
 func TestImplementsTransferer(t *testing.T) {
-	var e plugin.Handler
-	e = &External{}
+	var e plugin.Handler = &External{}
 	_, ok := e.(transfer.Transferer)
 	if !ok {
 		t.Error("Transferer not implemented")

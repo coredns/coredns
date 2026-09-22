@@ -19,7 +19,7 @@ type testHandler struct {
 
 func (t *testHandler) Name() string { return "test-handler" }
 
-func (t *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (t *testHandler) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	d := new(dns.Msg)
 	d.SetReply(r)
 	if t.Response != nil {
@@ -149,5 +149,22 @@ func TestMinimizeResponse(t *testing.T) {
 				t.Errorf("Test %d: Expected Extra %d to be %v, but got %v", i, j, tc.minimal.Extra[j], a)
 			}
 		}
+	}
+}
+
+func TestMinimizeResponseNilMsgPanic(t *testing.T) {
+	nilMsgHandler := plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+		w.WriteMsg(nil)
+		return 0, nil
+	})
+
+	o := minimalHandler{Next: nilMsgHandler}
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	req := new(dns.Msg)
+	req.SetQuestion("example.com.", dns.TypeA)
+
+	_, err := o.ServeDNS(context.TODO(), rec, req)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
 }

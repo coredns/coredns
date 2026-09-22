@@ -5,6 +5,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     groups:
       k8s.io:
         patterns:
@@ -12,10 +14,25 @@ updates:
       go.etcd.io:
         patterns:
           - "go.etcd.io/etcd/*"
+      aws:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2"
+          - "github.com/aws/aws-sdk-go-v2/*"
     open-pull-requests-limit: 20
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      codeql:
+        applies-to: version-updates
+        patterns:
+          - "github/codeql-action/*"
+      codeql-security:
+        applies-to: security-updates
+        patterns:
+          - "github/codeql-action/*"
     open-pull-requests-limit: 20

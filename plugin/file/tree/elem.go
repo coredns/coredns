@@ -12,6 +12,8 @@ type Elem struct {
 func newElem(rr dns.RR) *Elem {
 	e := Elem{m: make(map[uint16][]dns.RR)}
 	e.m[rr.Header().Rrtype] = []dns.RR{rr}
+	// Eagerly set the cached owner name to avoid racy lazy writes later.
+	e.name = rr.Header().Name
 	return &e
 }
 
@@ -47,7 +49,7 @@ func (e *Elem) TypeForWildcard(qtype uint16, qname string) []dns.RR {
 
 // All returns all RRs from e, regardless of type.
 func (e *Elem) All() []dns.RR {
-	list := []dns.RR{}
+	list := make([]dns.RR, 0, len(e.m))
 	for _, rrs := range e.m {
 		list = append(list, rrs...)
 	}
@@ -56,12 +58,12 @@ func (e *Elem) All() []dns.RR {
 
 // Name returns the name for this node.
 func (e *Elem) Name() string {
+	// Read-only: name is eagerly set in newElem and should not be mutated here.
 	if e.name != "" {
 		return e.name
 	}
 	for _, rrs := range e.m {
-		e.name = rrs[0].Header().Name
-		return e.name
+		return rrs[0].Header().Name
 	}
 	return ""
 }

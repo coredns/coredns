@@ -2,6 +2,9 @@ package clouddns
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/coredns/caddy"
@@ -43,7 +46,7 @@ func setup(c *caddy.Controller) error {
 
 		args := c.RemainingArgs()
 
-		for i := 0; i < len(args); i++ {
+		for i := range args {
 			parts := strings.SplitN(args[i], ":", 3)
 			if len(parts) != 3 {
 				return plugin.Error("clouddns", c.Errf("invalid zone %q", args[i]))
@@ -66,11 +69,14 @@ func setup(c *caddy.Controller) error {
 			case "upstream":
 				c.RemainingArgs()
 			case "credentials":
-				if c.NextArg() {
-					opt = option.WithCredentialsFile(c.Val())
-				} else {
+				if !c.NextArg() {
 					return plugin.Error("clouddns", c.ArgErr())
 				}
+				credType, err := getCredType(c.Val())
+				if err != nil {
+					return plugin.Error("clouddns", c.Errf("invalid credentials file %q: %v", c.Val(), err))
+				}
+				opt = option.WithAuthCredentialsFile(credType, c.Val())
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
 			default:
@@ -105,4 +111,31 @@ func setup(c *caddy.Controller) error {
 	}
 
 	return nil
+}
+
+func getCredType(filename string) (option.CredentialsType, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	var f struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &f); err != nil {
+		return "", err
+	}
+	if f.Type == "" {
+		return "", fmt.Errorf("missing `type` field in credential")
+	}
+
+	// Check against allowed types
+	ct := option.CredentialsType(f.Type)
+	switch ct {
+	case option.ServiceAccount,
+		option.AuthorizedUser,
+		option.ImpersonatedServiceAccount,
+		option.ExternalAccount:
+		return ct, nil
+	}
+	return "", fmt.Errorf("unknown credential type: %s", f.Type)
 }

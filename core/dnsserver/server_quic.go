@@ -7,11 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
+	"os"
+	"time"
 
 	"github.com/coredns/coredns/plugin/metrics/vars"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -32,52 +35,97 @@ const (
 	// DoQCodeProtocolError signals that the DoQ implementation encountered
 	// a protocol error and is forcibly aborting the connection.
 	DoQCodeProtocolError quic.ApplicationErrorCode = 2
+
+	// DefaultMaxQUICStreams is the default maximum number of concurrent QUIC streams
+	// on a per-connection basis. RFC 9250 (DNS-over-QUIC) does not require a high
+	// concurrent-stream limit; normal stub or recursive resolvers open only a handful
+	// of streams in parallel. This default (256) is a safe upper bound.
+	DefaultMaxQUICStreams = 256
+
+	// DefaultQUICStreamWorkers is the default number of workers for processing QUIC streams.
+	DefaultQUICStreamWorkers = 1024
+
+	// DefaultQUICMaxConnections is the default maximum number of concurrent connections.
+	DefaultQUICMaxConnections = 200
 )
 
 // ServerQUIC represents an instance of a DNS-over-QUIC server.
 type ServerQUIC struct {
 	*Server
-	listenAddr   net.Addr
-	tlsConfig    *tls.Config
-	quicConfig   *quic.Config
-	quicListener *quic.Listener
+	listenAddr        net.Addr
+	tlsConfig         *tls.Config
+	quicConfig        *quic.Config
+	quicListener      *quic.Listener
+	maxStreams        int
+	streamProcessPool chan struct{}
+	maxConnections    int
+	connSem           chan struct{}
 }
 
 // NewServerQUIC returns a new CoreDNS QUIC server and compiles all plugin in to it.
 func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
-	s, err := NewServer(addr, group)
+	tlsConfig, err := sharedTLSConfig(addr, group)
 	if err != nil {
 		return nil, err
 	}
-	// The *tls* plugin must make sure that multiple conflicting
-	// TLS configuration returns an error: it can only be specified once.
-	var tlsConfig *tls.Config
-	for _, z := range s.zones {
-		for _, conf := range z {
-			// Should we error if some configs *don't* have TLS?
-			tlsConfig = conf.TLSConfig
-		}
+	s, err := NewServer(addr, group)
+	if err != nil {
+		return nil, err
 	}
 
 	if tlsConfig != nil {
 		tlsConfig.NextProtos = []string{"doq"}
 	}
 
-	var quicConfig *quic.Config
-	quicConfig = &quic.Config{
-		MaxIdleTimeout:        s.idleTimeout,
-		MaxIncomingStreams:    math.MaxUint16,
-		MaxIncomingUniStreams: math.MaxUint16,
+	maxStreams := DefaultMaxQUICStreams
+	if len(group) > 0 && group[0] != nil && group[0].MaxQUICStreams != nil {
+		maxStreams = *group[0].MaxQUICStreams
+	}
+
+	streamProcessPoolSize := DefaultQUICStreamWorkers
+	if len(group) > 0 && group[0] != nil && group[0].MaxQUICWorkerPoolSize != nil {
+		streamProcessPoolSize = *group[0].MaxQUICWorkerPoolSize
+	}
+
+	var quicConfig = &quic.Config{
+		MaxIdleTimeout:        s.IdleTimeout,
+		MaxIncomingStreams:    int64(maxStreams),
+		MaxIncomingUniStreams: int64(maxStreams),
 		// Enable 0-RTT by default for all connections on the server-side.
 		Allow0RTT: true,
 	}
+	maxConnections := DefaultQUICMaxConnections
+	if len(group) > 0 && group[0] != nil && group[0].MaxQUICConnections != nil {
+		maxConnections = *group[0].MaxQUICConnections
+	}
 
-	return &ServerQUIC{Server: s, tlsConfig: tlsConfig, quicConfig: quicConfig}, nil
+	var connSem chan struct{}
+	if maxConnections > 0 {
+		connSem = make(chan struct{}, maxConnections)
+	}
+
+	return &ServerQUIC{
+		Server:            s,
+		tlsConfig:         tlsConfig,
+		quicConfig:        quicConfig,
+		maxStreams:        maxStreams,
+		streamProcessPool: make(chan struct{}, streamProcessPoolSize),
+		maxConnections:    maxConnections,
+		connSem:           connSem,
+	}, nil
 }
 
 // ServePacket implements caddy.UDPServer interface.
 func (s *ServerQUIC) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
+	if s.quicListener == nil {
+		listener, err := quic.Listen(p, s.tlsConfig, s.quicConfig)
+		if err != nil {
+			s.m.Unlock()
+			return err
+		}
+		s.quicListener = listener
+	}
 	s.listenAddr = s.quicListener.Addr()
 	s.m.Unlock()
 
@@ -97,14 +145,39 @@ func (s *ServerQUIC) ServeQUIC() error {
 			s.closeQUICConn(conn, DoQCodeInternalError)
 			return err
 		}
+		if s.connSem == nil {
+			go s.serveQUICConnection(conn)
+			continue
+		}
 
-		go s.serveQUICConnection(conn)
+		select {
+		case s.connSem <- struct{}{}:
+			go func(c *quic.Conn) {
+				defer func() { <-s.connSem }()
+				s.serveQUICConnection(c)
+			}(conn)
+
+		default:
+			_ = conn.CloseWithError(0, "too many connections")
+		}
+	}
+}
+
+func acquireQUICWorker(ctx context.Context, pool chan struct{}) bool {
+	select {
+	case pool <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 
 // serveQUICConnection handles a new QUIC connection. It waits for new streams
 // and passes them to serveQUICStream.
-func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
+func (s *ServerQUIC) serveQUICConnection(conn *quic.Conn) {
+	if conn == nil {
+		return
+	}
 	for {
 		// In DoQ, one query consumes one stream.
 		// The client MUST select the next available client-initiated bidirectional
@@ -120,24 +193,61 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 			return
 		}
 
-		go s.serveQUICStream(stream, conn)
+		if !acquireQUICWorker(conn.Context(), s.streamProcessPool) {
+			_ = stream.Close()
+			return
+		}
+
+		go func(st *quic.Stream, cn *quic.Conn) {
+			defer func() { <-s.streamProcessPool }()
+			s.serveQUICStream(st, cn)
+		}(stream, conn)
 	}
 }
 
-func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
+func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
+	if conn == nil {
+		return
+	}
+	if stream == nil {
+		s.closeQUICConn(conn, DoQCodeInternalError)
+		return
+	}
+
+	// A stream is served by a worker acquired from s.streamProcessPool. A
+	// client that opens a stream but never (or only slowly) sends its DoQ
+	// query would otherwise block readDOQMessage indefinitely, holding that
+	// worker and eventually starving the pool. Bound the wait with the
+	// server's read timeout (the same deadline used for reading a query on
+	// TCP), so a stalled stream cannot hold a worker forever. A deadline
+	// hit surfaces as a read error handled by the existing error path below,
+	// which frees the worker by cancelling just this stream.
+	if s.ReadTimeout != 0 {
+		_ = stream.SetReadDeadline(time.Now().Add(s.ReadTimeout))
+	}
+
 	buf, err := readDOQMessage(stream)
 
 	// io.EOF does not really mean that there's any error, it is just
 	// the STREAM FIN indicating that there will be no data to read
 	// anymore from this stream.
 	if err != nil && err != io.EOF {
+		if isTransientStreamError(err) {
+			// Abandon just this stream, not the whole connection (RFC 9250
+			// §4.3.3). Only RESET_STREAM (CancelWrite): STOP_SENDING is
+			// client-only (§4.3.1) and would itself force a connection abort.
+			stream.CancelWrite(quic.StreamErrorCode(DoQCodeInternalError))
+			s.countResponse(DoQCodeInternalError)
+
+			return
+		}
+
 		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
 	}
 
-	req := &dns.Msg{}
-	err = req.Unpack(buf)
+	req, err := dnsutil.UnpackRequest(buf)
 	if err != nil {
 		clog.Debugf("unpacking quic packet: %s", err)
 		s.closeQUICConn(conn, DoQCodeProtocolError)
@@ -160,7 +270,18 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 		localAddr:  conn.LocalAddr(),
 		remoteAddr: conn.RemoteAddr(),
 		stream:     stream,
+		conn:       conn,
 		Msg:        req,
+	}
+
+	if tsig := req.IsTsig(); tsig != nil {
+		if s.TsigSecret == nil {
+			w.tsigStatus = dns.ErrSecret
+		} else if secret, ok := s.TsigSecret[tsig.Hdr.Name]; !ok {
+			w.tsigStatus = dns.ErrSecret
+		} else {
+			w.tsigStatus = dns.TsigVerify(buf, secret, "", false)
+		}
 	}
 
 	dnsCtx := context.WithValue(stream.Context(), Key{}, s.Server)
@@ -174,6 +295,10 @@ func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
 	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.QUIC+"://"):])
 	if err != nil {
 		return nil, err
+	}
+
+	if s.connPolicy != nil {
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
 	}
 
 	s.m.Lock()
@@ -196,7 +321,7 @@ func (s *ServerQUIC) OnStartupComplete() {
 
 	out := startUpZones(transport.QUIC+"://", s.Addr, s.zones)
 	if out != "" {
-		fmt.Print(out)
+		printStartup(out)
 	}
 }
 
@@ -213,13 +338,13 @@ func (s *ServerQUIC) Stop() error {
 }
 
 // Serve implements caddy.TCPServer interface.
-func (s *ServerQUIC) Serve(l net.Listener) error { return nil }
+func (s *ServerQUIC) Serve(_l net.Listener) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }
 
 // closeQUICConn quietly closes the QUIC connection.
-func (s *ServerQUIC) closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
+func (s *ServerQUIC) closeQUICConn(conn *quic.Conn, code quic.ApplicationErrorCode) {
 	if conn == nil {
 		return
 	}
@@ -298,11 +423,32 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	// A client or server receives a STREAM FIN before receiving all the bytes
 	// for a message indicated in the 2-octet length field.
 	// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-2.2
-	if size != uint16(len(buf)) {
+	if size != uint16(len(buf)) { // #nosec G115 -- buf length fits in uint16
 		return nil, fmt.Errorf("message size does not match 2-byte prefix")
 	}
 
 	return buf, err
+}
+
+// isTransientStreamError reports whether err reflects a condition scoped to
+// a single QUIC stream — the server's own read deadline expiring, or the
+// peer resetting just that stream — rather than a DoQ message-framing
+// violation by the peer. RFC 9250 §4.3.3 requires the latter to abort the
+// whole connection; the former must not, since DoQ multiplexes many
+// independent queries as separate streams on one connection.
+//
+// A deadline timeout is identified specifically via os.ErrDeadlineExceeded
+// (what stream.SetReadDeadline produces) rather than the broader net.Error
+// Timeout() check, because connection-level failures such as
+// quic.IdleTimeoutError also report Timeout() == true but must still take
+// the existing connection-closing path.
+func isTransientStreamError(err error) bool {
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return true
+	}
+
+	var streamErr *quic.StreamError
+	return errors.As(err, &streamErr)
 }
 
 // isExpectedErr returns true if err is an expected error, likely related to

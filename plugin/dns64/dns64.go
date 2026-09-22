@@ -6,6 +6,7 @@ package dns64
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -62,7 +63,7 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	w.WriteMsg(msg)
-	return msg.MsgHdr.Rcode, nil
+	return msg.Rcode, nil
 }
 
 // Name implements the Handler interface.
@@ -122,6 +123,9 @@ func (d *DNS64) DoDNS64(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, o
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("dns64: upstream returned no response")
+	}
 	out := d.Synthesize(r, origResponse, resp)
 	return out, nil
 }
@@ -160,10 +164,7 @@ func (d *DNS64) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 		aaaa, _ := to6(d.Prefix, rr.(*dns.A).A)
 
 		// ttl is min of SOA TTL and A TTL
-		ttl := SOATtl
-		if rr.Header().Ttl < ttl {
-			ttl = rr.Header().Ttl
-		}
+		ttl := min(rr.Header().Ttl, SOATtl)
 
 		// Replace A answer with a DNS64 AAAA answer
 		ret.Answer = append(ret.Answer, &dns.AAAA{

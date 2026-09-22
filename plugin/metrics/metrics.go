@@ -3,18 +3,22 @@ package metrics
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/exporter-toolkit/web"
 )
 
 // Metrics holds the prometheus configuration. The metrics' path is fixed to be /metrics .
@@ -34,15 +38,19 @@ type Metrics struct {
 	zoneMu    sync.RWMutex
 
 	plugins map[string]struct{} // all available plugins, used to determine which plugin made the client write
+
+	tlsConfigPath string
+	serveTLS      func(net.Listener, *http.Server, *web.FlagConfig, *slog.Logger) error
 }
 
 // New returns a new instance of Metrics with the given address.
 func New(addr string) *Metrics {
 	met := &Metrics{
-		Addr:    addr,
-		Reg:     prometheus.DefaultRegisterer.(*prometheus.Registry),
-		zoneMap: make(map[string]struct{}),
-		plugins: pluginList(caddy.ListPlugins()),
+		Addr:     addr,
+		Reg:      prometheus.DefaultRegisterer.(*prometheus.Registry),
+		zoneMap:  make(map[string]struct{}),
+		plugins:  pluginList(caddy.ListPlugins()),
+		serveTLS: web.Serve,
 	}
 
 	return met
@@ -83,27 +91,109 @@ func (m *Metrics) ZoneNames() []string {
 	return s
 }
 
+// startupListener wraps a net.Listener to detect when Accept() is first called
+type startupListener struct {
+	net.Listener
+	readyOnce sync.Once
+	ready     chan struct{}
+}
+
+func newStartupListener(l net.Listener) *startupListener {
+	return &startupListener{
+		Listener: l,
+		ready:    make(chan struct{}),
+	}
+}
+
+func (sl *startupListener) Accept() (net.Conn, error) {
+	// Signal ready on first Accept() call (server is running)
+	sl.readyOnce.Do(func() {
+		close(sl.ready)
+	})
+	return sl.Listener.Accept()
+}
+
+func (sl *startupListener) Ready() <-chan struct{} {
+	return sl.ready
+}
+
 // OnStartup sets up the metrics on startup.
 func (m *Metrics) OnStartup() error {
+	if m.tlsConfigPath != "" {
+		if err := web.Validate(m.tlsConfigPath); err != nil {
+			log.Errorf("Invalid TLS config: %s", err)
+			return err
+		}
+	}
+
 	ln, err := reuseport.Listen("tcp", m.Addr)
 	if err != nil {
 		log.Errorf("Failed to start metrics handler: %s", err)
 		return err
 	}
 
-	m.ln = ln
+	startupListener := newStartupListener(ln)
+
+	m.ln = startupListener
 	m.lnSetup = true
 
 	m.mux = http.NewServeMux()
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
 
 	// creating some helper variables to avoid data races on m.srv and m.ln
-	server := &http.Server{Handler: m.mux}
+	server := &http.Server{
+		Addr:         m.Addr,
+		Handler:      m.mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  5 * time.Second,
+	}
 	m.srv = server
 
+	if m.tlsConfigPath == "" {
+		go func() {
+			if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+				log.Errorf("Failed to start HTTP metrics server: %s", err)
+			}
+		}()
+		ListenAddr = ln.Addr().String() // For tests.
+		return nil
+	}
+
+	// Create web config for ListenAndServe
+	webConfig := &web.FlagConfig{
+		WebListenAddresses: &[]string{m.Addr},
+		WebSystemdSocket:   new(bool), // false by default
+		WebConfigFile:      &m.tlsConfigPath,
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	// Create channels for synchronization
+	startUpErr := make(chan error, 1)
+
 	go func() {
-		server.Serve(ln)
+		// Try to start the server and report result if there an error.
+		// web.Serve() never returns nil, it always returns a non-nil error and
+		// it doesn't retun anything if server starts successfully.
+		// startupListener handles capturing succesful startup.
+		err := m.serveTLS(m.ln, server, webConfig, logger)
+		if err != nil && err != http.ErrServerClosed {
+			log.Errorf("Failed to start HTTPS metrics server: %v", err)
+			startUpErr <- err
+		}
 	}()
+
+	// Wait for startup errors
+	select {
+	case err := <-startUpErr:
+		if closeErr := ln.Close(); closeErr != nil {
+			log.Errorf("Failed to close metrics listener after startup error: %s", closeErr)
+		}
+		m.lnSetup = false
+		return err
+	case <-startupListener.Ready():
+		log.Infof("Server is ready and accepting connections")
+	}
 
 	ListenAddr = ln.Addr().String() // For tests.
 	return nil
@@ -137,7 +227,7 @@ func (m *Metrics) stopServer() error {
 func (m *Metrics) OnFinalShutdown() error { return m.stopServer() }
 
 func keys(m map[string]struct{}) []string {
-	sx := []string{}
+	sx := make([]string, 0, len(m))
 	for k := range m {
 		sx = append(sx, k)
 	}

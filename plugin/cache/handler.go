@@ -15,18 +15,24 @@ import (
 
 // ServeDNS implements the plugin.Handler interface.
 func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// The cache only handles QUERY messages. In particular, an UPDATE can
+	// have the same zone name and QTYPE as a cached query, but must always
+	// reach the authoritative handler instead of being answered from cache.
+	if r.Opcode != dns.OpcodeQuery {
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, r)
+	}
+
 	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
 	state := request.Request{W: w, Req: rc}
 	do := state.Do()
 	cd := r.CheckingDisabled
 	ad := r.AuthenticatedData
 
-	zone := plugin.Zones(c.Zones).Matches(state.Name())
-	if zone == "" {
+	if !plugin.Zones(c.Zones).Contains(state.Name()) || plugin.Zones(c.bypass).Contains(state.Name()) {
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, rc)
 	}
 
-	now := c.now().UTC()
+	now := c.now()
 	server := metrics.WithServer(ctx)
 
 	// On cache refresh, we will just use the DO bit from the incoming query for the refresh since we key our cache
@@ -34,35 +40,52 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	// in which upstream doesn't support DNSSEC, the two cache items will effectively be the same. Regardless, any
 	// DNSSEC RRs in the response are written to cache with the response.
 
-	ttl := 0
-	i := c.getIgnoreTTL(now, state, server)
+	i := c.getIfNotStale(now, state, server)
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad, cd: cd,
+		refreshState := authenticatedRefreshState(state)
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd,
 			nexcept: c.nexcept, pexcept: c.pexcept, wildcardFunc: wildcardFunc(ctx)}
-		return c.doRefresh(ctx, state, crr)
+		return c.doRefresh(ctx, refreshState, crr)
 	}
-	ttl = i.ttl(now)
-	if ttl < 0 {
+	ttl := i.ttl(now)
+	stale := ttl <= 0
+	if stale {
 		// serve stale behavior
 		if c.verifyStale {
-			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
-			cw := newVerifyStaleResponseWriter(crr)
-			ret, err := c.doRefresh(ctx, state, cw)
-			if cw.refreshed {
-				return ret, err
+			failureRecheck := c.staleRecheck
+			nowFunc := c.now
+			trackRefresh := failureRecheck > 0
+			if !trackRefresh || i.beginRefresh(now, failureRecheck) {
+				refreshState := authenticatedRefreshState(state)
+				crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd}
+				if c.verifyStaleTimeout > 0 {
+					// Background verify: cache the response but do not write to the wire.
+					// On timeout, we serve the stale entry below and let the goroutine continue.
+					crr.prefetch = true
+				}
+				cw := newVerifyStaleResponseWriter(crr)
+				if c.verifyStaleTimeout == 0 {
+					ret, err := c.doRefresh(ctx, refreshState, cw)
+					if trackRefresh {
+						i.endRefresh(nowFunc(), failureRecheck, cw.refreshed)
+					}
+					if cw.refreshed {
+						return ret, err
+					}
+				} else if served, ret, err := c.verifyWithTimeout(ctx, refreshState, w, cw, r, do, ad, i, failureRecheck, nowFunc); served {
+					return ret, err
+				}
 			}
 		}
 
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		if !c.verifyStale {
-			cw := newPrefetchResponseWriter(server, state, c)
-			go c.doPrefetch(ctx, state, cw, i, now)
+			c.tryPrefetch(ctx, i, server, rc, do, cd, now, true)
 		}
 		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
-		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now)
+		c.tryPrefetch(ctx, i, server, rc, do, cd, now, false)
 	}
 
 	if i.wildcard != "" {
@@ -77,7 +100,13 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// one so that we always get the original TTL
 		now = i.stored
 	}
-	resp := i.toMsg(r, now, do, ad)
+	var resp *dns.Msg
+	if stale && c.staleTTL > 0 {
+		staleTTL := uint32(c.staleTTL / time.Second) // #nosec G115 -- configuration parsing bounds this to the DNS TTL range.
+		resp = i.toMsgWithTTL(r, staleTTL, do, ad)
+	} else {
+		resp = i.toMsg(r, now, do, ad)
+	}
 	w.WriteMsg(resp)
 	return dns.RcodeSuccess, nil
 }
@@ -92,66 +121,177 @@ func wildcardFunc(ctx context.Context) func() string {
 	}
 }
 
-func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
+// tryPrefetch dispatches a background prefetch for i if one is not already in
+// flight. The CAS on i.refreshing ensures at most one prefetch goroutine per
+// item, so prefetch load scales with distinct stale keys rather than QPS.
+func (c *Cache) tryPrefetch(ctx context.Context, i *item, server string, req *dns.Msg, do, cd bool, now time.Time, stale bool) {
+	failureRecheck := time.Duration(0)
+	if stale {
+		failureRecheck = c.staleRecheck
+	}
+	nowFunc := c.now
+	if !i.beginRefresh(nowFunc(), failureRecheck) {
+		return
+	}
+	cw := newPrefetchResponseWriter(server, req, do, cd, c)
+	go func() {
+		refreshed := c.doPrefetch(ctx, cw, i, now, stale)
+		i.endRefresh(nowFunc(), failureRecheck, refreshed)
+	}()
+}
+
+func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now time.Time, stale bool) bool {
+	// Use a fresh metadata map to avoid concurrent writes to the original request's metadata.
+	ctx = metadata.ContextWithMetadata(ctx)
 	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-	c.doRefresh(ctx, state, cw)
+	refreshed := true
+	if stale {
+		refreshWriter := newVerifyStaleResponseWriter(cw)
+		c.doRefresh(ctx, cw.state, refreshWriter)
+		refreshed = refreshWriter.refreshed
+	} else {
+		c.doRefresh(ctx, cw.state, cw)
+	}
+	if !refreshed {
+		return false
+	}
 
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered sofar. See we copy the frequencies info back
 	// into the new item that was stored in the cache.
-	if i1 := c.exists(state); i1 != nil {
-		i1.Freq.Reset(now, i.Freq.Hits())
+	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.state.QClass(), cw.do, cw.cd); i1 != nil {
+		i1.Reset(now, i.Hits())
 	}
+	return true
 }
 
 func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.ResponseWriter) (int, error) {
 	return plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
 }
 
+// verifyWithTimeout runs the upstream verify in a background goroutine and races it
+// against verifyStaleTimeout. If the verify completes within the timeout and the
+// response is accepted by verifyStaleResponseWriter, the freshly cached entry is
+// served to the client and served is true. Otherwise served is false and the caller
+// falls through to serve stale; the goroutine continues to run and any cacheable
+// response updates the cache without writing to the detached client connection.
+func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w dns.ResponseWriter, cw *verifyStaleResponseWriter, r *dns.Msg, do, ad bool, i *item, failureRecheck time.Duration, now func() time.Time) (served bool, code int, err error) {
+	type result struct {
+		code int
+		err  error
+	}
+	done := make(chan result, 1)
+	refreshCtx := metadata.ContextWithMetadata(ctx)
+	for label, valueFunc := range metadata.ValueFuncs(ctx) {
+		metadata.SetValueFunc(refreshCtx, label, valueFunc)
+	}
+	go func() {
+		rc, re := c.doRefresh(refreshCtx, state, cw)
+		if failureRecheck > 0 {
+			i.endRefresh(now(), failureRecheck, cw.refreshed)
+		}
+		done <- result{rc, re}
+	}()
+	timer := time.NewTimer(c.verifyStaleTimeout)
+	defer timer.Stop()
+	select {
+	case res := <-done:
+		if !cw.refreshed {
+			return false, 0, nil
+		}
+		if cw.response == nil {
+			return true, res.code, res.err
+		}
+		response := cw.response
+		if cw.item != nil {
+			now := c.now()
+			if c.keepttl {
+				now = cw.item.stored
+			}
+			response = cw.item.toMsg(r, now, do, ad)
+		}
+		if err := w.WriteMsg(response); err != nil {
+			return true, dns.RcodeServerFailure, err
+		}
+		return true, dns.RcodeSuccess, nil
+	case <-timer.C:
+		return false, 0, nil
+	}
+}
+
 func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 	if c.prefetch <= 0 {
 		return false
 	}
-	i.Freq.Update(c.duration, now)
+	i.Update(c.duration, now)
 	threshold := int(math.Ceil(float64(c.percentage) / 100 * float64(i.origTTL)))
-	return i.Freq.Hits() >= c.prefetch && i.ttl(now) <= threshold
+	return i.Hits() >= c.prefetch && i.ttl(now) <= threshold
+}
+
+func authenticatedRefreshState(state request.Request) request.Request {
+	state.Req = state.Req.Copy()
+	state.Req.AuthenticatedData = true
+	return state
 }
 
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
-// getIgnoreTTL unconditionally returns an item if it exists in the cache.
-func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+// getIfNotStale returns an item if it exists in the cache and has not expired.
+func (c *Cache) getIfNotStale(now time.Time, state request.Request, server string) *item {
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
+	if c.preferPositive && c.staleUpTo > 0 {
+		if i, ok := c.pcache.Get(k); ok {
+			i = i.answeringItem(state)
+			if i != nil {
+				ttl := i.ttl(now)
+				if ttl > 0 || -ttl < int(c.staleUpTo.Seconds()) {
+					cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+					return i
+				}
+			}
+		}
+	}
+
 	if i, ok := c.ncache.Get(k); ok {
-		itm := i.(*item)
-		ttl := itm.ttl(now)
-		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+		ttl := i.ttl(now)
+		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+			// SERVFAIL is transient; prefer a valid positive cache entry if one
+			// exists, so a cached SERVFAIL does not shadow a previously good answer.
+			if i.Rcode == dns.RcodeServerFailure {
+				if p, pok := c.pcache.Get(k); pok {
+					pttl := p.ttl(now)
+					if p.matches(state) && (pttl > 0 || (c.staleUpTo > 0 && -pttl < int(c.staleUpTo.Seconds()))) {
+						cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+						return p
+					}
+				}
+			}
 			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i.(*item)
+			return i
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		itm := i.(*item)
-		ttl := itm.ttl(now)
-		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+		ttl := i.ttl(now)
+		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
 			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i.(*item)
+			return i
 		}
 	}
 	cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	return nil
 }
 
-func (c *Cache) exists(state request.Request) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+// exists unconditionally returns an item if it exists in the cache.
+func (c *Cache) exists(name string, qtype, qclass uint16, do, cd bool) *item {
+	k := hash(name, qtype, qclass, do, cd)
 	if i, ok := c.ncache.Get(k); ok {
-		return i.(*item)
+		return i
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		return i.(*item)
+		return i
 	}
 	return nil
 }

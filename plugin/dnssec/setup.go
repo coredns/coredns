@@ -3,6 +3,7 @@ package dnssec
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+
+	"github.com/miekg/dns"
 )
 
 var log = clog.NewWithPlugin("dnssec")
@@ -23,7 +26,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("dnssec", err)
 	}
 
-	ca := cache.New(capacity)
+	ca := cache.New[[]dns.RR](capacity)
 	stop := make(chan struct{})
 
 	c.OnShutdown(func() error {
@@ -94,13 +97,7 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 	// Check if each keys owner name can actually sign the zones we want them to sign.
 	for _, k := range keys {
 		kname := plugin.Name(k.K.Header().Name)
-		ok := false
-		for i := range zones {
-			if kname.Matches(zones[i]) {
-				ok = true
-				break
-			}
-		}
+		ok := slices.ContainsFunc(zones, kname.Matches)
 		if !ok {
 			return zones, keys, capacity, splitkeys, fmt.Errorf("key %s (keyid: %d) can not sign any of the zones", string(kname), k.tag)
 		}
@@ -117,7 +114,8 @@ func keyParse(c *caddy.Controller) ([]*DNSKEY, error) {
 		return nil, c.ArgErr()
 	}
 	value := c.Val()
-	if value == "file" {
+	switch value {
+	case "file":
 		ks := c.RemainingArgs()
 		if len(ks) == 0 {
 			return nil, c.ArgErr()
@@ -141,7 +139,7 @@ func keyParse(c *caddy.Controller) ([]*DNSKEY, error) {
 			}
 			keys = append(keys, k)
 		}
-	} else if value == "aws_secretsmanager" {
+	case "aws_secretsmanager":
 		ks := c.RemainingArgs()
 		if len(ks) == 0 {
 			return nil, c.ArgErr()

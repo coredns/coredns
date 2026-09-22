@@ -85,7 +85,7 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 					if ipnet, ok := addr.(*net.IPNet); ok {
 						ipa, err := net.ResolveIPAddr("ip", ipnet.IP.String())
 						if err == nil {
-							if len(ipnet.IP) == net.IPv6len &&
+							if ipnet.IP.To4() == nil &&
 								(ipnet.IP.IsLinkLocalMulticast() || ipnet.IP.IsLinkLocalUnicast()) {
 								if ipa.Zone == "" {
 									ipa.Zone = iface.Name

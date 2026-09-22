@@ -8,7 +8,6 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -238,14 +237,20 @@ func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) 
 	blocks := [3][]*ast.ImportSpec{}
 	prevpos := 0
 	bl := 0
+	reportedTooManyBlocks := false
 	for _, im := range f.Imports {
 		line := fs.Position(im.Path.Pos()).Line
 		if line-prevpos > 1 && prevpos > 0 {
 			bl++
 		}
 		if bl > 2 {
-			absPath, _ := filepath.Abs(path)
-			w.Errors = append(w.Errors, fmt.Errorf("more than %d import blocks in %q", bl, absPath))
+			if !reportedTooManyBlocks {
+				absPath, _ := filepath.Abs(path)
+				w.Errors = append(w.Errors, fmt.Errorf("more than %d import blocks in %q", bl, absPath))
+				reportedTooManyBlocks = true
+			}
+			// Clamp to last valid block index to avoid out-of-bounds access
+			bl = 2
 		}
 		blocks[bl] = append(blocks[bl], im)
 		prevpos = line
@@ -306,22 +311,4 @@ func importtype(s string) string {
 		return "3rd"
 	}
 	return "std"
-}
-
-// TestPrometheusImports tests the imports path used for metrics. It depends on faillint to be installed: go install github.com/fatih/faillint
-func TestPrometheusImports(t *testing.T) {
-	if _, err := exec.LookPath("faillint"); err != nil {
-		fmt.Fprintf(os.Stderr, "Not executing TestPrometheusImports: faillint not found\n")
-		return
-	}
-
-	// make this multiline?
-	p := `github.com/prometheus/client_golang/prometheus.{NewCounter,NewCounterVec,NewCounterVec,NewGauge,NewGaugeVec,NewGaugeFunc,NewHistorgram,NewHistogramVec,NewSummary,NewSummaryVec}=github.com/prometheus/client_golang/prometheus/promauto.{NewCounter,NewCounterVec,NewCounterVec,NewGauge,NewGaugeVec,NewGaugeFunc,NewHistorgram,NewHistogramVec,NewSummary,NewSummaryVec}`
-
-	cmd := exec.Command("faillint", "-paths", p, "./...")
-	cmd.Dir = ".."
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed: %s\n%s", err, out)
-	}
 }

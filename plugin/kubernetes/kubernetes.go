@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"runtime"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	mcsClientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
 // Kubernetes implements a plugin that connects to a Kubernetes cluster.
@@ -47,7 +49,11 @@ type Kubernetes struct {
 	opts             dnsControlOpts
 	primaryZoneIndex int
 	localIPs         []net.IP
-	autoPathSearch   []string // Local search path from /etc/resolv.conf. Needed for autopath.
+	autoPathSearch   []string      // Local search path from /etc/resolv.conf. Needed for autopath.
+	startupTimeout   time.Duration // startupTimeout set timeout of startup
+	apiQPS           float32       // Maximum queries per second from the client to the API server
+	apiBurst         int           // Maximum burst for throttle
+	apiMaxInflight   int           // Maximum number of concurrent requests in flight to the API server
 }
 
 // Upstreamer is used to resolve CNAME or other external targets
@@ -91,7 +97,7 @@ var (
 )
 
 // Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (svcs []msg.Service, err error) {
+func (k *Kubernetes) Services(ctx context.Context, state request.Request, _exact bool, _opt plugin.Options) (svcs []msg.Service, err error) {
 	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
 	switch state.QType() {
 	case dns.TypeTXT:
@@ -106,11 +112,25 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 		}
 
 		// Check if we have an existing record for this query of another type
-		services, _ := k.Records(ctx, state, false)
+		services, err := k.Records(ctx, state, false)
 
 		if len(services) > 0 {
 			// If so we return an empty NOERROR
 			return nil, nil
+		}
+
+		// A zonal name in its exists-but-empty state answers NODATA for
+		// every query type. NXDOMAIN here is per-name (RFC 2308/8020):
+		// clients that pair query types (HTTPS+A) re-poison the name's
+		// address lookups on every cycle regardless of TTL, and resolvers
+		// cache the denial for the SOA minttl — which follows the ttl
+		// option, not a fixed small constant. Names findServices rejected
+		// (unknown service, non-headless) carry errNoItems and stay
+		// NXDOMAIN.
+		if err == nil && k.opts.zonal {
+			if r, e := parseRequest(state.Name(), state.Zone, k.isMultiClusterZone(state.Zone), true); e == nil && r.zone != "" {
+				return nil, nil
+			}
 		}
 
 		// Return NXDOMAIN for no match
@@ -237,6 +257,14 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 		return nil, nil, fmt.Errorf("failed to create kubernetes notification controller: %q", err)
 	}
 
+	var mcsClient mcsClientset.MulticlusterV1alpha1Interface
+	if len(k.opts.multiclusterZones) > 0 {
+		mcsClient, err = mcsClientset.NewForConfig(config)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create kubernetes multicluster notification controller: %q", err)
+		}
+	}
+
 	if k.opts.labelSelector != nil {
 		var selector labels.Selector
 		selector, err = meta.LabelSelectorAsSelector(k.opts.labelSelector)
@@ -255,20 +283,37 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 		k.opts.namespaceSelector = selector
 	}
 
+	if k.apiQPS > 0 {
+		config.QPS = k.apiQPS
+	}
+
+	if k.apiBurst > 0 {
+		config.Burst = k.apiBurst
+	}
+
+	if k.apiMaxInflight > 0 {
+		existingWrap := config.WrapTransport
+		config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			if existingWrap != nil {
+				rt = existingWrap(rt)
+			}
+			return newMaxInflightRoundTripper(rt, k.apiMaxInflight)
+		}
+	}
+
 	k.opts.initPodCache = k.podMode == podModeVerified
 
 	k.opts.zones = k.Zones
 	k.opts.endpointNameMode = k.endpointNameMode
 
-	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
+	k.APIConn = newdnsController(ctx, kubeClient, mcsClient, k.opts)
 
 	onStart = func() error {
 		go func() {
 			k.APIConn.Run()
 		}()
 
-		timeout := 5 * time.Second
-		timeoutTicker := time.NewTicker(timeout)
+		timeoutTicker := time.NewTicker(k.startupTimeout)
 		defer timeoutTicker.Stop()
 		logDelay := 500 * time.Millisecond
 		logTicker := time.NewTicker(logDelay)
@@ -298,8 +343,9 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 }
 
 // Records looks up services in kubernetes.
-func (k *Kubernetes) Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error) {
-	r, e := parseRequest(state.Name(), state.Zone)
+func (k *Kubernetes) Records(_ctx context.Context, state request.Request, _exact bool) ([]msg.Service, error) {
+	multicluster := k.isMultiClusterZone(state.Zone)
+	r, e := parseRequest(state.Name(), state.Zone, multicluster, k.opts.zonal)
 	if e != nil {
 		return nil, e
 	}
@@ -320,7 +366,13 @@ func (k *Kubernetes) Records(ctx context.Context, state request.Request, exact b
 		return pods, err
 	}
 
-	services, err := k.findServices(r, state.Zone)
+	var services []msg.Service
+	var err error
+	if !multicluster {
+		services, err = k.findServices(r, state.Zone)
+	} else {
+		services, err = k.findMultiClusterServices(r, state.Zone)
+	}
 	return services, err
 }
 
@@ -332,10 +384,14 @@ func endpointHostname(addr object.EndpointAddress, endpointNameMode bool) string
 		return addr.TargetRefName
 	}
 	if strings.Contains(addr.IP, ".") {
-		return strings.Replace(addr.IP, ".", "-", -1)
+		return strings.ReplaceAll(addr.IP, ".", "-")
 	}
 	if strings.Contains(addr.IP, ":") {
-		return strings.Replace(addr.IP, ":", "-", -1)
+		ipv6Hostname := strings.ReplaceAll(addr.IP, ":", "-")
+		if strings.HasSuffix(ipv6Hostname, "-") {
+			return ipv6Hostname + "0"
+		}
+		return ipv6Hostname
 	}
 	return ""
 }
@@ -363,7 +419,8 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	}
 
 	zonePath := msg.Path(zone, coredns)
-	ip := ""
+
+	var ip string
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
 		ip = strings.ReplaceAll(podname, "-", ".")
 	} else {
@@ -428,7 +485,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 	zonePath := msg.Path(zone, coredns)
 	for _, svc := range serviceList {
-		if !(match(r.namespace, svc.Namespace) && match(r.service, svc.Name)) {
+		if !match(r.namespace, svc.Namespace) || !match(r.service, svc.Name) {
 			continue
 		}
 
@@ -445,6 +502,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			if podsCount == 0 {
 				continue
 			}
+		}
+
+		// Zone-scoped names are defined for headless services only: a
+		// ClusterIP's VIP has no zone, and answering it under a pinned name
+		// would silently discard the pin. NXDOMAIN, as before the option.
+		if r.zone != "" && !svc.Headless() {
+			continue
 		}
 
 		// External service
@@ -465,12 +529,136 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 		// Endpoint query or headless service
 		if svc.Headless() || r.endpoint != "" {
+			if r.zone != "" {
+				// The name exists (headless service, any zone label): an
+				// empty result set is NODATA, not NXDOMAIN — "no endpoints
+				// carry that zone" is true for drained zones and mistyped
+				// ones alike, and identically on every replica.
+				err = nil
+			}
+			if endpointsList == nil {
+				endpointsList = endpointsListFunc()
+			}
+
+			addForZone := func(topoZone string) (added int) {
+				for _, ep := range endpointsList {
+					if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
+						continue
+					}
+
+					for _, eps := range ep.Subsets {
+						for _, addr := range eps.Addresses {
+							// See comments in parse.go parseRequest about the endpoint handling.
+							if topoZone != "" && ep.Zones[addr.IP] != topoZone {
+								continue
+							}
+							if r.endpoint != "" {
+								if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+									continue
+								}
+							}
+
+							for _, p := range eps.Ports {
+								if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
+									continue
+								}
+								s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
+								s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+
+								err = nil
+
+								services = append(services, s)
+								added++
+							}
+						}
+					}
+				}
+				return added
+			}
+			if addForZone(r.zone) == 0 && r.zonePrefer {
+				// The prefer directive falls back to the whole service when
+				// the zone holds nothing. The fallback is in the NAME the
+				// client chose, so it is never a silent widening of a pin.
+				addForZone("")
+			}
+			continue
+		}
+
+		// ClusterIP service
+		for _, p := range svc.Ports {
+			if !(matchPortAndProtocol(r.port, p.Name, r.protocol, string(p.Protocol))) {
+				continue
+			}
+
+			err = nil
+
+			for _, ip := range svc.ClusterIPs {
+				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
+				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+				services = append(services, s)
+			}
+		}
+	}
+	return services, err
+}
+
+// findMultiClusterServices returns the multicluster services matching r from the cache.
+func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (services []msg.Service, err error) {
+	if !k.namespaceExposed(r.namespace) {
+		return nil, errNoItems
+	}
+
+	// handle empty service name
+	if r.service == "" {
+		if k.namespaceExposed(r.namespace) {
+			// NODATA
+			return nil, nil
+		}
+		// NXDOMAIN
+		return nil, errNoItems
+	}
+
+	err = errNoItems
+
+	var (
+		endpointsListFunc func() []*object.MultiClusterEndpoints
+		endpointsList     []*object.MultiClusterEndpoints
+		serviceList       []*object.ServiceImport
+	)
+
+	idx := object.ServiceImportKey(r.service, r.namespace)
+	serviceList = k.APIConn.SvcImportIndex(idx)
+	endpointsListFunc = func() []*object.MultiClusterEndpoints { return k.APIConn.McEpIndex(idx) }
+
+	zonePath := msg.Path(zone, coredns)
+	for _, svc := range serviceList {
+		if !match(r.namespace, svc.Namespace) || !match(r.service, svc.Name) {
+			continue
+		}
+
+		// If "ignore empty_service" option is set and no endpoints exist, return NXDOMAIN unless
+		// it's a headless or externalName service (covered below).
+		if k.opts.ignoreEmptyService && !svc.Headless() { // serve NXDOMAIN if no endpoint is able to answer
+			podsCount := 0
+			for _, ep := range endpointsListFunc() {
+				for _, eps := range ep.Subsets {
+					podsCount += len(eps.Addresses)
+				}
+			}
+
+			if podsCount == 0 {
+				continue
+			}
+		}
+
+		// Endpoint query or headless service
+		if svc.Headless() || r.endpoint != "" {
 			if endpointsList == nil {
 				endpointsList = endpointsListFunc()
 			}
 
 			for _, ep := range endpointsList {
-				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
+				if object.MultiClusterEndpointsKey(svc.Name, svc.Namespace) != ep.Index {
 					continue
 				}
 
@@ -478,7 +666,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 					for _, addr := range eps.Addresses {
 						// See comments in parse.go parseRequest about the endpoint handling.
 						if r.endpoint != "" {
-							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							if !match(r.cluster, ep.ClusterId) || !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
 								continue
 							}
 						}
@@ -488,7 +676,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 								continue
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, ep.ClusterId, endpointHostname(addr, k.endpointNameMode)}, "/")
 
 							err = nil
 
@@ -519,19 +707,56 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 }
 
 // Serial return the SOA serial.
-func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIConn.Modified(false)) }
+func (k *Kubernetes) Serial(state request.Request) uint32 {
+	if !k.isMultiClusterZone(state.Zone) {
+		return uint32(k.APIConn.Modified(ModifiedInternal)) // #nosec G115 -- Unix time to SOA serial
+	}
+	return uint32(k.APIConn.Modified(ModifiedMultiCluster)) // #nosec G115 -- Unix time to SOA serial
+}
 
 // MinTTL returns the minimal TTL.
-func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
+func (k *Kubernetes) MinTTL(_state request.Request) uint32 { return k.ttl }
+
+func (k *Kubernetes) isMultiClusterZone(zone string) bool {
+	return plugin.Zones(k.opts.multiclusterZones).Contains(zone)
+}
 
 // match checks if a and b are equal.
 func match(a, b string) bool {
+	if a == b {
+		return true
+	}
 	return strings.EqualFold(a, b)
 }
 
 // matchPortAndProtocol matches port and protocol, permitting the 'a' inputs to be wild
 func matchPortAndProtocol(aPort, bPort, aProtocol, bProtocol string) bool {
-	return (match(aPort, bPort) || aPort == "") && (match(aProtocol, bProtocol) || aProtocol == "")
+	return (aPort == "" || match(aPort, bPort)) && (aProtocol == "" || match(aProtocol, bProtocol))
 }
 
 const coredns = "c" // used as a fake key prefix in msg.Service
+
+// roundTripperFunc is an adapter to allow use of ordinary functions as http.RoundTrippers
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+// newMaxInflightRoundTripper returns RoundTripper that limits the number of concurrent requests
+func newMaxInflightRoundTripper(next http.RoundTripper, max int) http.RoundTripper {
+	if max <= 0 {
+		return next
+	}
+	sem := make(chan struct{}, max)
+
+	return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		select {
+		case sem <- struct{}{}:
+			defer func() { <-sem }()
+			return next.RoundTrip(r)
+		case <-r.Context().Done():
+			return nil, r.Context().Err()
+		}
+	})
+}

@@ -1,0 +1,38 @@
+name: Verify Generated Files
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+permissions:
+  contents: read
+
+jobs:
+  verify-generate:
+    name: Verify make gen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: .go-version
+      - name: Run make gen
+        run: make gen
+      - name: Check for uncommitted changes
+        run: |
+          UNTRACKED=$(git ls-files --others --exclude-standard)
+          if [ -n "$UNTRACKED" ]; then
+            echo "ERROR: make gen produced untracked files:"
+            echo "$UNTRACKED"
+            echo ""
+            echo "Run 'make gen' and commit the result."
+            exit 1
+          fi
+          if ! git diff --exit-code; then
+            echo ""
+            echo "ERROR: Generated files are out of date."
+            echo "Run 'make gen' and commit the result."
+            exit 1
+          fi

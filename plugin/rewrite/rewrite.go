@@ -23,9 +23,9 @@ const (
 
 // These are defined processing mode.
 const (
-	// Processing should stop after completing this rule
+	// Stop processing should stop after completing this rule
 	Stop = "stop"
-	// Processing should continue to next rule
+	// Continue processing should continue to next rule
 	Continue = "continue"
 )
 
@@ -54,27 +54,31 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			}
 			wr.ResponseRules = append(wr.ResponseRules, respRules...)
 			if rule.Mode() == Stop {
-				if !rw.RevertPolicy.DoRevert() {
+				if !rw.DoRevert() {
 					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 				}
-				rcode, err := plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
-				if plugin.ClientWrite(rcode) {
-					return rcode, err
-				}
-				// The next plugins didn't write a response, so write one now with the ResponseReverter.
-				// If server.ServeDNS does this then it will create an answer mismatch.
-				res := new(dns.Msg).SetRcode(r, rcode)
-				state.SizeAndDo(res)
-				wr.WriteMsg(res)
-				// return success, so server does not write a second error response to client
-				return dns.RcodeSuccess, err
+				return rw.serveWithResponseReverter(ctx, wr, r, state)
 			}
 		}
 	}
-	if !rw.RevertPolicy.DoRevert() || len(wr.ResponseRules) == 0 {
+	if !rw.DoRevert() || len(wr.ResponseRules) == 0 {
 		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 	}
-	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+	return rw.serveWithResponseReverter(ctx, wr, r, state)
+}
+
+func (rw Rewrite) serveWithResponseReverter(ctx context.Context, wr *ResponseReverter, r *dns.Msg, state request.Request) (int, error) {
+	rcode, err := plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+	if plugin.ClientWrite(rcode) {
+		return rcode, err
+	}
+	// The next plugins didn't write a response, so write one now with the ResponseReverter.
+	// If server.ServeDNS does this then it will bypass response rewrite rules.
+	res := new(dns.Msg).SetRcode(r, rcode)
+	state.SizeAndDo(res)
+	wr.WriteMsg(res)
+	// Return success so server does not write a second error response to the client.
+	return dns.RcodeSuccess, err
 }
 
 // Name implements the Handler interface.

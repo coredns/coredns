@@ -21,27 +21,33 @@ import (
 )
 
 const (
-	priority    = 10  // default priority when nothing is set
-	ttl         = 300 // default ttl when nothing is set
-	etcdTimeout = 5 * time.Second
+	defaultPriority    = 10    // default priority when nothing is set
+	defaultTTL         = 300   // default ttl when nothing is set
+	defaultLeaseMinTTL = 30    // default minimum TTL for lease-based records
+	defaultLeaseMaxTTL = 86400 // default maximum TTL for lease-based records
+	etcdTimeout        = 5 * time.Second
 )
 
 var errKeyNotFound = errors.New("key not found")
 
 // Etcd is a plugin talks to an etcd cluster.
 type Etcd struct {
-	Next       plugin.Handler
-	Fall       fall.F
-	Zones      []string
-	PathPrefix string
-	Upstream   *upstream.Upstream
-	Client     *etcdcv3.Client
+	Next        plugin.Handler
+	Fall        fall.F
+	Zones       []string
+	PathPrefix  string
+	Upstream    *upstream.Upstream
+	Client      *etcdcv3.Client
+	MinLeaseTTL uint32 // minimum TTL for lease-based records
+	MaxLeaseTTL uint32 // maximum TTL for lease-based records
+	// NoApexFallback disables the legacy zone-root lookup when apex.dns records are absent.
+	NoApexFallback bool
 
 	endpoints []string // Stored here as well, to aid in testing.
 }
 
 // Services implements the ServiceBackend interface.
-func (e *Etcd) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
+func (e *Etcd) Services(ctx context.Context, state request.Request, exact bool, _opt plugin.Options) (services []msg.Service, err error) {
 	services, err = e.Records(ctx, state, exact)
 	if err != nil {
 		return
@@ -119,7 +125,7 @@ func (e *Etcd) loopNodes(kv []*mvccpb.KeyValue, nameParts []string, star bool, q
 Nodes:
 	for _, n := range kv {
 		if star {
-			s := string(n.Key)
+			s := string(n.GetKey())
 			keyParts := strings.Split(s, "/")
 			for i, n := range nameParts {
 				if i > len(keyParts)-1 {
@@ -135,10 +141,10 @@ Nodes:
 			}
 		}
 		serv := new(msg.Service)
-		if err := json.Unmarshal(n.Value, serv); err != nil {
-			return nil, fmt.Errorf("%s: %s", n.Key, err.Error())
+		if err := json.Unmarshal(n.GetValue(), serv); err != nil {
+			return nil, fmt.Errorf("%s: %s", n.GetKey(), err.Error())
 		}
-		serv.Key = string(n.Key)
+		serv.Key = string(n.GetKey())
 		if _, ok := bx[*serv]; ok {
 			continue
 		}
@@ -146,7 +152,7 @@ Nodes:
 
 		serv.TTL = e.TTL(n, serv)
 		if serv.Priority == 0 {
-			serv.Priority = priority
+			serv.Priority = defaultPriority
 		}
 
 		if shouldInclude(serv, qType) {
@@ -159,10 +165,39 @@ Nodes:
 // TTL returns the smaller of the etcd TTL and the service's
 // TTL. If neither of these are set (have a zero value), a default is used.
 func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
-	etcdTTL := uint32(kv.Lease)
+	var etcdTTL uint32
+
+	// Get actual lease TTL from etcd if lease exists and client is available
+	if kv.GetLease() != 0 && e.Client != nil {
+		if resp, err := e.Client.TimeToLive(context.Background(), etcdcv3.LeaseID(kv.GetLease())); err == nil && resp.TTL > 0 {
+			leaseTTL := resp.TTL
+
+			// Get bounds with defaults
+			minTTL := e.MinLeaseTTL
+			if minTTL == 0 {
+				minTTL = defaultLeaseMinTTL
+			}
+			maxTTL := e.MaxLeaseTTL
+			if maxTTL == 0 {
+				maxTTL = defaultLeaseMaxTTL
+			}
+
+			// Clamp lease TTL to configured bounds
+			minTTL64 := int64(minTTL)
+			maxTTL64 := int64(maxTTL)
+
+			if leaseTTL < minTTL64 {
+				leaseTTL = minTTL64
+			} else if leaseTTL > maxTTL64 {
+				leaseTTL = maxTTL64
+			}
+
+			etcdTTL = uint32(leaseTTL) // #nosec G115 -- leaseTTL is bounded by minTTL64/maxTTL64
+		}
+	}
 
 	if etcdTTL == 0 && serv.TTL == 0 {
-		return ttl
+		return defaultTTL
 	}
 	if etcdTTL == 0 {
 		return serv.TTL

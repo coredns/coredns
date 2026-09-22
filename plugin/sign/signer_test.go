@@ -170,7 +170,7 @@ func TestSignDS(t *testing.T) {
 	if x := nsec[0].(*dns.NSEC).NextDomain; x != "www.miek.nl." {
 		t.Errorf("Expected no NSEC NextDomain to be %s for %s, got %s", "www.miek.nl.", name, x)
 	}
-	minttl := z.Apex.SOA.Minttl
+	minttl := z.SOA.Minttl
 	if x := nsec[0].Header().Ttl; x != minttl {
 		t.Errorf("Expected no NSEC TTL to be %d for %s, got %d", minttl, "www.miek.nl.", x)
 	}

@@ -18,7 +18,7 @@ func BenchmarkServeDNS(b *testing.B) {
 	w := &test.ResponseWriter{}
 	ctx := context.TODO()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := h.ServeDNS(ctx, w, r)
 		if err != nil {
 			b.Errorf("ServeDNS returned error: %s", err)

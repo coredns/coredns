@@ -62,22 +62,23 @@ func (l *EndpointLatencyRecorder) init(o meta.Object) {
 }
 
 func (l *EndpointLatencyRecorder) record() {
-	// isHeadless indicates whether the endpoints object belongs to a headless
-	// service (i.e. clusterIp = None). Note that this can be a  false negatives if the service
-	// informer is lagging, i.e. we may not see a recently created service. Given that the services
-	// don't change very often (comparing to much more frequent endpoints changes), cases when this method
-	// will return wrong answer should be relatively rare. Because of that we intentionally accept this
-	// flaw to keep the solution simple.
-	isHeadless := len(l.Services) == 1 && l.Services[0].Headless()
-
-	if !isHeadless || l.TT.IsZero() {
+	// Note: len(l.Services) != 1 can be a false negative if the service informer is lagging,
+	// i.e. we may not see a recently created service. Given that services don't change very
+	// often (compared to much more frequent endpoint changes), cases when this method skips
+	// recording should be relatively rare. We intentionally accept this flaw to keep the
+	// solution simple.
+	if l.TT.IsZero() || len(l.Services) != 1 {
 		return
 	}
 
-	// If we're here it means that the Endpoints object is for a headless service and that
-	// the Endpoints object was created by the endpoints-controller (because the
-	// LastChangeTriggerTime annotation is set). It means that the corresponding service is a
-	// "headless service with selector".
-	DNSProgrammingLatency.WithLabelValues("headless_with_selector").
+	// If we're here it means that the Endpoints object was created by the endpoints-controller
+	// (because the LastChangeTriggerTime annotation is set) and the backing Service is known.
+	// For headless services this means the service has a selector ("headless_with_selector").
+	// For non-headless services the service kind is "cluster_ip".
+	serviceKind := "cluster_ip"
+	if l.Services[0].Headless() {
+		serviceKind = "headless_with_selector"
+	}
+	DNSProgrammingLatency.WithLabelValues(serviceKind).
 		Observe(DurationSinceFunc(l.TT).Seconds())
 }

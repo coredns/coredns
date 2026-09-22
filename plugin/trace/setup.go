@@ -2,6 +2,7 @@ package trace
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(t.OnStartup)
+	c.OnShutdown(t.OnShutdown)
 
 	return nil
 }
@@ -36,8 +38,8 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 	)
 
 	cfg := dnsserver.GetConfig(c)
-	if cfg.ListenHosts[0] != "" {
-		tr.serviceEndpoint = cfg.ListenHosts[0] + ":" + cfg.Port
+	if len(cfg.ListenHosts) > 0 && cfg.ListenHosts[0] != "" {
+		tr.serviceEndpoint = net.JoinHostPort(cfg.ListenHosts[0], cfg.Port)
 	}
 
 	for c.Next() { // trace
@@ -128,6 +130,8 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 				if err != nil {
 					return nil, err
 				}
+			default:
+				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}

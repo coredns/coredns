@@ -21,6 +21,7 @@ func TestClosestEncloser(t *testing.T) {
 		{"blaat.www.miek.nl.", "www.miek.nl."},
 		{"www.blaat.miek.nl.", "miek.nl."},
 		{"blaat.a.miek.nl.", "a.miek.nl."},
+		{"blaat.z.a.miek.nl.", "a.miek.nl."},
 	}
 
 	for _, tc := range tests {

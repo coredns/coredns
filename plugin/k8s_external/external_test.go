@@ -4,9 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
@@ -52,6 +55,49 @@ func TestExternal(t *testing.T) {
 		if err = test.SortAndCheck(resp, tc); err != nil {
 			t.Errorf("Test %d: %v", i, err)
 		}
+	}
+}
+
+// TestExternalCNAMENilUpstreamResponse checks that a CNAME-hosted service does not
+// panic when the internal upstream lookup returns no response, e.g. when a plugin
+// like acl's drop action returns success without writing.
+func TestExternalCNAMENilUpstreamResponse(t *testing.T) {
+	k := kubernetes.New([]string{"cluster.local."})
+	k.Namespaces = map[string]struct{}{"testns": {}}
+	k.APIConn = &external{}
+
+	cfg := &dnsserver.Config{
+		Zone: ".",
+		Plugin: []plugin.Plugin{
+			func(plugin.Handler) plugin.Handler {
+				return plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+					return dns.RcodeSuccess, nil
+				})
+			},
+		},
+	}
+	srv, err := dnsserver.NewServer("", []*dnsserver.Config{cfg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.WithValue(context.Background(), dnsserver.Key{}, srv)
+
+	e := New()
+	e.Zones = []string{"example.com."}
+	e.headless = true
+	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
+	e.externalFunc = k.External
+	e.externalAddrFunc = externalAddress
+	e.externalSerialFunc = externalSerial
+	e.upstream = upstream.New()
+
+	m := new(dns.Msg)
+	m.SetQuestion("svc12.testns.example.com.", dns.TypeA)
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	_, err = e.ServeDNS(ctx, w, m)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
 }
 
@@ -286,20 +332,27 @@ func (external) Run()                                      {}
 func (external) Stop() error                               { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints { return nil }
 func (external) SvcIndexReverse(string) []*object.Service  { return nil }
-func (external) Modified(bool) int64                       { return 0 }
+func (external) Modified(kubernetes.ModifiedMode) int64    { return 0 }
+
+func (external) SvcImportIndex(_s string) []*object.ServiceImport                    { return nil }
+func (external) ServiceImportList() []*object.ServiceImport                          { return nil }
+func (external) McEpIndex(_s string) []*object.MultiClusterEndpoints                 { return nil }
+func (external) MultiClusterEndpointsList(_s string) []*object.MultiClusterEndpoints { return nil }
+
 func (external) EpIndex(s string) []*object.Endpoints {
 	return epIndexExternal[s]
 }
+
 func (external) EndpointsList() []*object.Endpoints {
-	var eps []*object.Endpoints
+	eps := make([]*object.Endpoints, 0, len(epIndexExternal))
 	for _, ep := range epIndexExternal {
 		eps = append(eps, ep...)
 	}
 	return eps
 }
-func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
-func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
-func (external) PodIndex(string) []*object.Pod                                     { return nil }
+func (external) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) { return nil, nil }
+func (external) SvcIndex(s string) []*object.Service                                 { return svcIndexExternal[s] }
+func (external) PodIndex(string) []*object.Pod                                       { return nil }
 
 func (external) SvcExtIndexReverse(ip string) (result []*object.Service) {
 	for _, svcs := range svcIndexExternal {
@@ -409,14 +462,14 @@ var svcIndexExternal = map[string][]*object.Service{
 }
 
 func (external) ServiceList() []*object.Service {
-	var svcs []*object.Service
+	svcs := make([]*object.Service, 0, len(svcIndexExternal))
 	for _, svc := range svcIndexExternal {
 		svcs = append(svcs, svc...)
 	}
 	return svcs
 }
 
-func externalAddress(state request.Request, headless bool) []dns.RR {
+func externalAddress(_state request.Request, _headless bool) []dns.RR {
 	a := test.A("example.org. IN A 127.0.0.1")
 	return []dns.RR{a}
 }

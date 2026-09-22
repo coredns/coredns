@@ -1,5 +1,9 @@
 name: Go Tests
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
 permissions:
   contents: read
 
@@ -9,15 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-
-      - name: Setup Go Version
-        run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34  # v5.3.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: .go-version
         id: go
 
       - name: Build
@@ -29,26 +32,66 @@ jobs:
           ( cd core; go test -race  ./... )
           ( cd coremain; go test -race ./... )
 
-  test-plugins:
-    name: Test Plugins
-    runs-on: ubuntu-latest
+      - name: Build manual-registration mode
+        run: go build -tags=coredns_manual_registration ./...
+
+      - name: Test manual-registration mode
+        run: go test -race -tags=coredns_manual_registration ./core/dnsserver ./coremain
+
+  test-windows:
+    name: Test Windows
+    runs-on: windows-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-
-      - name: Setup Go Version
-        run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34  # v5.3.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: .go-version
         id: go
 
       - name: Build
         run: go build -v ./...
 
       - name: Test
+        shell: bash
+        run: |
+          ( cd request; go test -race ./... )
+          ( cd core; go test -race  ./... )
+          ( cd coremain; go test -race ./... )
+
+      - name: Build manual-registration mode
+        run: go build -tags=coredns_manual_registration ./...
+
+      - name: Test manual-registration mode
+        run: go test -race -tags=coredns_manual_registration ./core/dnsserver ./coremain
+
+  test-plugins:
+    name: Test Plugins
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: .go-version
+        id: go
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        shell: bash
         run: ( cd plugin; go test -race ./... )
 
   test-e2e:
@@ -56,20 +99,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34  # v5.3.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: .go-version
         id: go
 
       - name: Build
         run: go build -v ./...
 
-      - name: Test
+      - name: Install clients for DDNS interoperability tests
         run: |
-          go install github.com/fatih/faillint@latest
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bind9-dnsutils kea-dhcp-ddns-server
+          nsupdate -V
+          kea-dhcp-ddns -v
+          # Keep the distribution AppArmor profile and use its allowed paths.
+          sudo systemctl stop kea-dhcp-ddns-server
+          sudo install -d -m 0700 -o "$(id -u)" -g "$(id -g)" /etc/kea/coredns-tests
+          sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /run/kea
+          sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" /dev/null /run/kea/logger_lockfile
+          test ! -e /run/kea/kea-dhcp-ddns.kea-dhcp-ddns.pid
+
+      - name: Test
+        env:
+          COREDNS_KEA_CONFIG_DIR: /etc/kea/coredns-tests
+          KEA_PIDFILE_DIR: /run/kea
+          KEA_LOCKFILE_DIR: /run/kea
+        run: |
           ( cd test; go test -race ./... )
 
   test-makefile-release:
@@ -77,13 +138,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install dependencies
         run: sudo apt-get install make curl
 
-      - name: Test Makefile.release
+      - name: Test Makefile.release release
+        run: make GITHUB_ACCESS_TOKEN=x release -f Makefile.release
+
+      - name: Test Makefile.release release/github-push (dry-run)
         run: make GITHUB_ACCESS_TOKEN=x -n release github-push -f Makefile.release
 
-      - name: Test Makefile.docker
+      - name: Test Makefile.docker release/github-push (dry-run)
         run: make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker
+
+      - name: Prepare Docker build
+        run: |
+          for arch in amd64 arm arm64 mips64le ppc64le s390x riscv64 loong64; do
+            mkdir -p build/docker/$arch
+            cp build/linux/$arch/coredns build/docker/$arch/
+          done
+
+      - name: Test Makefile.docker build
+        run: make VERSION=x DOCKER=x -f Makefile.docker docker-build

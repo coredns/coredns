@@ -30,6 +30,7 @@ func TestReset(t *testing.T) {
 }
 
 func hitsCheck(t *testing.T, f *Freq, expected int) {
+	t.Helper()
 	if x := f.Hits(); x != expected {
 		t.Fatalf("Expected hits to be %d, got %d", expected, x)
 	}

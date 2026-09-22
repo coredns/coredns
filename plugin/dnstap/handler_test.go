@@ -14,6 +14,7 @@ import (
 )
 
 func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg, extraFormat string) {
+	t.Helper()
 	w := writer{t: t}
 	w.queue = append(w.queue, tapq, tapr)
 	h := Dnstap{
@@ -47,23 +48,37 @@ func (w *writer) Dnstap(e *tap.Dnstap) {
 		w.t.Error("Message not expected")
 	}
 
-	ex := w.queue[0].Message
-	got := e.Message
+	ex := w.queue[0].GetMessage()
+	got := e.GetMessage()
 
-	if string(ex.QueryAddress) != string(got.QueryAddress) {
-		w.t.Errorf("Expected source address %s, got %s", ex.QueryAddress, got.QueryAddress)
+	eaddr := string(ex.GetQueryAddress())
+	gaddr := string(got.GetQueryAddress())
+	if eaddr != gaddr {
+		w.t.Errorf("Expected source address %s, got %s", eaddr, gaddr)
 	}
-	if string(ex.ResponseAddress) != string(got.ResponseAddress) {
-		w.t.Errorf("Expected response address %s, got %s", ex.ResponseAddress, got.ResponseAddress)
+
+	eraddr := string(ex.GetResponseAddress())
+	graddr := string(got.GetResponseAddress())
+	if eraddr != graddr {
+		w.t.Errorf("Expected response address %s, got %s", eraddr, graddr)
 	}
-	if *ex.QueryPort != *got.QueryPort {
-		w.t.Errorf("Expected port %d, got %d", *ex.QueryPort, *got.QueryPort)
+
+	ep := ex.GetQueryPort()
+	gp := got.GetQueryPort()
+	if ep != gp {
+		w.t.Errorf("Expected port %d, got %d", ep, gp)
 	}
-	if *ex.SocketFamily != *got.SocketFamily {
-		w.t.Errorf("Expected socket family %d, got %d", *ex.SocketFamily, *got.SocketFamily)
+
+	ef := ex.GetSocketFamily()
+	sf := got.GetSocketFamily()
+	if ef != sf {
+		w.t.Errorf("Expected socket family %d, got %d", ef, sf)
 	}
-	if string(w.queue[0].Extra) != string(e.Extra) {
-		w.t.Errorf("Expected extra %s, got %s", w.queue[0].Extra, e.Extra)
+
+	eext := string(w.queue[0].GetExtra())
+	gext := string(e.GetExtra())
+	if eext != gext {
+		w.t.Errorf("Expected extra %s, got %s", eext, gext)
 	}
 	w.queue = w.queue[1:]
 }
@@ -80,23 +95,23 @@ func TestDnstap(t *testing.T) {
 	tapq := &tap.Dnstap{
 		Message: testMessage(),
 	}
-	msg.SetType(tapq.Message, tap.Message_CLIENT_QUERY)
+	msg.SetType(tapq.GetMessage(), tap.Message_CLIENT_QUERY)
 	tapr := &tap.Dnstap{
 		Message: testMessage(),
 	}
-	msg.SetType(tapr.Message, tap.Message_CLIENT_RESPONSE)
+	msg.SetType(tapr.GetMessage(), tap.Message_CLIENT_RESPONSE)
 	testCase(t, tapq, tapr, q, r, "")
 
 	tapq_with_extra := &tap.Dnstap{
 		Message: testMessage(), // leave type unset for deepEqual
 		Extra:   []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
 	}
-	msg.SetType(tapq_with_extra.Message, tap.Message_CLIENT_QUERY)
+	msg.SetType(tapq_with_extra.GetMessage(), tap.Message_CLIENT_QUERY)
 	tapr_with_extra := &tap.Dnstap{
 		Message: testMessage(),
 		Extra:   []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
 	}
-	msg.SetType(tapr_with_extra.Message, tap.Message_CLIENT_RESPONSE)
+	msg.SetType(tapr_with_extra.GetMessage(), tap.Message_CLIENT_RESPONSE)
 	extraFormat := "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
 	testCase(t, tapq_with_extra, tapr_with_extra, q, r, extraFormat)
 }
@@ -108,8 +123,9 @@ func testMessage() *tap.Message {
 	return &tap.Message{
 		SocketFamily:   &inet,
 		SocketProtocol: &udp,
-		QueryAddress:   net.ParseIP("10.240.0.1"),
-		QueryPort:      &port,
+		// Explicit 4-octet form, because that's the expected dnstap message representation when SocketFamily is INET.
+		QueryAddress: net.ParseIP("10.240.0.1").To4(),
+		QueryPort:    &port,
 	}
 }
 
@@ -120,7 +136,7 @@ func TestTapMessage(t *testing.T) {
 		// extra field would not be replaced, since TapMessage won't pass context
 		Extra: []byte(extraFormat),
 	}
-	msg.SetType(tapq.Message, tap.Message_CLIENT_QUERY)
+	msg.SetType(tapq.GetMessage(), tap.Message_CLIENT_QUERY)
 
 	w := writer{t: t}
 	w.queue = append(w.queue, tapq)
@@ -132,5 +148,86 @@ func TestTapMessage(t *testing.T) {
 		io:          &w,
 		ExtraFormat: extraFormat,
 	}
-	h.TapMessage(tapq.Message)
+	h.TapMessage(tapq.GetMessage())
+}
+
+// TestNilIoAndListener tests that the handler works correctly when io or listener is nil
+func TestNilIoAndListener(t *testing.T) {
+	testMsg := testMessage()
+	msg.SetType(testMsg, tap.Message_CLIENT_QUERY)
+
+	// Test with nil io (listener-only mode)
+	h1 := Dnstap{
+		io:       nil,
+		listener: nil,
+	}
+	// Should not panic
+	h1.TapMessage(testMsg)
+
+	// Test with only io set
+	w := &writer{t: t}
+	tapq := &tap.Dnstap{Message: testMsg}
+	w.queue = append(w.queue, tapq)
+	h2 := Dnstap{
+		io:       w,
+		listener: nil,
+	}
+	h2.TapMessage(testMsg)
+	if len(w.queue) != 0 {
+		t.Errorf("Expected io to receive message")
+	}
+}
+
+// collectTapper records every dnstap payload it receives so a test can inspect
+// the sequence and contents of the emitted messages.
+type collectTapper struct {
+	msgs []*tap.Dnstap
+}
+
+func (c *collectTapper) Dnstap(e *tap.Dnstap) { c.msgs = append(c.msgs, e) }
+
+func TestDnstapDeferredError(t *testing.T) {
+	// When the plugin chain returns an error rcode without writing a response,
+	// the server generates and sends the error to the client after dnstap's
+	// ServeDNS returns, so ResponseWriter.WriteMsg is never called. dnstap must
+	// still emit a CLIENT_RESPONSE reflecting that deferred error, otherwise a
+	// dnstap stream shows a CLIENT_QUERY with no matching CLIENT_RESPONSE (#6532).
+	q := test.Case{Qname: "example.org.", Qtype: dns.TypeA}.Msg()
+
+	c := &collectTapper{}
+	h := Dnstap{
+		Next: test.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+			// Return an error rcode WITHOUT calling WriteMsg, deferring the
+			// response to the server (as e.g. an unmatched plugin/auto does).
+			return dns.RcodeServerFailure, nil
+		}),
+		io:                c,
+		IncludeRawMessage: true,
+	}
+
+	rcode, err := h.ServeDNS(context.TODO(), &test.ResponseWriter{}, q)
+	if err != nil {
+		t.Fatalf("ServeDNS returned error: %v", err)
+	}
+	if rcode != dns.RcodeServerFailure {
+		t.Fatalf("expected rcode SERVFAIL, got %d", rcode)
+	}
+
+	if len(c.msgs) != 2 {
+		t.Fatalf("expected 2 dnstap messages (CLIENT_QUERY + CLIENT_RESPONSE), got %d", len(c.msgs))
+	}
+	if got := c.msgs[0].GetMessage().GetType(); got != tap.Message_CLIENT_QUERY {
+		t.Errorf("first message: expected CLIENT_QUERY, got %v", got)
+	}
+	respMsg := c.msgs[1].GetMessage()
+	if got := respMsg.GetType(); got != tap.Message_CLIENT_RESPONSE {
+		t.Fatalf("second message: expected CLIENT_RESPONSE, got %v", got)
+	}
+	unpacked := new(dns.Msg)
+	if err := unpacked.Unpack(respMsg.GetResponseMessage()); err != nil {
+		t.Fatalf("failed to unpack tapped CLIENT_RESPONSE: %v", err)
+	}
+	if unpacked.Rcode != dns.RcodeServerFailure {
+		t.Errorf("expected SERVFAIL in tapped response, got %s", dns.RcodeToString[unpacked.Rcode])
+	}
 }

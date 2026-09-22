@@ -33,6 +33,7 @@ grpc FROM TO... {
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
+    fallthrough [ZONES...]
 }
 ~~~
 
@@ -49,11 +50,20 @@ grpc FROM TO... {
   * `tls` **CERT** **KEY**  **CA** - client authentication is used with the specified cert/key pair.
     The server certificate is verified using the specified CA file
 
+CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
+key exchange mechanisms use the Go `crypto/tls` defaults.
+
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
   needs this to be set to `dns.quad9.net`. Multiple upstreams are still allowed in this scenario,
   but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
   (Cloudflare) will not work.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
+* `fallthrough` **[ZONES...]** If a query results in NXDOMAIN from the gRPC backend, pass the request
+  to the next plugin instead of returning the NXDOMAIN response. This is useful when the gRPC backend
+  is authoritative for a zone but should not return authoritative NXDOMAIN responses for queries that
+  don't actually belong to that zone (e.g., search path queries). If **[ZONES...]** is omitted, then
+  fallthrough happens for all zones. If specific zones are listed, then only queries for those zones
+  will be subject to fallthrough.
 
 Also note the TLS config is "global" for the whole grpc proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
@@ -134,6 +144,17 @@ Forward requests to a local upstream listening on a Unix domain socket.
 ~~~ corefile
 . {
     grpc . unix:///path/to/grpc.sock
+}
+~~~
+
+Proxy requests for `example.org.` to a gRPC backend, but fallthrough to the next plugin for NXDOMAIN responses to handle search path queries correctly.
+
+~~~ corefile
+example.org {
+    grpc . 127.0.0.1:9005 {
+        fallthrough
+    }
+    forward . 8.8.8.8
 }
 ~~~
 

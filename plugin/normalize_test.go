@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"reflect"
 	"sort"
 	"testing"
 )
@@ -136,5 +137,66 @@ func TestHostNormalizeExact(t *testing.T) {
 				t.Errorf("Test %d, expected %v, got %v", i, expected[j], actual[j])
 			}
 		}
+	}
+}
+
+func TestOriginsFromArgsOrServerBlock(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		serverblock []string
+		expected    []string
+	}{
+		{
+			name:        "args",
+			args:        []string{"example.org"},
+			serverblock: []string{"ignored.local"},
+			expected:    []string{"example.org."},
+		},
+		{
+			name:        "args with cidr expands",
+			args:        []string{"10.0.0.0/15"},
+			serverblock: nil,
+			expected:    []string{"0.10.in-addr.arpa.", "1.10.in-addr.arpa."},
+		},
+		{
+			name:        "serverblock first normalized",
+			args:        nil,
+			serverblock: []string{"example.org"},
+			expected:    []string{"example.org."},
+		},
+		{
+			name:        "serverblock cidr first only",
+			args:        nil,
+			serverblock: []string{"10.0.0.0/15"},
+			expected:    []string{"0.10.in-addr.arpa."},
+		},
+		{
+			name:        "serverblock invalid utf-8 preserved",
+			args:        nil,
+			serverblock: []string{"\xFF\n:", "example.org"},
+			expected:    []string{"\xFF\n:", "example.org."},
+		},
+		{
+			name:        "args invalid utf-8 dropped",
+			args:        []string{"\xFF\n:", "example.org"},
+			serverblock: nil,
+			expected:    []string{"example.org."},
+		},
+		{
+			name:        "serverblock invalid utf-8 with prefix",
+			args:        nil,
+			serverblock: []string{"unix://\xff\netcd", "example.org"},
+			expected:    []string{"\uFFFD\netcd.", "example.org."}, // \uFFFD is the replacement character
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := OriginsFromArgsOrServerBlock(tt.args, tt.serverblock)
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Fatalf("%s: expected %q, got %q", tt.name, tt.expected, got)
+			}
+		})
 	}
 }

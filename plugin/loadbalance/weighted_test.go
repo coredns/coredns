@@ -96,11 +96,11 @@ func TestWeightFileUpdate(t *testing.T) {
 		{oneDomainWRR, false, testOneDomainWRR, ""},
 		{twoDomainsWRR, false, testTwoDomainsWRR, ""},
 		// negative
-		{missingWeightWRR, true, nil, "Wrong domain name"},
-		{missingDomainWRR, true, nil, "Missing domain name"},
-		{wrongIpWRR, true, nil, "Wrong IP address"},
-		{wrongWeightWRR, true, nil, "Wrong weight value"},
-		{zeroWeightWRR, true, nil, "Wrong weight value"},
+		{missingWeightWRR, true, nil, "wrong domain name"},
+		{missingDomainWRR, true, nil, "missing domain name"},
+		{wrongIpWRR, true, nil, "wrong IP address"},
+		{wrongWeightWRR, true, nil, "wrong weight value"},
+		{zeroWeightWRR, true, nil, "wrong weight value"},
 	}
 
 	for i, test := range tests {
@@ -136,6 +136,7 @@ func TestWeightFileUpdate(t *testing.T) {
 }
 
 func checkDomainsWRR(t *testing.T, testIndex int, expectedDomains, domains map[string]weights) error {
+	t.Helper()
 	var ret error
 	retError := errors.New("Check domains failed")
 	for dname, expectedWeights := range expectedDomains {
@@ -410,6 +411,7 @@ func TestLoadBalanceWRR(t *testing.T) {
 }
 
 func checkTopIP(t *testing.T, i, j int, result []dns.RR, expectedTopIP string) {
+	t.Helper()
 	expected := net.ParseIP(expectedTopIP)
 	for _, r := range result {
 		switch r.Header().Rrtype {

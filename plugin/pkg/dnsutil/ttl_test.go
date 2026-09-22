@@ -62,8 +62,7 @@ func BenchmarkMinimalTTL(b *testing.B) {
 	utc := time.Now().UTC()
 	mt, _ := response.Typify(m, utc)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dur := MinimalTTL(m, mt)
 		if dur != 1000*time.Second {
 			b.Fatalf("Wrong MinimalTTL %d, expected %d", dur, 1000*time.Second)

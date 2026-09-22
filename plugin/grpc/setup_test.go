@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 )
 
 func TestSetup(t *testing.T) {
@@ -149,6 +150,50 @@ nameserver 10.10.255.253`), 0666); err != nil {
 					t.Errorf("Test %d, expected %q, got %q", j, n, addr)
 				}
 			}
+		}
+	}
+}
+
+func TestSetupFallthrough(t *testing.T) {
+	tests := []struct {
+		input               string
+		shouldErr           bool
+		expectedFallthrough fall.F
+		expectedErr         string
+	}{
+		// positive cases
+		{`grpc . 127.0.0.1 {
+	fallthrough
+}`, false, fall.Root, ""},
+		{`grpc . 127.0.0.1 {
+	fallthrough example.org
+}`, false, fall.F{Zones: []string{"example.org."}}, ""},
+		{`grpc . 127.0.0.1 {
+	fallthrough example.org example.com
+}`, false, fall.F{Zones: []string{"example.org.", "example.com."}}, ""},
+		{`grpc . 127.0.0.1`, false, fall.Zero, ""},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		g, err := parseGRPC(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: expected error but found none for input %s", i, test.input)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+
+		if !test.shouldErr && !g.Fall.Equal(test.expectedFallthrough) {
+			t.Errorf("Test %d: expected fallthrough %+v, got %+v", i, test.expectedFallthrough, g.Fall)
 		}
 	}
 }

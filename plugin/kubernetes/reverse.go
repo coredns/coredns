@@ -11,7 +11,7 @@ import (
 )
 
 // Reverse implements the ServiceBackend interface.
-func (k *Kubernetes) Reverse(ctx context.Context, state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
+func (k *Kubernetes) Reverse(ctx context.Context, state request.Request, exact bool, _opt plugin.Options) ([]msg.Service, error) {
 	ip := dnsutil.ExtractAddressFromReverse(state.Name())
 	if ip == "" {
 		_, e := k.Records(ctx, state, exact)
@@ -27,7 +27,7 @@ func (k *Kubernetes) Reverse(ctx context.Context, state request.Request, exact b
 
 // serviceRecordForIP gets a service record with a cluster ip matching the ip argument
 // If a service cluster ip does not match, it checks all endpoints
-func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
+func (k *Kubernetes) serviceRecordForIP(ip, _name string) []msg.Service {
 	// First check services with cluster ips
 	for _, service := range k.APIConn.SvcIndexReverse(ip) {
 		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {
@@ -44,13 +44,8 @@ func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
 		}
 		for _, eps := range ep.Subsets {
 			for _, addr := range eps.Addresses {
-				// The endpoint's Hostname will be set if this endpoint is supposed to generate a PTR.
-				// So only return reverse records that match the IP AND have a non-empty hostname.
-				// Kubernetes more or less keeps this to one canonical service/endpoint per IP, but in the odd event there
-				// are multiple endpoints for the same IP with hostname set, return them all rather than selecting one
-				// arbitrarily.
-				if addr.IP == ip && addr.Hostname != "" {
-					domain := strings.Join([]string{addr.Hostname, ep.Index, Svc, k.primaryZone()}, ".")
+				if addr.IP == ip {
+					domain := strings.Join([]string{endpointHostname(addr, k.endpointNameMode), ep.Index, Svc, k.primaryZone()}, ".")
 					svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
 				}
 			}

@@ -37,6 +37,28 @@ Examples:
 fdfc:a744:27b5:3b0e::1  example.com example
 ~~~
 
+### Wildcard records
+
+Owner names may use a `*` as the leftmost label to match one additional label below
+that name. This follows the same wildcard semantics as the *file* plugin.
+
+Examples:
+
+~~~
+192.168.1.10    *.example.com
+192.168.1.11    a.example.com
+192.168.1.12    b.example.com
+~~~
+
+With the entries above:
+
+* `a.example.com` and `b.example.com` resolve to their explicit addresses.
+* `apps.example.com` resolves to `192.168.1.10`.
+* `example.com` does not match the wildcard (the zone apex is excluded).
+* `deep.apps.example.com` does not match `*.example.com` (only one label is matched).
+
+Wildcard entries do not generate PTR records.
+
 ### PTR records
 
 PTR records for reverse lookups are generated automatically by CoreDNS (based on the hosts file
@@ -51,6 +73,7 @@ hosts [FILE [ZONES...]] {
     no_reverse
     reload DURATION
     fallthrough [ZONES...]
+    fallthrough_unsupported
 }
 ~~~
 
@@ -71,6 +94,12 @@ hosts [FILE [ZONES...]] {
   If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
   queries for those zones will be subject to fallthrough.
+  By default, queries for unsupported record types return an authoritative NODATA response when
+  the queried name has an A or AAAA entry in the hosts data.
+* `fallthrough_unsupported` extends `fallthrough` to unsupported query types when the queried name
+  exists in the hosts data. For example, TXT, HTTPS, and SVCB queries for a name with an A or AAAA
+  entry are passed to the next plugin. If that plugin is *forward*, these queries are sent upstream.
+  This option requires `fallthrough` and uses the same zone scope.
 
 ## Metrics
 
@@ -117,6 +146,20 @@ example.hosts example.org {
         fallthrough
     }
     whoami
+}
+~~~
+
+Resolve all single-label subdomains of `example.com` to one address, with explicit
+exceptions, and fall through for everything else under `example.com`.
+
+~~~
+. {
+    hosts example.hosts example.com {
+        192.168.1.10 *.example.com
+        192.168.1.11 www.example.com
+        fallthrough example.com
+    }
+    forward . 8.8.8.8
 }
 ~~~
 

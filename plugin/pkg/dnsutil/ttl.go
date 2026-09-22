@@ -10,6 +10,12 @@ import (
 
 // MinimalTTL scans the message returns the lowest TTL found taking into the response.Type of the message.
 func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
+	return MinimalTTLWithMaximum(m, mt, MaximumDefaultTTL)
+}
+
+// MinimalTTLWithMaximum scans the DNS message and returns the lowest TTL found,
+// constrained by maximumTTL and the response type.
+func MinimalTTLWithMaximum(m *dns.Msg, mt response.Type, maximumTTL time.Duration) time.Duration {
 	if mt != response.NoError && mt != response.NameError && mt != response.NoData {
 		return MinimalDefaultTTL
 	}
@@ -20,7 +26,7 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 		return MinimalDefaultTTL
 	}
 
-	minTTL := MaximumDefaulTTL
+	minTTL := maximumTTL
 	for _, r := range m.Answer {
 		if r.Header().Ttl < uint32(minTTL.Seconds()) {
 			minTTL = time.Duration(r.Header().Ttl) * time.Second
@@ -47,7 +53,8 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 const (
 	// MinimalDefaultTTL is the absolute lowest TTL we use in CoreDNS.
 	MinimalDefaultTTL = 5 * time.Second
-	// MaximumDefaulTTL is the maximum TTL was use on RRsets in CoreDNS.
-	// TODO: rename as MaximumDefaultTTL
-	MaximumDefaulTTL = 1 * time.Hour
+	// MaximumDefaultTTL is the maximum TTL was use on RRsets in CoreDNS.
+	MaximumDefaultTTL = 1 * time.Hour
+	// Deprecated: use MaximumDefaultTTL instead.
+	MaximumDefaulTTL = MaximumDefaultTTL
 )

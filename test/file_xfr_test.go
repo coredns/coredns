@@ -17,8 +17,8 @@ func TestLargeAXFR(t *testing.T) {
 	const numAAAAs = 6553
 	sb.WriteString("example.com. IN SOA . . 1 60 60 60 60\n")
 	sb.WriteString("example.com. IN NS ns.example.\n")
-	for i := 0; i < numAAAAs; i++ {
-		sb.WriteString(fmt.Sprintf("%d.example.com. IN AAAA 2001:db8::1\n", i))
+	for i := range numAAAAs {
+		fmt.Fprintf(&sb, "%d.example.com. IN AAAA 2001:db8::1\n", i)
 	}
 
 	// Setup the zone file and CoreDNS to serve the zone, allowing zone transfer

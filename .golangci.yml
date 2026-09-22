@@ -1,13 +1,132 @@
-run:
-  timeout: 5m
+version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 linters:
-  disable-all: true
+  default: none
   enable:
+    - canonicalheader
+    - copyloopvar
+    - durationcheck
+    - forbidigo
+    - godoclint
+    - gosec
     - govet
     - ineffassign
+    - intrange
+    - modernize
+    - nakedret
+    - nolintlint
+    - perfsprint
+    - prealloc
+    - protogetter
     - staticcheck
-    - typecheck
-    - whitespace
-    - unused
-    - gofmt
+    - thelper
+    - revive
     - unconvert
+    - unused
+    - usetesting
+    - wastedassign
+    - whitespace
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: _test\.go
+        linters:
+          - perfsprint
+          - gosec
+  settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: "^prometheus\\.(NewCounter|NewCounterVec|NewGauge|NewGaugeVec|NewGaugeFunc|NewHistogram|NewHistogramVec|NewSummary|NewSummaryVec)$"
+          pkg: "^github\\.com/prometheus/client_golang/prometheus$"
+          msg: use github.com/prometheus/client_golang/prometheus/promauto
+
+    govet:
+      enable:
+        - nilness
+    perfsprint:
+      error-format: false
+    revive:
+      rules:
+        - name: blank-imports
+
+        - name: context-as-argument
+          arguments:
+            - allowTypesBefore: "*testing.T"
+
+        - name: context-keys-type
+
+        - name: dot-imports
+
+        - name: early-return
+          arguments:
+            - "preserveScope"
+
+        - name: empty-block
+          disabled: true
+
+        - name: error-naming
+
+        - name: error-return
+
+        - name: error-strings
+
+        - name: errorf
+
+        - name: increment-decrement
+
+        - name: indent-error-flow
+          arguments:
+            - "preserveScope"
+
+        - name: range
+
+        - name: receiver-naming
+
+        - name: redefines-builtin-id
+          disabled: true
+
+        - name: superfluous-else
+          arguments:
+            - "preserveScope"
+
+        - name: time-naming
+          disabled: true
+
+        - name: unexported-return
+          disabled: true
+
+        - name: unnecessary-stmt
+
+        - name: unreachable-code
+
+        - name: unused-parameter
+          arguments:
+            - allowRegex: "^_"
+
+        - name: use-any
+
+        - name: var-declaration
+
+        - name: var-naming
+          disabled: true
+          arguments:
+            - ["ID"]
+            - ["VM"]
+            - - upperCaseConst: true
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax

@@ -1,6 +1,7 @@
 package health
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -8,24 +9,25 @@ import (
 
 func TestSetupHealth(t *testing.T) {
 	tests := []struct {
-		input     string
-		shouldErr bool
+		input              string
+		shouldErr          bool
+		expectedErrContent string
 	}{
-		{`health`, false},
-		{`health localhost:1234`, false},
+		{`health`, false, ""},
+		{`health localhost:1234`, false, ""},
 		{`health localhost:1234 {
 			lameduck 4s
-}`, false},
-		{`health bla:a`, false},
+}`, false, ""},
+		{`health bla:a`, false, ""},
 
-		{`health bla`, true},
-		{`health bla bla`, true},
+		{`health bla`, true, ""},
+		{`health bla bla`, true, ""},
 		{`health localhost:1234 {
 			lameduck a
-}`, true},
+}`, true, ""},
 		{`health localhost:1234 {
 			lamedudk 4
-} `, true},
+} `, true, "unknown property"},
 	}
 
 	for i, test := range tests {
@@ -39,6 +41,9 @@ func TestSetupHealth(t *testing.T) {
 		if err != nil {
 			if !test.shouldErr {
 				t.Errorf("Test %d: Expected no error but found one for input %s. Error was: %v", i, test.input, err)
+			}
+			if test.expectedErrContent != "" && !strings.Contains(err.Error(), test.expectedErrContent) {
+				t.Errorf("Test %d: Expected error to contain %q, got: %v", i, test.expectedErrContent, err)
 			}
 		}
 	}

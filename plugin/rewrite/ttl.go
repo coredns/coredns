@@ -18,7 +18,7 @@ type ttlResponseRule struct {
 	maxTTL uint32
 }
 
-func (r *ttlResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+func (r *ttlResponseRule) RewriteResponse(_res *dns.Msg, rr dns.RR) {
 	if rr.Header().Ttl < r.minTTL {
 		rr.Header().Ttl = r.minTTL
 	} else if rr.Header().Ttl > r.maxTTL {
@@ -75,29 +75,29 @@ type regexTTLRule struct {
 
 // Rewrite rewrites the current request based upon exact match of the name
 // in the question section of the request.
-func (rule *exactTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *exactTTLRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(rule.From == state.Name())
 }
 
 // Rewrite rewrites the current request when the name begins with the matching string.
-func (rule *prefixTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *prefixTTLRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(strings.HasPrefix(state.Name(), rule.Prefix))
 }
 
 // Rewrite rewrites the current request when the name ends with the matching string.
-func (rule *suffixTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *suffixTTLRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(strings.HasSuffix(state.Name(), rule.Suffix))
 }
 
 // Rewrite rewrites the current request based upon partial match of the
 // name in the question section of the request.
-func (rule *substringTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *substringTTLRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(strings.Contains(state.Name(), rule.Substring))
 }
 
 // Rewrite rewrites the current request when the name in the question
 // section of the request matches a regular expression.
-func (rule *regexTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *regexTTLRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(len(rule.Pattern.FindStringSubmatch(state.Name())) != 0)
 }
 
@@ -140,6 +140,9 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				plugin.Name(args[1]).Normalize(),
 			}, nil
 		case RegexMatch:
+			if len(args[1]) > maxRegexpLen {
+				return nil, fmt.Errorf("regex pattern too long in a ttl rule: %d > %d", len(args[1]), maxRegexpLen)
+			}
 			regexPattern, err := regexp.Compile(args[1])
 			if err != nil {
 				return nil, fmt.Errorf("invalid regex pattern in a ttl rule: %s", args[1])
@@ -199,7 +202,7 @@ func isValidTTL(v string) (uint32, uint32, bool) {
 			// reject invalid range
 			return 0, 0, false
 		}
-		return uint32(min), uint32(max), true
+		return uint32(min), uint32(max), true // #nosec G115 -- min/max parsed with 32-bit limit
 	}
 	return 0, 0, false
 }

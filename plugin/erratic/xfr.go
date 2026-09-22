@@ -48,10 +48,8 @@ func xfr(state request.Request, truncate bool) {
 	}()
 
 	wg := new(sync.WaitGroup)
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		tr.Out(state.W, state.Req, ch)
-		wg.Done()
-	}()
+	})
 	wg.Wait()
 }

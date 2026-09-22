@@ -2,6 +2,8 @@ package tls
 
 import (
 	"crypto/tls"
+	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,6 +12,7 @@ import (
 )
 
 func TestTLS(t *testing.T) {
+	tmpDir := t.TempDir()
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -23,6 +26,7 @@ func TestTLS(t *testing.T) {
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth verify_if_given\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require_and_verify\n}", false, "", ""},
+		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "tls.log") + "\n}", false, "", ""},
 		// negative
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nunknown\n}", true, "", "unknown option"},
 		// client_auth takes exactly one parameter, which must be one of known keywords.
@@ -48,6 +52,12 @@ func TestTLS(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErrContent) {
 				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
 			}
+		}
+
+		// setup registers OnShutdown to close KeyLogWriter, but tests never shut down.
+		// Close explicitly so t.TempDir cleanup can remove the file on Windows.
+		if err == nil {
+			closeKeyLogWriter(t, dnsserver.GetConfig(c))
 		}
 	}
 }
@@ -84,4 +94,56 @@ func TestTLSClientAuthentication(t *testing.T) {
 			t.Errorf("Test %d: Unexpected client auth type: %d", i, cfg.TLSConfig.ClientAuth)
 		}
 	}
+}
+
+func TestTLSKeyLog(t *testing.T) {
+	t.Run("No Path", func(t *testing.T) {
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog\n}"
+		c := caddy.NewTestController("dns", input)
+		err := setup(c)
+		if err == nil {
+			t.Error("Expected error but found none")
+		}
+	})
+
+	t.Run("Bad Path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "missing", "tls.log") + "\n}"
+		c := caddy.NewTestController("dns", input)
+		err := setup(c)
+		if err == nil {
+			t.Error("Expected error but found none")
+		}
+	})
+
+	t.Run("Good Path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "tls.log") + "\n}"
+		c := caddy.NewTestController("dns", input)
+		err := setup(c)
+		if err != nil {
+			t.Errorf("Expected no error but found %v", err)
+		}
+		cfg := dnsserver.GetConfig(c)
+		if cfg.TLSConfig.KeyLogWriter == nil {
+			t.Fatal("KeyLogWriter is not set")
+		}
+		// setup registers OnShutdown to close KeyLogWriter, but tests never shut down.
+		// Close explicitly so t.TempDir cleanup can remove the file on Windows.
+		closeKeyLogWriter(t, cfg)
+	})
+}
+
+func closeKeyLogWriter(t *testing.T, cfg *dnsserver.Config) {
+	t.Helper()
+	if cfg.TLSConfig == nil {
+		return
+	}
+	closer, ok := cfg.TLSConfig.KeyLogWriter.(io.Closer)
+	if !ok {
+		return
+	}
+	t.Cleanup(func() {
+		closer.Close()
+	})
 }

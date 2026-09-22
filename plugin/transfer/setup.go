@@ -1,6 +1,8 @@
 package transfer
 
 import (
+	"net"
+
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -68,6 +70,19 @@ func parseTransfer(c *caddy.Controller) (*Transfer, error) {
 					}
 					x.to = append(x.to, normalized)
 				}
+			case "source":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				if x.source != nil {
+					return nil, plugin.Error("transfer", c.Err("source already specified"))
+				}
+				ip := net.ParseIP(args[0])
+				if ip == nil {
+					return nil, plugin.Error("transfer", c.Errf("invalid source address %q", args[0]))
+				}
+				x.source = ip
 			default:
 				return nil, plugin.Error("transfer", c.Errf("unknown property %q", c.Val()))
 			}

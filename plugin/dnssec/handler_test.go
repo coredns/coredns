@@ -170,7 +170,7 @@ func TestLookupZone(t *testing.T) {
 	dnskey, rm1, rm2 := newKey(t)
 	defer rm1()
 	defer rm2()
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	dh := New([]string{"miek.nl."}, []*DNSKEY{dnskey}, false, fm, c)
 
 	for _, tc := range dnsTestCases {
@@ -193,7 +193,7 @@ func TestLookupDNSKEY(t *testing.T) {
 	dnskey, rm1, rm2 := newKey(t)
 	defer rm1()
 	defer rm2()
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	dh := New([]string{"miek.nl."}, []*DNSKEY{dnskey}, false, test.ErrorHandler(), c)
 
 	for _, tc := range dnssecTestCases {

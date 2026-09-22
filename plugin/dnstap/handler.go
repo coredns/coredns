@@ -15,9 +15,10 @@ import (
 
 // Dnstap is the dnstap handler.
 type Dnstap struct {
-	Next plugin.Handler
-	io   tapper
-	repl replacer.Replacer
+	Next     plugin.Handler
+	io       tapper
+	listener *listener
+	repl     replacer.Replacer
 
 	// IncludeRawMessage will include the raw DNS message into the dnstap messages if true.
 	IncludeRawMessage   bool
@@ -49,7 +50,17 @@ func (h *Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, sta
 
 func (h *Dnstap) tapWithExtra(m *tap.Message, extra []byte) {
 	t := tap.Dnstap_MESSAGE
-	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra})
+	payload := &tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra}
+
+	// Send to outgoing connection if configured
+	if h.io != nil {
+		h.io.Dnstap(payload)
+	}
+
+	// Broadcast to incoming listeners if configured
+	if h.listener != nil {
+		h.listener.Dnstap(payload)
+	}
 }
 
 func (h *Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
@@ -80,7 +91,22 @@ func (h *Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// forwarder. Otherwise, the tap messages will come out out of order.
 	h.tapQuery(ctx, w, r, rw.queryTime)
 
-	return plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
+	rcode, err := plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
+
+	// When the plugin chain returns an error rcode without having written a
+	// response (e.g. it falls off the end, or returns SERVFAIL/REFUSED/FORMERR/
+	// NOTIMP), the server generates and sends the error response to the client
+	// after ServeDNS returns, so ResponseWriter.WriteMsg is never called and no
+	// CLIENT_RESPONSE is tapped. Synthesize the deferred response so dnstap
+	// consumers see a CLIENT_RESPONSE matching what the client receives, rather
+	// than a CLIENT_QUERY with no matching response (#6532).
+	if !rw.written && !plugin.ClientWrite(rcode) {
+		deferred := new(dns.Msg)
+		deferred.SetRcode(r, rcode)
+		rw.tapResponse(deferred)
+	}
+
+	return rcode, err
 }
 
 // Name implements the plugin.Plugin interface.

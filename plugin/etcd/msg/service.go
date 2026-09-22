@@ -44,7 +44,7 @@ func (s *Service) NewSRV(name string, weight uint16) *dns.SRV {
 	}
 
 	return &dns.SRV{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: s.TTL},
-		Priority: uint16(s.Priority), Weight: weight, Port: uint16(s.Port), Target: host}
+		Priority: uint16(s.Priority), Weight: weight, Port: uint16(s.Port), Target: host} // #nosec G115 -- Priority and Port fit in uint16
 }
 
 // NewMX returns a new MX record based on the Service.
@@ -55,7 +55,7 @@ func (s *Service) NewMX(name string) *dns.MX {
 	}
 
 	return &dns.MX{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: s.TTL},
-		Preference: uint16(s.Priority), Mx: host}
+		Preference: uint16(s.Priority), Mx: host} // #nosec G115 -- MX preference fits in uint16
 }
 
 // NewA returns a new A record based on the Service.
@@ -149,12 +149,11 @@ func split255(s string) []string {
 	sx := []string{}
 	p, i := 0, 255
 	for {
-		if i <= len(s) {
-			sx = append(sx, s[p:i])
-		} else {
+		if i > len(s) {
 			sx = append(sx, s[p:])
 			break
 		}
+		sx = append(sx, s[p:i])
 		p, i = p+255, i+255
 	}
 
@@ -164,7 +163,7 @@ func split255(s string) []string {
 // targetStrip strips "targetstrip" labels from the left side of the fully qualified name.
 func targetStrip(name string, targetStrip int) string {
 	offset, end := 0, false
-	for i := 0; i < targetStrip; i++ {
+	for range targetStrip {
 		offset, end = dns.NextLabel(name, offset)
 	}
 	if end {

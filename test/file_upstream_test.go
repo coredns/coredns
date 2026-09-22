@@ -227,3 +227,64 @@ www 3600 IN A   127.0.0.53
 		t.Errorf("Failed to get address for CNAME, expected 127.0.0.53, got %s", x)
 	}
 }
+
+// TestFileCnameOrigin tests that CNAMEs pointing to origin are correctly resolved
+func TestFileCnameOrigin(t *testing.T) {
+	cases := map[string]uint16{
+		"A":   dns.TypeA,
+		"SOA": dns.TypeSOA,
+		"NS":  dns.TypeNS,
+	}
+
+	name, rm, err := test.TempFile(".", exampleOrg)
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+	defer rm()
+
+	// Corefile with for example without proxy section.
+	corefile := `example.org:0 {
+		file ` + name + `
+	}`
+	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer i.Stop()
+
+	for name, qtype := range cases {
+		t.Run(name, func(t *testing.T) {
+			m := new(dns.Msg)
+			m.SetQuestion("cname-origin.example.org.", qtype)
+
+			resp, err := dns.Exchange(m, udp)
+			if err != nil {
+				t.Fatalf("Expected to receive reply, but didn't: %s", err)
+			}
+
+			// Check minimum answer count (CNAME + target record)
+			if len(resp.Answer) < 2 {
+				t.Fatalf("Expected at least 2 RRs in answer section, got %d", len(resp.Answer))
+			}
+
+			// Verify first record is CNAME
+			if len(resp.Answer) > 0 && resp.Answer[0].Header().Rrtype != dns.TypeCNAME {
+				t.Errorf("Expected first RR to be CNAME, got %s", dns.TypeToString[resp.Answer[0].Header().Rrtype])
+			}
+
+			// Verify we have the queried type in the response
+			if len(resp.Answer) > 1 {
+				found := false
+				for _, rr := range resp.Answer[1:] {
+					if rr.Header().Rrtype == qtype {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected to find %s record in answer section", dns.TypeToString[qtype])
+				}
+			}
+		})
+	}
+}

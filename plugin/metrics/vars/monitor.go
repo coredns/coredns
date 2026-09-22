@@ -20,6 +20,7 @@ var monitorType = map[uint16]struct{}{
 	dns.TypeSRV:    {},
 	dns.TypeTXT:    {},
 	dns.TypeHTTPS:  {},
+	dns.TypeSVCB:   {},
 	// Meta Qtypes
 	dns.TypeIXFR: {},
 	dns.TypeAXFR: {},

@@ -11,7 +11,7 @@ import (
 func boundIPs(c *caddy.Controller) (ips []net.IP) {
 	conf := dnsserver.GetConfig(c)
 	hosts := conf.ListenHosts
-	if hosts == nil || hosts[0] == "" {
+	if len(hosts) == 0 || hosts[0] == "" {
 		hosts = nil
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {

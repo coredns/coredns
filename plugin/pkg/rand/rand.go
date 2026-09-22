@@ -1,4 +1,7 @@
 // Package rand is used for concurrency safe random number generator.
+// This package provides a thread-safe wrapper around math/rand for use in
+// load balancing and server selection. It is NOT suitable for cryptographic
+// purposes and should not be used for security-sensitive operations.
 package rand
 
 import (
@@ -14,7 +17,7 @@ type Rand struct {
 
 // New returns a new Rand from seed.
 func New(seed int64) *Rand {
-	return &Rand{r: rand.New(rand.NewSource(seed))}
+	return &Rand{r: rand.New(rand.NewSource(seed))} // #nosec G404 -- non-cryptographic RNG by design (load balancing only).
 }
 
 // Int returns a non-negative pseudo-random int from the Source in Rand.r.

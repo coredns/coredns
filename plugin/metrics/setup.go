@@ -3,20 +3,27 @@ package metrics
 import (
 	"net"
 	"runtime"
+	"sync"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/coremain"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/uniq"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
-	log      = clog.NewWithPlugin("prometheus")
 	u        = uniq.New()
 	registry = newReg()
+
+	// There is one Go runtime per process, so this is a latch: the first server
+	// block to enable runtime_metrics swaps the collector for everyone, and the
+	// swap persists across reloads until process restart.
+	runtimeMetricsOnce sync.Once
 )
 
 func init() { plugin.Register("prometheus", setup) }
@@ -96,6 +103,36 @@ func parse(c *caddy.Controller) (*Metrics, error) {
 			}
 		default:
 			return met, c.ArgErr()
+		}
+
+		for c.NextBlock() {
+			switch c.Val() {
+			case "runtime_metrics":
+				if len(c.RemainingArgs()) != 0 {
+					return nil, c.ArgErr()
+				}
+				runtimeMetricsOnce.Do(func() {
+					prometheus.Unregister(collectors.NewGoCollector())
+					prometheus.MustRegister(collectors.NewGoCollector(
+						collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll),
+					))
+				})
+			case "tls":
+				if met.tlsConfigPath != "" {
+					return nil, c.Err("tls block already specified")
+				}
+
+				// Get cert and key files as positional arguments
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				tlsCfgPath := args[0]
+
+				met.tlsConfigPath = tlsCfgPath
+			default:
+				return nil, c.Errf("unknown option: %s", c.Val())
+			}
 		}
 	}
 	return met, nil

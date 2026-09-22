@@ -27,7 +27,7 @@ import (
 
 func TestDo(t *testing.T) {
 	var g Group
-	v, err := g.Do(1, func() (interface{}, error) {
+	v, err := g.Do(1, func() (any, error) {
 		return "bar", nil
 	})
 	if got, want := fmt.Sprintf("%v (%T)", v, v), "bar (string)"; got != want {
@@ -41,7 +41,7 @@ func TestDo(t *testing.T) {
 func TestDoErr(t *testing.T) {
 	var g Group
 	someErr := errors.New("some error")
-	v, err := g.Do(1, func() (interface{}, error) {
+	v, err := g.Do(1, func() (any, error) {
 		return nil, someErr
 	})
 	if err != someErr {
@@ -55,17 +55,16 @@ func TestDoErr(t *testing.T) {
 func TestDoDupSuppress(t *testing.T) {
 	var g Group
 	c := make(chan string)
-	var calls int32
-	fn := func() (interface{}, error) {
-		atomic.AddInt32(&calls, 1)
+	var calls atomic.Int32
+	fn := func() (any, error) {
+		calls.Add(1)
 		return <-c, nil
 	}
 
 	const n = 10
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go func() {
+	for range n {
+		wg.Go(func() {
 			v, err := g.Do(1, fn)
 			if err != nil {
 				t.Errorf("Do error: %v", err)
@@ -73,13 +72,12 @@ func TestDoDupSuppress(t *testing.T) {
 			if v.(string) != "bar" {
 				t.Errorf("Got %q; want %q", v, "bar")
 			}
-			wg.Done()
-		}()
+		})
 	}
 	time.Sleep(100 * time.Millisecond) // let goroutines above block
 	c <- "bar"
 	wg.Wait()
-	if got := atomic.LoadInt32(&calls); got != 1 {
+	if got := calls.Load(); got != 1 {
 		t.Errorf("Number of calls = %d; want 1", got)
 	}
 }

@@ -1,4 +1,4 @@
-// Package loadbalance is a plugin for rewriting responses to do "load balancing"
+// Package loadbalance is a plugin for rewriting responses to do "load balancing".
 package loadbalance
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// RoundRobin is a plugin to rewrite responses for "load balancing".
+// LoadBalance is a plugin to rewrite responses for "load balancing".
 type LoadBalance struct {
 	Next    plugin.Handler
 	shuffle func(*dns.Msg) *dns.Msg

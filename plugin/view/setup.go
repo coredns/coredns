@@ -52,9 +52,6 @@ func parse(c *caddy.Controller) (*View, error) {
 					return v, err
 				}
 				v.progs = append(v.progs, prog)
-				if err != nil {
-					return nil, err
-				}
 				continue
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"path"
+	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -61,16 +63,47 @@ func TestProxy(t *testing.T) {
 	}
 }
 
+func TestProxy_RejectsOversizedReply(t *testing.T) {
+	p := &Proxy{}
+	oversized := make([]byte, maxDNSMessageBytes+1)
+	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: oversized}, err: nil}
+	_, err := p.query(context.TODO(), new(dns.Msg))
+	if !errors.Is(err, ErrDNSMessageTooLarge) {
+		t.Fatalf("expected %v, got %v", ErrDNSMessageTooLarge, err)
+	}
+}
+
+func TestProxy_RejectsOversizedRequest(t *testing.T) {
+	p := &Proxy{}
+	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: []byte("ok")}, err: nil}
+
+	oversizedMsg := &dns.Msg{}
+	oversizedMsg.SetQuestion("example.org.", dns.TypeA)
+	oversizedMsg.Extra = slices.Repeat([]dns.RR{&dns.TXT{
+		Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 300},
+		Txt: []string{"very long text record to make the message oversized when packed"},
+	}}, 2000)
+
+	_, err := p.query(context.TODO(), oversizedMsg)
+	if !errors.Is(err, ErrDNSMessageTooLarge) {
+		t.Fatalf("expected %v, got %v", ErrDNSMessageTooLarge, err)
+	}
+}
+
 type testServiceClient struct {
 	dnsPacket *pb.DnsPacket
 	err       error
 }
 
-func (m testServiceClient) Query(ctx context.Context, in *pb.DnsPacket, opts ...grpc.CallOption) (*pb.DnsPacket, error) {
+func (m testServiceClient) Query(_ctx context.Context, _in *pb.DnsPacket, _opts ...grpc.CallOption) (*pb.DnsPacket, error) {
 	return m.dnsPacket, m.err
 }
 
 func TestProxyUnix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix domain sockets are not supported on windows")
+	}
+
 	tdir := t.TempDir()
 
 	fd := path.Join(tdir, "test.grpc")
@@ -109,7 +142,7 @@ type grpcDnsServiceServer struct {
 	pb.UnimplementedDnsServiceServer
 }
 
-func (*grpcDnsServiceServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
+func (*grpcDnsServiceServer) Query(_ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
 	msg := &dns.Msg{}
 	msg.Unpack(in.GetMsg())
 	answer := new(dns.Msg)

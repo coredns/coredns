@@ -1,8 +1,11 @@
 package test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -70,6 +73,160 @@ func TestMetricsRefused(t *testing.T) {
 	}
 }
 
+// getBucketCount extracts the count for a specific bucket from a metric family
+func getBucketCount(mf *test.MetricFamily, bucketLabel string) (int, error) {
+	if mf == nil {
+		return 0, fmt.Errorf("metric family is nil")
+	}
+	if len(mf.Metrics) == 0 {
+		return 0, fmt.Errorf("metric family %s has no metrics", mf.Name)
+	}
+
+	// mf.Metrics[0] is an interface{} containing an unexported 'histogram' struct from plugin/test.
+	metricPoint := mf.Metrics[0]
+	val := reflect.ValueOf(metricPoint)
+
+	// Check if the underlying type is a struct (as histogram is)
+	if val.Kind() != reflect.Struct {
+		return 0, fmt.Errorf("metric point for %s is not a struct, but %s", mf.Name, val.Kind())
+	}
+
+	// Access the 'Buckets' field, which should be map[string]string
+	bucketsField := val.FieldByName("Buckets")
+	if !bucketsField.IsValid() {
+		return 0, fmt.Errorf("metric point for %s has no 'Buckets' field", mf.Name)
+	}
+
+	bucketsMap, ok := reflect.TypeAssert[map[string]string](bucketsField)
+	if !ok {
+		return 0, fmt.Errorf("'Buckets' field for %s is not a map[string]string", mf.Name)
+	}
+
+	countStr, ok := bucketsMap[bucketLabel]
+	if !ok {
+		// For these tests, we'll treat a missing bucket as 0.
+		return 0, nil
+	}
+
+	count, err := strconv.Atoi(countStr)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse bucket count '%s' for %s: %v", countStr, mf.Name, err)
+	}
+	return count, nil
+}
+
+// extractRequestSizeBucketCounts extracts bucket counts from DNS request size metrics
+func extractRequestSizeBucketCounts(t *testing.T, metrics []*test.MetricFamily, label string) (int, int, error) {
+	t.Helper()
+	var countBelow100, countAbove100 int
+	var err error
+
+	for _, mf := range metrics {
+		if strings.Contains(mf.Name, "coredns_dns_request_size_bytes") {
+			t.Logf("  %s: %v", mf.Name, mf.Metrics)
+			countBelow100, err = getBucketCount(mf, "100")
+			if err != nil {
+				return 0, 0, fmt.Errorf("%s: error getting bucket count for 100: %v", label, err)
+			}
+			countAbove100, err = getBucketCount(mf, "1023")
+			if err != nil {
+				return 0, 0, fmt.Errorf("%s: error getting bucket count for 1023: %v", label, err)
+			}
+			return countBelow100, countAbove100, nil
+		}
+	}
+
+	return 0, 0, fmt.Errorf("%s: could not find coredns_dns_request_size_bytes metric", label)
+}
+
+func TestMetricsRewriteRequestSize(t *testing.T) {
+	// number of requests to send
+	numRequests := 5
+
+	// First test without rewrite
+	corefileWithoutRewrite := `.:0 {
+		prometheus localhost:0
+		forward . 8.8.8.8
+	}`
+
+	srv, udp, _, err := CoreDNSServerAndPorts(corefileWithoutRewrite)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+
+	// Create a DNS request with a long name to have a size close to 100 bytes
+	m := new(dns.Msg)
+	m.SetQuestion("somerequestthathaveasize90.123456789.123456789.123456789.example.com.", dns.TypeA)
+	expectedSize := 86
+	actualSize := m.Len()
+	if actualSize != expectedSize {
+		t.Fatalf("Expected request size %d, but got %d", expectedSize, actualSize)
+	}
+
+	// Send multiple requests
+	for range numRequests {
+		if _, err = dns.Exchange(m, udp); err != nil {
+			t.Fatalf("Could not send message: %s", err)
+		}
+	}
+
+	metricsWithoutRewrite := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
+
+	t.Log("Available metrics without rewrite:")
+	countBelow100withoutRewrite, countAbove100withoutRewrite, err := extractRequestSizeBucketCounts(t, metricsWithoutRewrite, "without rewrite")
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Stop the first server
+	srv.Stop()
+	time.Sleep(100 * time.Millisecond) // Give server time to clean up
+
+	// Now test with rewrite plugin
+	corefileWithRewrite := `.:0 {
+		prometheus localhost:0
+		rewrite edns0 local set 0x13 test123456 revert
+		forward . 8.8.8.8
+	}`
+
+	srv2, udp2, _, err := CoreDNSServerAndPorts(corefileWithRewrite)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer srv2.Stop()
+
+	// Send the same requests with rewrite
+	for range numRequests {
+		if _, err = dns.Exchange(m, udp2); err != nil {
+			t.Fatalf("Could not send message: %s", err)
+		}
+	}
+
+	// Scrape metrics again
+	metricsWithRewrite := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
+
+	t.Log("Available metrics with rewrite:")
+	countBelow100withRewrite, countAbove100withRewrite, err := extractRequestSizeBucketCounts(t, metricsWithRewrite, "with rewrite")
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Both servers should record metrics in the same buckets regardless of the
+	// rewrite plugin's modifications. The original request size is 86 bytes,
+	// which falls into the le=100 bucket, before and after the rewrite.
+
+	if countBelow100withoutRewrite != countAbove100withoutRewrite &&
+		countBelow100withRewrite != countAbove100withRewrite {
+		t.Errorf("Expected all requests to go to le=100 bucket")
+	}
+
+	// The count in the le=100 bucket should be the same with or without rewrite.
+	// Second round of requests should go to le=100 bucket.
+	if countBelow100withRewrite != countBelow100withoutRewrite+numRequests {
+		t.Errorf("Expected all requests to go to le=100 bucket")
+	}
+}
+
 func TestMetricsAuto(t *testing.T) {
 	tmpdir := t.TempDir()
 
@@ -96,35 +253,38 @@ func TestMetricsAuto(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
 
 	m := new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
 
-	if _, err := dns.Exchange(m, udp); err != nil {
-		t.Fatalf("Could not send message: %s", err)
-	}
-
 	metricName := "coredns_dns_requests_total" // {zone, proto, family, type}
 
-	data := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
-	// Get the value for the metrics where the one of the labels values matches "example.org."
-	got, _ := test.MetricValueLabel(metricName, "example.org.", data)
+	// pollMetric re-issues the query and scrapes until the example.org. zone
+	// counter is present and non-zero, or the 5s cap is reached.
+	pollMetric := func() string {
+		var got string
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if _, err := dns.Exchange(m, udp); err != nil {
+				t.Fatalf("Could not send message: %s", err)
+			}
+			data := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
+			got, _ = test.MetricValueLabel(metricName, "example.org.", data)
+			if (got != "" && got != "0") || time.Now().After(deadline) {
+				return got
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 
+	got := pollMetric()
 	if got == "0" {
 		t.Errorf("Expected value %s for %s, but got %s", "> 1", metricName, got)
 	}
 
-	// Remove db.example.org again. And see if the metric stops increasing.
+	// Remove db.example.org again.
 	os.Remove(filepath.Join(tmpdir, "db.example.org"))
-	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
-	if _, err := dns.Exchange(m, udp); err != nil {
-		t.Fatalf("Could not send message: %s", err)
-	}
-
-	data = test.Scrape("http://" + metrics.ListenAddr + "/metrics")
-	got, _ = test.MetricValueLabel(metricName, "example.org.", data)
-
+	got = pollMetric()
 	if got == "0" {
 		t.Errorf("Expected value %s for %s, but got %s", "> 1", metricName, got)
 	}
@@ -172,9 +332,7 @@ func TestMetricsSeveralBlocs(t *testing.T) {
 	}
 
 	endCacheSize := test.ScrapeMetricAsInt(addrMetrics, cacheSizeMetricName, "", 0)
-	if err != nil {
-		t.Errorf("Unexpected metric data retrieved for %s : %s", cacheSizeMetricName, err)
-	}
+
 	if endCacheSize-beginCacheSize != 1 {
 		t.Errorf("Expected metric data retrieved for %s, expected %d, got %d", cacheSizeMetricName, 1, endCacheSize-beginCacheSize)
 	}

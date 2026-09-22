@@ -1,6 +1,8 @@
 package test
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestTempFile(t *testing.T) {
 	_, f, e := TempFile(".", "test")

@@ -1,0 +1,287 @@
+package dnsserver
+
+import (
+	"context"
+	"crypto/tls"
+	"fmt"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/metrics/vars"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	"github.com/coredns/coredns/plugin/pkg/doh"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
+	"github.com/coredns/coredns/plugin/pkg/response"
+	"github.com/coredns/coredns/plugin/pkg/reuseport"
+	"github.com/coredns/coredns/plugin/pkg/transport"
+
+	"github.com/miekg/dns"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
+)
+
+const (
+	// DefaultHTTPS3MaxStreams is the default maximum number of concurrent QUIC streams per connection.
+	DefaultHTTPS3MaxStreams = 256
+	// DefaultHTTPS3MaxHeaderBytes limits HTTP/3 header memory before requests reach the DoH handler.
+	DefaultHTTPS3MaxHeaderBytes = 16 << 10 // 16 KiB
+)
+
+// ServerHTTPS3 represents a DNS-over-HTTP/3 server.
+type ServerHTTPS3 struct {
+	*Server
+	httpsServer    *http3.Server
+	listenAddr     net.Addr
+	tlsConfig      *tls.Config
+	quicConfig     *quic.Config
+	validRequest   func(*http.Request) bool
+	maxStreams     int
+	maxConnections int
+}
+
+type limitQUICListener struct {
+	http3.QUICListener
+	sem chan struct{}
+}
+
+func newLimitQUICListener(ln http3.QUICListener, maxConnections int) http3.QUICListener {
+	return &limitQUICListener{
+		QUICListener: ln,
+		sem:          make(chan struct{}, maxConnections),
+	}
+}
+
+func (l *limitQUICListener) Accept(ctx context.Context) (*quic.Conn, error) {
+	for {
+		conn, err := l.QUICListener.Accept(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		select {
+		case l.sem <- struct{}{}:
+			go func() {
+				<-conn.Context().Done()
+				<-l.sem
+			}()
+			return conn, nil
+		default:
+			_ = conn.CloseWithError(quic.ApplicationErrorCode(http3.ErrCodeExcessiveLoad), "too many connections")
+		}
+	}
+}
+
+// NewServerHTTPS3 builds the HTTP/3 (DoH3) server.
+func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
+	tlsConfig, err := sharedTLSConfig(addr, group)
+	if err != nil {
+		return nil, err
+	}
+	s, err := NewServer(addr, group)
+	if err != nil {
+		return nil, err
+	}
+
+	if tlsConfig == nil {
+		return nil, fmt.Errorf("DoH3 requires TLS, no TLS config found")
+	}
+
+	// HTTP/3 requires ALPN "h3"
+	tlsConfig.NextProtos = []string{"h3"}
+
+	// Request validator
+	var validator func(*http.Request) bool
+	for _, z := range s.zones {
+		for _, conf := range z {
+			validator = conf.HTTPRequestValidateFunc
+		}
+	}
+	if validator == nil {
+		validator = func(r *http.Request) bool { return r.URL.Path == doh.Path }
+	}
+
+	maxStreams := DefaultHTTPS3MaxStreams
+	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPS3Streams != nil {
+		maxStreams = *group[0].MaxHTTPS3Streams
+	}
+
+	maxConnections := DefaultHTTPSMaxConnections
+	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPS3Connections != nil {
+		maxConnections = *group[0].MaxHTTPS3Connections
+	}
+
+	// QUIC transport config with stream limits (0 means use QUIC default)
+	qconf := &quic.Config{
+		MaxIdleTimeout: s.IdleTimeout,
+		Allow0RTT:      true,
+	}
+	if maxStreams > 0 {
+		qconf.MaxIncomingStreams = int64(maxStreams)
+		qconf.MaxIncomingUniStreams = int64(maxStreams)
+	}
+
+	h3srv := &http3.Server{
+		Handler:         nil, // set after constructing ServerHTTPS3
+		TLSConfig:       tlsConfig,
+		EnableDatagrams: true,
+		QUICConfig:      qconf,
+		MaxHeaderBytes:  DefaultHTTPS3MaxHeaderBytes,
+		// Logger: stdlog.New(&loggerAdapter{}, "", 0), TODO: Fix it
+	}
+
+	sh := &ServerHTTPS3{
+		Server:         s,
+		tlsConfig:      tlsConfig,
+		httpsServer:    h3srv,
+		quicConfig:     qconf,
+		validRequest:   validator,
+		maxStreams:     maxStreams,
+		maxConnections: maxConnections,
+	}
+	h3srv.Handler = sh
+
+	return sh, nil
+}
+
+var _ caddy.GracefulServer = &ServerHTTPS3{}
+
+// ListenPacket opens the UDP socket for QUIC.
+func (s *ServerHTTPS3) ListenPacket() (net.PacketConn, error) {
+	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.HTTPS3+"://"):])
+	if err != nil {
+		return nil, err
+	}
+	if s.connPolicy != nil {
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
+	}
+	return p, nil
+}
+
+// ServePacket starts serving QUIC+HTTP/3 on an existing UDP socket.
+func (s *ServerHTTPS3) ServePacket(pc net.PacketConn) error {
+	s.m.Lock()
+	s.listenAddr = pc.LocalAddr()
+	s.m.Unlock()
+
+	if s.maxConnections <= 0 {
+		return s.httpsServer.Serve(pc)
+	}
+
+	quicConfig := s.quicConfig.Clone()
+	if s.httpsServer.EnableDatagrams {
+		quicConfig.EnableDatagrams = true
+	}
+
+	tr := &quic.Transport{Conn: pc}
+	defer tr.Close()
+
+	ln, err := tr.ListenEarly(http3.ConfigureTLSConfig(s.tlsConfig), quicConfig)
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
+
+	return s.httpsServer.ServeListener(newLimitQUICListener(ln, s.maxConnections))
+}
+
+// Listen function not used in HTTP/3, but defined for compatibility
+func (s *ServerHTTPS3) Listen() (net.Listener, error) { return nil, nil }
+func (s *ServerHTTPS3) Serve(_l net.Listener) error   { return nil }
+
+// OnStartupComplete lists the sites served by this server
+// and any relevant information, assuming Quiet is false.
+func (s *ServerHTTPS3) OnStartupComplete() {
+	if Quiet {
+		return
+	}
+	out := startUpZones(transport.HTTPS3+"://", s.Addr, s.zones)
+	if out != "" {
+		printStartup(out)
+	}
+}
+
+// Stop graceful shutdown. It blocks until the server is totally stopped.
+func (s *ServerHTTPS3) Stop() error {
+	s.m.Lock()
+	defer s.m.Unlock()
+	if s.httpsServer != nil {
+		return s.httpsServer.Shutdown(context.Background())
+	}
+	return nil
+}
+
+// Shutdown stops the server (non gracefully).
+func (s *ServerHTTPS3) Shutdown() error {
+	if s.httpsServer != nil {
+		s.httpsServer.Shutdown(context.Background())
+	}
+	return nil
+}
+
+// ServeHTTP is the handler for the DoH3 requests
+func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !s.validRequest(r) {
+		http.Error(w, "", http.StatusNotFound)
+		s.countResponse(http.StatusNotFound)
+		return
+	}
+
+	msg, raw, err := doh.RequestToMsgWire(r)
+	if err != nil {
+		clog.Debugf("DoH3 request could not be parsed: %v", err)
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		s.countResponse(http.StatusBadRequest)
+		return
+	}
+
+	// from HTTP request → DNS writer
+	h, p, _ := net.SplitHostPort(r.RemoteAddr)
+	port, _ := strconv.Atoi(p)
+	dw := &DoHWriter{
+		laddr:   s.listenAddr,
+		raddr:   &net.UDPAddr{IP: net.ParseIP(h), Port: port},
+		request: r,
+	}
+
+	if tsig := msg.IsTsig(); tsig != nil {
+		if s.TsigSecret == nil {
+			dw.tsigStatus = dns.ErrSecret
+		} else if secret, ok := s.TsigSecret[tsig.Hdr.Name]; !ok {
+			dw.tsigStatus = dns.ErrSecret
+		} else {
+			dw.tsigStatus = dns.TsigVerify(raw, secret, "", false)
+		}
+	}
+
+	ctx := context.WithValue(r.Context(), Key{}, s.Server)
+	ctx = context.WithValue(ctx, LoopKey{}, 0)
+	ctx = context.WithValue(ctx, HTTPRequestKey{}, r)
+
+	s.ServeDNS(ctx, dw, msg)
+
+	if dw.Msg == nil {
+		http.Error(w, "No response", http.StatusInternalServerError)
+		s.countResponse(http.StatusInternalServerError)
+		return
+	}
+
+	buf, _ := dw.Msg.Pack()
+	mt, _ := response.Typify(dw.Msg, time.Now().UTC())
+	age := dnsutil.MinimalTTLWithMaximum(dw.Msg, mt, dnsutil.MaximumDefaultTTL)
+
+	w.Header().Set("Content-Type", doh.MimeType)
+	w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", uint32(age.Seconds())))
+	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
+	w.WriteHeader(http.StatusOK)
+
+	s.countResponse(http.StatusOK)
+	w.Write(buf)
+}
+
+func (s *ServerHTTPS3) countResponse(status int) {
+	vars.HTTPS3ResponsesCount.WithLabelValues(s.Addr, strconv.Itoa(status)).Inc()
+}

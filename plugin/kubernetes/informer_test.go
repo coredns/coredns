@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 
@@ -20,6 +21,7 @@ func TestDefaultProcessor(t *testing.T) {
 }
 
 func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer) {
+	t.Helper()
 	obj := &api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service1", Namespace: "test1"},
 		Spec: api.ServiceSpec{
@@ -116,5 +118,79 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	}
 	if exists {
 		t.Fatal("tombstone deleted object found in index")
+	}
+}
+
+func TestDefaultProcessorWithPod(t *testing.T) {
+	pbuild := object.DefaultProcessor(object.ToPod, nil)
+	reh := cache.ResourceEventHandlerFuncs{}
+	idx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
+	processor := pbuild(idx, reh)
+	testProcessorWithPod(t, processor, idx)
+}
+
+func testProcessorWithPod(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer) {
+	t.Helper()
+	container := api.Container{}
+	obj := &api.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "test1"},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				container,
+			},
+		},
+	}
+	obj2 := &api.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "test1", DeletionTimestamp: &metav1.Time{Time: time.Now()}},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				container,
+			},
+		},
+	}
+
+	// Add the pod
+	err := processor(cache.Deltas{
+		{
+			Type:   cache.Added,
+			Object: obj.DeepCopy(),
+		},
+	}, false)
+	if err != nil {
+		t.Fatalf("add pod failed: %v", err)
+	}
+	got, exists, err := idx.Get(obj)
+	if err != nil {
+		t.Fatalf("get added pod failed: %v", err)
+	}
+	if !exists {
+		t.Fatal("added pod not found in index")
+	}
+	_, ok := got.(*object.Pod)
+	if !ok {
+		t.Fatal("pod in index was incorrect type")
+	}
+
+	// Update and delete pod having DeletionTimestamp set in one batch
+	err = processor(cache.Deltas{
+		{
+			Type:   cache.Updated,
+			Object: obj2.DeepCopy(),
+		},
+		{
+			Type:   cache.Deleted,
+			Object: obj2.DeepCopy(),
+		},
+	}, false)
+
+	if err != nil {
+		t.Fatalf("update or delete failed: %v", err)
+	}
+	_, exists, err = idx.Get(obj)
+	if err != nil {
+		t.Fatalf("get pod failed: %v", err)
+	}
+	if exists {
+		t.Fatal("deleted pod still exists in the index")
 	}
 }

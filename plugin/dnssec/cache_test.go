@@ -7,6 +7,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
+
+	"github.com/miekg/dns"
 )
 
 func TestCacheSet(t *testing.T) {
@@ -20,7 +22,7 @@ func TestCacheSet(t *testing.T) {
 		t.Fatalf("Failed to parse key: %v\n", err)
 	}
 
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	m := testMsg()
 	state := request.Request{Req: m, Zone: "miek.nl."}
 	k := hash(m.Answer) // calculate *before* we add the sig
@@ -44,7 +46,7 @@ func TestCacheNotValidExpired(t *testing.T) {
 		t.Fatalf("Failed to parse key: %v\n", err)
 	}
 
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	m := testMsg()
 	state := request.Request{Req: m, Zone: "miek.nl."}
 	k := hash(m.Answer) // calculate *before* we add the sig
@@ -54,6 +56,22 @@ func TestCacheNotValidExpired(t *testing.T) {
 	_, ok := d.get(k, server)
 	if ok {
 		t.Errorf("Signature was added to the cache even though not valid")
+	}
+}
+
+func TestCacheEmptySigsNotCached(t *testing.T) {
+	c := cache.New[[]dns.RR](defaultCap)
+	m := testMsg()
+	state := request.Request{Req: m, Zone: "miek.nl."}
+	k := hash(m.Answer)
+
+	// Create a Dnssec instance with no keys; sign() will produce no signatures.
+	d := New([]string{"miek.nl."}, []*DNSKEY{}, false, nil, c)
+	d.Sign(state, time.Now().UTC(), server)
+
+	_, ok := d.get(k, server)
+	if ok {
+		t.Errorf("Empty signatures should not be cached")
 	}
 }
 
@@ -68,7 +86,7 @@ func TestCacheNotValidYet(t *testing.T) {
 		t.Fatalf("Failed to parse key: %v\n", err)
 	}
 
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	m := testMsg()
 	state := request.Request{Req: m, Zone: "miek.nl."}
 	k := hash(m.Answer) // calculate *before* we add the sig

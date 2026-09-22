@@ -14,12 +14,21 @@ import (
 func (a Auto) Walk() error {
 	// TODO(miek): should add something so that we don't stomp on each other.
 
-	toDelete := make(map[string]bool)
-	for _, n := range a.Zones.Names() {
-		toDelete[n] = true
+	// Resolve symlinks in the directory path so filepath.Walk will traverse it.
+	// filepath.Walk uses os.Lstat on the root and won't enter a symlinked directory.
+	// This is needed when DIR itself is a symlink (e.g., Kubernetes ConfigMap mounts).
+	dir := a.directory
+	if resolved, err := filepath.EvalSymlinks(a.directory); err == nil {
+		dir = resolved
 	}
 
-	filepath.Walk(a.loader.directory, func(path string, info os.FileInfo, e error) error {
+	toDelete := make(map[string]bool)
+	for _, n := range a.Names() {
+		toDelete[n] = true
+	}
+	seen := make(map[string]string)
+
+	filepath.Walk(dir, func(path string, info os.FileInfo, e error) error {
 		if e != nil {
 			log.Warningf("error reading %v: %v", path, e)
 		}
@@ -27,19 +36,26 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		match, origin := matches(a.loader.re, info.Name(), a.loader.template)
+		match, origin := matches(a.re, info.Name(), a.template)
 		if !match {
 			return nil
 		}
 
-		if z, ok := a.Zones.Z[origin]; ok {
-			// we already have this zone
+		cleanPath := filepath.Clean(path)
+		if previous, ok := seen[origin]; ok && previous != cleanPath {
+			log.Warningf("Multiple zone files match origin %q: using %q instead of %q", origin, previous, cleanPath)
 			toDelete[origin] = false
-			z.SetFile(path)
+			return nil
+		}
+		seen[origin] = cleanPath
+
+		if z, ok := a.Z[origin]; ok {
+			toDelete[origin] = false
+			z.SetFile(cleanPath)
 			return nil
 		}
 
-		reader, err := os.Open(filepath.Clean(path))
+		reader, err := os.Open(cleanPath) //nolint:gosec // G122: path is from filepath.Walk rooted in a.directory; symlinks must be followed for configmap-style mounts
 		if err != nil {
 			log.Warningf("Opening %s failed: %s", path, err)
 			return nil
@@ -53,10 +69,10 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		zo.ReloadInterval = a.loader.ReloadInterval
-		zo.Upstream = a.loader.upstream
+		zo.ReloadInterval = a.ReloadInterval
+		zo.Upstream = a.upstream
 
-		a.Zones.Add(zo, origin, a.transfer)
+		a.Add(zo, origin, a.transfer)
 
 		if a.metrics != nil {
 			a.metrics.AddZone(origin)
@@ -78,7 +94,7 @@ func (a Auto) Walk() error {
 			a.metrics.RemoveZone(origin)
 		}
 
-		a.Zones.Remove(origin)
+		a.Remove(origin)
 
 		log.Infof("Deleting zone `%s'", origin)
 	}

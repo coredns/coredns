@@ -213,7 +213,7 @@ func (n *Node) insert(rr dns.RR) (root *Node, d int) {
 
 	root = n
 
-	return
+	return root, d
 }
 
 // DeleteMin deletes the node with the minimum value in the tree.

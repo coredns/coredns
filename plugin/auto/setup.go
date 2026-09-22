@@ -18,6 +18,8 @@ import (
 
 var log = clog.NewWithPlugin("auto")
 
+const maxRegexpLen = 10000
+
 func init() { plugin.Register("auto", setup) }
 
 func setup(c *caddy.Controller) error {
@@ -48,11 +50,11 @@ func setup(c *caddy.Controller) error {
 		if err := a.Notify(); err != nil {
 			log.Warning(err)
 		}
-		if a.loader.ReloadInterval == 0 {
+		if a.ReloadInterval == 0 {
 			return nil
 		}
 		go func() {
-			ticker := time.NewTicker(a.loader.ReloadInterval)
+			ticker := time.NewTicker(a.ReloadInterval)
 			defer ticker.Stop()
 			for {
 				select {
@@ -71,7 +73,7 @@ func setup(c *caddy.Controller) error {
 
 	c.OnShutdown(func() error {
 		close(walkChan)
-		for _, z := range a.Zones.Z {
+		for _, z := range a.Z {
 			z.Lock()
 			z.OnShutdown()
 			z.Unlock()
@@ -103,8 +105,8 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 	for c.Next() {
 		// auto [ZONES...]
 		args := c.RemainingArgs()
-		a.Zones.origins = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
-		a.loader.upstream = upstream.New()
+		a.origins = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
+		a.upstream = upstream.New()
 
 		for c.NextBlock() {
 			switch c.Val() {
@@ -112,33 +114,35 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 				if !c.NextArg() {
 					return a, c.ArgErr()
 				}
-				a.loader.directory = c.Val()
-				if !filepath.IsAbs(a.loader.directory) && config.Root != "" {
-					a.loader.directory = filepath.Join(config.Root, a.loader.directory)
+				a.directory = c.Val()
+				if !filepath.IsAbs(a.directory) && config.Root != "" {
+					a.directory = filepath.Join(config.Root, a.directory)
 				}
-				_, err := os.Stat(a.loader.directory)
+				_, err := os.Stat(a.directory)
 				if err != nil {
-					if os.IsNotExist(err) {
-						log.Warningf("Directory does not exist: %s", a.loader.directory)
-					} else {
-						return a, c.Errf("Unable to access root path '%s': %v", a.loader.directory, err)
+					if !os.IsNotExist(err) {
+						return a, c.Errf("Unable to access root path '%s': %v", a.directory, err)
 					}
+					log.Warningf("Directory does not exist: %s", a.directory)
 				}
 
 				// regexp template
 				if c.NextArg() {
-					a.loader.re, err = regexp.Compile(c.Val())
+					if len(c.Val()) > maxRegexpLen {
+						return a, c.Errf("regexp too large")
+					}
+					a.re, err = regexp.Compile(c.Val())
 					if err != nil {
 						return a, err
 					}
-					if a.loader.re.NumSubexp() == 0 {
+					if a.re.NumSubexp() == 0 {
 						return a, c.Errf("Need at least one sub expression")
 					}
 
 					if !c.NextArg() {
 						return a, c.ArgErr()
 					}
-					a.loader.template = rewriteToExpand(c.Val())
+					a.template = rewriteToExpand(c.Val())
 				}
 
 				if c.NextArg() {
@@ -157,7 +161,7 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 				if err != nil {
 					return a, plugin.Error("file", err)
 				}
-				a.loader.ReloadInterval = d
+				a.ReloadInterval = d
 
 			case "upstream":
 				// remove soon
@@ -169,8 +173,8 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 		}
 	}
 
-	if a.loader.ReloadInterval == nilInterval {
-		a.loader.ReloadInterval = 60 * time.Second
+	if a.ReloadInterval == nilInterval {
+		a.ReloadInterval = 60 * time.Second
 	}
 
 	return a, nil

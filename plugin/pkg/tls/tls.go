@@ -13,18 +13,6 @@ import (
 
 func setTLSDefaults(ctls *tls.Config) {
 	ctls.MinVersion = tls.VersionTLS12
-	ctls.MaxVersion = tls.VersionTLS13
-	ctls.CipherSuites = []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	}
 }
 
 // NewTLSConfigFromArgs returns a TLS config based upon the passed
@@ -59,19 +47,29 @@ func setTLSDefaults(ctls *tls.Config) {
 func NewTLSConfigFromArgs(args ...string) (*tls.Config, error) {
 	var err error
 	var c *tls.Config
+	var certPath, keyPath, caPath string
+	if len(args) > 0 {
+		certPath = args[0]
+	}
+	if len(args) > 1 {
+		keyPath = args[1]
+	}
+	if len(args) > 2 {
+		caPath = args[2]
+	}
 	switch len(args) {
 	case 0:
 		// No client cert, use system CA
 		c, err = NewTLSClientConfig("")
 	case 1:
 		// No client cert, use specified CA
-		c, err = NewTLSClientConfig(args[0])
+		c, err = NewTLSClientConfig(certPath)
 	case 2:
 		// Client cert, use system CA
-		c, err = NewTLSConfig(args[0], args[1], "")
+		c, err = NewTLSConfig(certPath, keyPath, "")
 	case 3:
 		// Client cert, use specified CA
-		c, err = NewTLSConfig(args[0], args[1], args[2])
+		c, err = NewTLSConfig(certPath, keyPath, caPath)
 	default:
 		err = fmt.Errorf("maximum of three arguments allowed for TLS config, found %d", len(args))
 	}
@@ -95,7 +93,11 @@ func NewTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: roots}
+	// #nosec G402 -- MinVersion is set in setTLSDefaults
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      roots,
+	}
 	setTLSDefaults(tlsConfig)
 
 	return tlsConfig, nil
@@ -109,7 +111,10 @@ func NewTLSClientConfig(caPath string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	tlsConfig := &tls.Config{RootCAs: roots}
+	// #nosec G402 -- MinVersion is set in setTLSDefaults
+	tlsConfig := &tls.Config{
+		RootCAs: roots,
+	}
 	setTLSDefaults(tlsConfig)
 
 	return tlsConfig, nil
@@ -136,10 +141,10 @@ func loadRoots(caPath string) (*x509.CertPool, error) {
 func NewHTTPSTransport(cc *tls.Config) *http.Transport {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-		}).Dial,
+		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     cc,
 		MaxIdleConnsPerHost: 25,

@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
@@ -21,8 +23,15 @@ type (
 	File struct {
 		Next plugin.Handler
 		Zones
-		transfer *transfer.Transfer
+		Xfer *transfer.Transfer
+		ZoneLookupFunc
+		TransferInFunc
+
+		Fall fall.F
 	}
+
+	// ZoneLookupFunc looks up the authoritative zone for qname.
+	ZoneLookupFunc func(qname string) (zone string, z *Zone, ok bool)
 
 	// Zones maps zone names to a *Zone.
 	Zones struct {
@@ -36,14 +45,16 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	state := request.Request{W: w, Req: r}
 
 	qname := state.Name()
-	// TODO(miek): match the qname better in the map
-	zone := plugin.Zones(f.Zones.Names).Matches(qname)
-	if zone == "" {
+	zone, z, ok := f.lookupZone(qname)
+	if !ok {
+		// If no next plugin is configured, it's more correct to return REFUSED as file acts as an authoritative server
+		if f.Next == nil {
+			return dns.RcodeRefused, nil
+		}
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
-	z, ok := f.Zones.Z[zone]
-	if !ok || z == nil {
+	if z == nil {
 		return dns.RcodeServerFailure, nil
 	}
 
@@ -63,7 +74,9 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 			log.Infof("Notify from %s for %s: checking transfer", state.IP(), zone)
 			ok, err := z.shouldTransfer()
 			if ok {
-				z.TransferIn()
+				if err := f.transferIn(z, f.Xfer); err != nil {
+					log.Warningf("Notify from %s for %s: transfer failed: %s", state.IP(), zone, err)
+				}
 			} else {
 				log.Infof("Notify from %s for %s: no SOA serial increase seen", state.IP(), zone)
 			}
@@ -86,6 +99,13 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 
 	answer, ns, extra, result := z.Lookup(ctx, state, qname)
 
+	// Only on NXDOMAIN we will fallthrough.
+	// `z.Lookup` can also return NOERROR for NXDOMAIN see comment see comment "Hacky way to get around empty-non-terminals" inside `Zone.Lookup`.
+	// It's safe to fallthrough with `result` Sucess (NOERROR) since all other return points in Lookup with Success have answer(s).
+	if len(answer) == 0 && (result == NameError || result == Success) && f.Fall.Through(qname) {
+		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+	}
+
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative = true
@@ -97,7 +117,11 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	case NameError:
 		m.Rcode = dns.RcodeNameError
 	case Delegation:
-		m.Authoritative = false
+		// A referral-only response is not authoritative. A partial answer
+		// containing an authoritative alias keeps AA set for the original QNAME.
+		if len(m.Answer) == 0 {
+			m.Authoritative = false
+		}
 	case ServerFailure:
 		// If the result is SERVFAIL and the answer is non-empty, then the SERVFAIL came from an
 		// external CNAME lookup and the answer contains the CNAME with no target record. We should
@@ -115,6 +139,29 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 
 // Name implements the Handler interface.
 func (f File) Name() string { return "file" }
+
+func (f File) lookupZone(qname string) (string, *Zone, bool) {
+	if f.ZoneLookupFunc != nil {
+		return f.ZoneLookupFunc(qname)
+	}
+	// TODO(miek): match the qname better in the map
+	zone := plugin.Zones(f.Zones.Names).Matches(qname)
+	if zone == "" {
+		return "", nil, false
+	}
+	z, ok := f.Z[zone]
+	if !ok {
+		return zone, nil, true
+	}
+	return zone, z, true
+}
+
+func (f File) transferIn(z *Zone, t *transfer.Transfer) error {
+	if f.TransferInFunc != nil {
+		return f.TransferInFunc(z, t)
+	}
+	return z.TransferIn(t)
+}
 
 type serialErr struct {
 	err    string
@@ -134,15 +181,27 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 	zp := dns.NewZoneParser(f, dns.Fqdn(origin), fileName)
 	zp.SetIncludeAllowed(true)
 	z := NewZone(origin, fileName)
+
+	if z.ReloadByMtime {
+		fi, err := os.Stat(fileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat file %q with error %v", fileName, err)
+		}
+		z.file_mtime = fi.ModTime()
+	}
+
 	seenSOA := false
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if !seenSOA {
-			if s, ok := rr.(*dns.SOA); ok {
+		if s, ok := rr.(*dns.SOA); ok {
+			if dns.CanonicalName(canonicalEscape(s.Hdr.Name)) != dns.CanonicalName(canonicalEscape(z.origin)) {
+				return nil, fmt.Errorf("file %q has SOA owner %s that does not match origin %s", fileName, s.Hdr.Name, z.origin)
+			}
+			if !seenSOA {
 				seenSOA = true
 
 				// -1 is valid serial is we failed to load the file on startup.
 
-				if serial >= 0 && s.Serial == uint32(serial) { // same serial
+				if serial >= 0 && s.Serial == uint32(serial) { // #nosec G115 -- serial is validated non-negative, fits in uint32
 					return nil, &serialErr{err: "no change in SOA serial", origin: origin, zone: fileName, serial: serial}
 				}
 			}
@@ -152,15 +211,11 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 			return nil, err
 		}
 	}
-	if !seenSOA {
-		return nil, fmt.Errorf("file %q has no SOA record for origin %s", fileName, origin)
-	}
 	if zp.Err() != nil {
 		return nil, fmt.Errorf("failed to parse file %q for origin %s with error %v", fileName, origin, zp.Err())
 	}
-
-	if err := zp.Err(); err != nil {
-		return nil, err
+	if !seenSOA {
+		return nil, fmt.Errorf("file %q has no SOA record for origin %s", fileName, origin)
 	}
 
 	return z, nil

@@ -32,25 +32,30 @@ func parse(c *caddy.Controller) (string, []string, error) {
 
 	if c.Next() {
 		args := c.RemainingArgs()
+		authors := Owners
 		if len(args) == 0 {
-			return trim(chaosVersion), Owners, nil
-		}
-		if len(args) == 1 {
-			return trim(args[0]), Owners, nil
+			version = trim(chaosVersion)
+		} else if len(args) == 1 {
+			version = trim(args[0])
+		} else {
+			version = args[0]
+			authorSet := make(map[string]struct{})
+			for _, a := range args[1:] {
+				authorSet[a] = struct{}{}
+			}
+			list := make([]string, 0, len(authorSet))
+			for k := range authorSet {
+				k = trim(k) // limit size to 255 chars
+				list = append(list, k)
+			}
+			sort.Strings(list)
+			authors = list
 		}
 
-		version = args[0]
-		authors := make(map[string]struct{})
-		for _, a := range args[1:] {
-			authors[a] = struct{}{}
+		if c.NextBlock() {
+			return "", nil, c.Errf("unknown property '%s'", c.Val())
 		}
-		list := []string{}
-		for k := range authors {
-			k = trim(k) // limit size to 255 chars
-			list = append(list, k)
-		}
-		sort.Strings(list)
-		return version, list, nil
+		return version, authors, nil
 	}
 
 	return version, Owners, nil

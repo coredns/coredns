@@ -1,6 +1,8 @@
 package loop
 
 import (
+	"crypto/rand"
+	"math/big"
 	"net"
 	"strconv"
 	"time"
@@ -9,7 +11,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-	"github.com/coredns/coredns/plugin/pkg/rand"
 )
 
 func init() { plugin.Register("loop", setup) }
@@ -31,7 +32,10 @@ func setup(c *caddy.Controller) error {
 		go func() {
 			deadline := time.Now().Add(30 * time.Second)
 			conf := dnsserver.GetConfig(c)
-			lh := conf.ListenHosts[0]
+			lh := ""
+			if len(conf.ListenHosts) > 0 {
+				lh = conf.ListenHosts[0]
+			}
 			addr := net.JoinHostPort(lh, conf.Port)
 
 			for time.Now().Before(deadline) {
@@ -70,18 +74,29 @@ func parse(c *caddy.Controller) (*Loop, error) {
 		}
 
 		if len(c.ServerBlockKeys) > 0 {
-			zones = plugin.Host(c.ServerBlockKeys[0]).NormalizeExact()
+			z := plugin.Host(c.ServerBlockKeys[0]).NormalizeExact()
+			if len(z) > 0 {
+				zones = z
+			}
 		}
 	}
 	return New(zones[0]), nil
 }
 
-// qname returns a random name. <rand.Int()>.<rand.Int().<zone>.
+// qname returns a secure random name: <random-int>.<random-int>.<zone>.
 func qname(zone string) string {
-	l1 := strconv.Itoa(r.Int())
-	l2 := strconv.Itoa(r.Int())
+	l1 := secureRandIntString()
+	l2 := secureRandIntString()
 
 	return dnsutil.Join(l1, l2, zone)
 }
 
-var r = rand.New(time.Now().UnixNano())
+func secureRandIntString() string {
+	// Generate a random 62-bit integer
+	n, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+	if err != nil {
+		// Fallback to startup time in case rand.Reader is unavailable
+		return strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	return n.String()
+}
