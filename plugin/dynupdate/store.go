@@ -35,7 +35,9 @@ type zoneStore struct {
 	refs    int // protected by storesMu
 }
 
-func (d *DynUpdate) acquireStore() (*zoneStore, error) {
+// readOnly validates configuration without creating or modifying a database.
+// Only runtime stores are registered for sharing across overlapping instances.
+func (d *DynUpdate) acquireStore(readOnly bool) (*zoneStore, error) {
 	storesMu.Lock()
 	defer storesMu.Unlock()
 
@@ -69,12 +71,28 @@ func (d *DynUpdate) acquireStore() (*zoneStore, error) {
 		return s, nil
 	}
 
-	db, err := bolt.Open(d.database, 0600, &bolt.Options{Timeout: time.Second})
+	s := &zoneStore{origin: d.Zone, refs: 1}
+	var err error
+	if errors.Is(statErr, os.ErrNotExist) {
+		s.records, err = readZoneLimited(d.seed, d.Zone, d.limits)
+		if err != nil {
+			return nil, err
+		}
+		s.view, err = d.build(s.records)
+		if err != nil {
+			return nil, err
+		}
+		if readOnly {
+			return s, nil
+		}
+	}
+
+	db, err := bolt.Open(d.database, 0600, &bolt.Options{Timeout: time.Second, ReadOnly: readOnly})
 	if err != nil {
 		return nil, fmt.Errorf("opening database %q: %w", d.database, err)
 	}
-	s := &zoneStore{db: db, origin: d.Zone, refs: 1}
-	err = db.Update(func(tx *bolt.Tx) error {
+	s.db = db
+	load := func(tx *bolt.Tx) error {
 		b := tx.Bucket(storeBucket)
 		if b != nil {
 			if string(b.Get(originKey)) != d.Zone {
@@ -88,10 +106,6 @@ func (d *DynUpdate) acquireStore() (*zoneStore, error) {
 		if statErr == nil {
 			return errors.New("unrecognized database format")
 		}
-		s.records, err = readZoneLimited(d.seed, d.Zone, d.limits)
-		if err != nil {
-			return err
-		}
 		b, err = tx.CreateBucket(storeBucket)
 		if err != nil {
 			return err
@@ -100,7 +114,12 @@ func (d *DynUpdate) acquireStore() (*zoneStore, error) {
 			return err
 		}
 		return putRecords(b, s.records)
-	})
+	}
+	if readOnly {
+		err = db.View(load)
+	} else {
+		err = db.Update(load)
+	}
 	if err == nil {
 		s.view, err = d.build(s.records)
 	}
@@ -109,7 +128,9 @@ func (d *DynUpdate) acquireStore() (*zoneStore, error) {
 		return nil, fmt.Errorf("loading database %q: %w", d.database, err)
 	}
 	s.view.Next = nil
-	stores[d.database] = s
+	if !readOnly {
+		stores[d.database] = s
+	}
 	return s, nil
 }
 
@@ -126,12 +147,16 @@ func releaseStore(s *zoneStore) error {
 			break
 		}
 	}
-	return s.db.Close()
+	if s.db != nil {
+		return s.db.Close()
+	}
+	return nil
 }
 
 // Called with d.mu held. Opening lazily avoids retaining a database lock when
 // a later directive or listener makes startup fail (Caddy does not run shutdown
-// callbacks for failed startups). Configuration validation uses a temporary ref.
+// callbacks for failed startups). Configuration validation is read-only; the
+// first query, transfer or authenticated update initializes a missing database.
 func (d *DynUpdate) ensureStore() error {
 	if d.closed {
 		return errors.New("dynamic zone is closed")
@@ -139,7 +164,7 @@ func (d *DynUpdate) ensureStore() error {
 	if d.database == "" || d.store != nil {
 		return nil
 	}
-	s, err := d.acquireStore()
+	s, err := d.acquireStore(false)
 	if err != nil {
 		return err
 	}

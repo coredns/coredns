@@ -146,7 +146,7 @@ func parse(c *caddy.Controller) (*DynUpdate, error) {
 		if err != nil {
 			return nil, err
 		}
-		s, err := d.acquireStore()
+		s, err := d.acquireStore(true)
 		if err != nil {
 			return nil, err
 		}

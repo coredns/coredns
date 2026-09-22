@@ -1,7 +1,11 @@
 package test
 
 import (
+	"context"
 	"fmt"
+	"net"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +130,90 @@ func TestDynUpdateRejectsUnsignedRequest(t *testing.T) {
 	}
 	if resp.Rcode != dns.RcodeRefused {
 		t.Fatalf("unsigned UPDATE rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestDynUpdateRejectsOtherZones(t *testing.T) {
+	seed, removeSeed, err := plugintest.TempFile(".", dynUpdateZone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeSeed()
+	other, removeOther, err := plugintest.TempFile(".", strings.ReplaceAll(dynUpdateZone, "example.org.", "other.example."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer removeOther()
+	corefile := fmt.Sprintf(`.:0 {
+		bind 127.0.0.1
+		tsig {
+			secret %s %s
+			require_opcode UPDATE
+		}
+		dynupdate example.org. {
+			file %s
+			allow %s * TXT
+		}
+		file %s other.example.
+	}`, dynUpdateKey, dynUpdateSecret, seed, dynUpdateKey, other)
+	s, udp, tcp, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stopDynUpdateServer(t, s)
+	for _, network := range []string{"udp", "tcp"} {
+		t.Run(network, func(t *testing.T) {
+			addr := udp
+			if network == "tcp" {
+				addr = tcp
+			}
+			client := &dns.Client{Net: network, TsigSecret: map[string]string{dynUpdateKey: dynUpdateSecret}}
+			query := new(dns.Msg).SetQuestion("other.example.", dns.TypeSOA)
+			r := exchangeDynUpdate(t, client, addr, query, dns.RcodeSuccess)
+			if len(r.Answer) != 1 {
+				t.Fatalf("ordinary query did not reach file: %v", r)
+			}
+			rr, err := dns.NewRR(`new.other.example. 60 IN TXT "must not succeed"`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			update := new(dns.Msg).SetUpdate("other.example.")
+			update.Insert([]dns.RR{rr})
+			update.SetTsig(dynUpdateKey, dns.HmacSHA256, 300, time.Now().Unix())
+			r, _, err = client.Exchange(update, addr)
+			// miekg/dns returns ErrAuth for every NOTAUTH before verifying TSIG.
+			// The nsupdate subtest below also checks the signed response with BIND.
+			if (err != nil && err != dns.ErrAuth) || r == nil || r.Rcode != dns.RcodeNotAuth {
+				t.Fatalf("wrong-zone UPDATE: response=%v err=%v, want NOTAUTH", r, err)
+			}
+			if tsig := r.IsTsig(); tsig == nil || tsig.Error != dns.RcodeSuccess || tsig.MAC == "" {
+				t.Fatalf("wrong-zone rejection lost TSIG: %v", r)
+			}
+			query.SetQuestion(rr.Header().Name, dns.TypeTXT)
+			exchangeDynUpdate(t, client, addr, query, dns.RcodeNameError)
+			t.Run("nsupdate", func(t *testing.T) {
+				nsupdate, err := exec.LookPath("nsupdate")
+				if err != nil {
+					t.Skip("BIND nsupdate is not installed")
+				}
+				host, port, err := net.SplitHostPort(addr)
+				if err != nil {
+					t.Fatal(err)
+				}
+				args := []string{"-y", "hmac-sha256:" + dynUpdateKey + ":" + dynUpdateSecret}
+				if network == "tcp" {
+					args = append(args, "-v")
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+				defer cancel()
+				cmd := exec.CommandContext(ctx, nsupdate, args...)
+				cmd.Stdin = strings.NewReader(fmt.Sprintf("server %s %s\nzone other.example.\nupdate add %s\nsend\n", host, port, rr))
+				out, err := cmd.CombinedOutput()
+				if err == nil || !strings.Contains(string(out), "update failed: NOTAUTH") || strings.Contains(strings.ToLower(string(out)), "tsig") {
+					t.Fatalf("nsupdate: err=%v output=%s, want NOTAUTH without a TSIG error", err, out)
+				}
+			})
+		})
 	}
 }
 

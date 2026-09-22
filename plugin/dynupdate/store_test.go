@@ -2,6 +2,7 @@ package dynupdate
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -282,6 +283,75 @@ func TestParseDatabaseReleasesLock(t *testing.T) {
 	db.Close()
 }
 
+func TestParseDatabaseIsReadOnly(t *testing.T) {
+	for _, state := range []string{"missing", "existing", "active", "empty", "invalid seed"} {
+		t.Run(state, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "updates.db")
+			seed := persistentTestZone(t, path)
+			switch state {
+			case "existing", "active":
+				add := mustRR(t, `saved.example.org. 60 IN TXT "durable"`)
+				if code, err := seed.applyUpdate(testKey, nil, []dns.RR{add}); code != dns.RcodeSuccess || err != nil {
+					t.Fatalf("update: %d %v", code, err)
+				}
+				if state == "existing" {
+					if err := seed.close(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := os.Remove(seed.seed); err != nil {
+					t.Fatal(err)
+				}
+			case "empty":
+				if err := os.WriteFile(path, nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "invalid seed":
+				if err := os.WriteFile(seed.seed, []byte("invalid zone data"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, beforeErr := os.ReadFile(path)
+			if beforeErr != nil && !os.IsNotExist(beforeErr) {
+				t.Fatal(beforeErr)
+			}
+			c := caddy.NewTestController("dns", fmt.Sprintf(`dynupdate example.org. {
+				file "%s"
+				database "%s"
+				allow %s * *
+			}`, filepath.ToSlash(seed.seed), filepath.ToSlash(path), testKey))
+			d, err := parse(c)
+			wantErr := state == "empty" || state == "invalid seed"
+			if (err != nil) != wantErr {
+				t.Errorf("parse error = %v, want error = %v", err, wantErr)
+			}
+			after, afterErr := os.ReadFile(path)
+			if os.IsNotExist(beforeErr) {
+				if !os.IsNotExist(afterErr) {
+					t.Errorf("parse created database: %v", afterErr)
+				}
+			} else if afterErr != nil || !bytes.Equal(before, after) {
+				t.Errorf("parse modified existing database: %v", afterErr)
+			}
+			if d != nil {
+				t.Cleanup(func() {
+					if err := d.close(); err != nil {
+						t.Error(err)
+					}
+				})
+				if d.store != nil {
+					t.Fatal("parse retained a runtime database reference")
+				}
+				if state == "existing" || state == "active" {
+					if !hasRecord(d, "saved.example.org.", dns.TypeTXT, "") || serial(d) != 11 {
+						t.Fatal("parse ignored acknowledged updates")
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestDatabaseLargerThanDNSMessage(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "updates.db")
 	d := persistentTestZone(t, path)
@@ -417,6 +487,10 @@ func TestStoreRejectsInvalidDatabase(t *testing.T) {
 			}
 			if tc == "too many bytes" {
 				next.limits.bytes = 1
+			}
+			if s, err := next.acquireStore(true); err == nil {
+				releaseStore(s)
+				t.Fatal("read-only validation accepted an invalid database")
 			}
 			if _, err := next.snapshot(); err == nil {
 				t.Fatal("invalid database was silently replaced with seed")

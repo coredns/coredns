@@ -163,21 +163,43 @@ func TestDynUpdatePersistentWire(t *testing.T) {
 	}
 }
 
-func TestDynUpdateFailedStartupReleasesDatabase(t *testing.T) {
-	corefile, _ := persistentDynUpdateConfig(t, "udp")
-	bad := strings.Replace(corefile, "\n\t\tcache", "\n\t\tfile\n\t\tcache", 1)
-	if s, err := CoreDNSServer(bad); err == nil {
-		stopDynUpdateServer(t, s)
-		t.Fatal("invalid file directive unexpectedly succeeded")
+func TestDynUpdateFailedStartupDoesNotCreateDatabase(t *testing.T) {
+	for _, failure := range []string{"directive", "listener"} {
+		t.Run(failure, func(t *testing.T) {
+			corefile, seed := persistentDynUpdateConfig(t, "udp")
+			bad := strings.Replace(corefile, "\n\t\tcache", "\n\t\tfile\n\t\tcache", 1)
+			if failure == "listener" {
+				ln, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer ln.Close()
+				bad = strings.Replace(corefile, "example.org:0", fmt.Sprintf("example.org:%d", ln.Addr().(*net.TCPAddr).Port), 1)
+			}
+			if s, err := CoreDNSServer(bad); err == nil {
+				stopDynUpdateServer(t, s)
+				t.Fatal("invalid startup unexpectedly succeeded")
+			}
+			database := filepath.Join(filepath.Dir(seed), "updates.db")
+			if _, err := os.Stat(database); !os.IsNotExist(err) {
+				t.Errorf("failed startup created a database: %v", err)
+			}
+			updatedSeed := strings.Replace(dynUpdateZone, "10 60 60 60 60", "20 60 60 60 60", 1)
+			if err := os.WriteFile(seed, []byte(updatedSeed), 0600); err != nil {
+				t.Fatal(err)
+			}
+			s, udp, _, err := CoreDNSServerAndPorts(corefile)
+			if err != nil {
+				t.Fatalf("retrying startup: %v", err)
+			}
+			defer stopDynUpdateServer(t, s)
+			query := new(dns.Msg).SetQuestion("example.org.", dns.TypeSOA)
+			r := exchangeDynUpdate(t, &dns.Client{Net: "udp"}, udp, query, dns.RcodeSuccess)
+			if len(r.Answer) != 1 || r.Answer[0].(*dns.SOA).Serial != 20 {
+				t.Fatalf("retry reused data from failed startup: %v", r)
+			}
+		})
 	}
-	s, udp, _, err := CoreDNSServerAndPorts(corefile)
-	if err != nil {
-		t.Fatalf("failed startup retained a database lock: %v", err)
-	}
-	defer stopDynUpdateServer(t, s)
-	query := new(dns.Msg)
-	query.SetQuestion("example.org.", dns.TypeSOA)
-	exchangeDynUpdate(t, &dns.Client{Net: "udp"}, udp, query, dns.RcodeSuccess)
 }
 
 func TestDynUpdateRejectsDuplicateDirective(t *testing.T) {

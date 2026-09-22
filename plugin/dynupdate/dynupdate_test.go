@@ -374,7 +374,7 @@ func TestServeUpdateRequiresValidatedTSIG(t *testing.T) {
 	}
 }
 
-func TestServeUpdateDelegatesOtherZones(t *testing.T) {
+func TestServeUpdateRejectsOtherZones(t *testing.T) {
 	d := newTestDynUpdate(t)
 	called := false
 	d.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -392,13 +392,13 @@ func TestServeUpdateDelegatesOtherZones(t *testing.T) {
 	w := dnstest.NewRecorder(&coretest.ResponseWriter{})
 	code, err := d.ServeDNS(context.Background(), w, r)
 	if err != nil || code != dns.RcodeSuccess {
-		t.Fatalf("delegated UPDATE returned code=%d err=%v", code, err)
+		t.Fatalf("UPDATE returned code=%d err=%v", code, err)
 	}
-	if !called {
-		t.Fatal("UPDATE for another zone did not reach the next handler")
+	if called {
+		t.Error("UPDATE for another zone reached the next handler")
 	}
-	if w.Msg == nil || w.Msg.Rcode != dns.RcodeSuccess {
-		t.Fatalf("delegated response = %#v, want NOERROR", w.Msg)
+	if w.Msg == nil || w.Msg.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("UPDATE response = %#v, want NOTAUTH", w.Msg)
 	}
 }
 

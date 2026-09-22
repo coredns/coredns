@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/tsig"
 
@@ -20,14 +19,8 @@ func (d *DynUpdate) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dn
 
 	zone := canonicalName(r.Question[0].Name)
 	if zone != d.Zone {
-		d.mu.RLock()
-		next := d.Next
-		d.mu.RUnlock()
-		if next != nil {
-			// A server block may contain several authoritative handlers. Let
-			// the handler that owns another zone process this UPDATE.
-			return plugin.NextOrFailure(d.Name(), next, ctx, w, r)
-		}
+		// Query-only backends can acknowledge an UPDATE without applying it.
+		// Writable zones must use separate server blocks, not fallthrough.
 		return d.reply(w, r, dns.RcodeNotAuth)
 	}
 

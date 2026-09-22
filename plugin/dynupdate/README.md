@@ -23,7 +23,9 @@ mutation must also match an explicit `allow` rule containing the key name,
 owner name, and RR type. Use `*` as the owner name or RR type only when that
 broader permission is intentional. Configure `require_opcode UPDATE` in the
 *tsig* plugin so unsigned UPDATE requests are rejected at the protocol
-boundary.
+boundary. UPDATE requests for a different zone receive NOTAUTH; they do not
+fall through to query-only backends. Ordinary queries outside the dynamic
+zone still pass to the next plugin.
 
 The implementation supports RFC 2136 prerequisites, add and delete
 operations, CNAME and apex SOA/NS invariants, automatic SOA serial updates,
@@ -56,9 +58,13 @@ one zone and one CoreDNS process. Overlapping instances in that process share
 transactions and snapshots during a Corefile reload, so prerequisites cannot
 race and an old instance cannot overwrite a newer generation.
 
-On the first startup, the database is initialized from `file`. Subsequently,
-the database, including the SOA serial, is authoritative; editing or removing
-the seed does not replace dynamic data. Corrupt, incompatible, wrong-zone, or
+Configuration validation does not create or modify the database. A missing
+database is initialized from `file` on the first query, transfer or
+authenticated UPDATE after startup. This prevents a failed startup from
+preserving an obsolete seed. Until that first access, the seed must remain
+available; creation errors return SERVFAIL rather than acknowledging an update.
+Subsequently, the database, including the SOA serial, is authoritative;
+editing or removing the seed does not replace dynamic data. Corrupt, incompatible, wrong-zone, or
 over-limit databases cause an error, not a fallback to the seed. A failed
 commit returns SERVFAIL without publishing the candidate snapshot or serial.
 After an abrupt process exit, the database reopens at a committed transaction.
