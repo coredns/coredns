@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/miekg/dns"
 )
+
+const maxCNAMERewriteDepth = 8
 
 // UpstreamInt wraps the Upstream API for dependency injection during testing
 type UpstreamInt interface {
@@ -82,12 +85,20 @@ func (r *cnameTargetRuleWithReqState) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	if cname.Target != fromTarget {
 		return
 	}
+
+	// Limit internal lookups that re-enter the server.
+	loop, _ := r.ctx.Value(dnsserver.LoopKey{}).(int)
+	if loop > maxCNAMERewriteDepth {
+		return
+	}
+	ctx := context.WithValue(r.ctx, dnsserver.LoopKey{}, loop+1)
+
 	// create upstream request with the new target with the same qtype
 	r.state.Req.Question[0].Name = toTarget
 	// upRes can be nil if the internal query path didn't write a response
 	// (e.g. a plugin returned a success rcode without writing, dropped the query,
 	// or the context was canceled). Guard upRes before dereferencing.
-	upRes, err := r.rule.Upstream.Lookup(r.ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
+	upRes, err := r.rule.Upstream.Lookup(ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
 	if err != nil {
 		log.Errorf("upstream lookup failed: %v", err)
 		return
