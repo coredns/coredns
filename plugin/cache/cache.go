@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -37,6 +38,10 @@ type Cache struct {
 	pttl    time.Duration
 	minpttl time.Duration
 	failttl time.Duration // TTL for caching SERVFAIL responses
+
+	// Serialize replacement decisions across both caches for the same key.
+	// Hits do not take these locks.
+	writeLocks [256]sync.Mutex
 
 	// Prefetch.
 	prefetch   int
@@ -93,7 +98,7 @@ func New() *Cache {
 // key returns key under which we store the item, -1 will be returned if we don't store the message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
 // qname holds the already lowercased qname.
-func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) {
+func key(qname string, m *dns.Msg, t response.Type, cd bool) (bool, uint64) {
 	// We don't store truncated responses.
 	if m.Truncated {
 		return false, 0
@@ -128,7 +133,7 @@ func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) 
 		return false, 0
 	}
 
-	return true, hash(qname, m.Question[0].Qtype, m.Question[0].Qclass, do, cd)
+	return true, hash(qname, m.Question[0].Qtype, m.Question[0].Qclass, cd)
 }
 
 func hasSOA(m *dns.Msg) bool {
@@ -302,14 +307,8 @@ func (s nameSet) add(name string) {
 var one = []byte("1")
 var zero = []byte("0")
 
-func hash(qname string, qtype, qclass uint16, do, cd bool) uint64 {
+func hash(qname string, qtype, qclass uint16, cd bool) uint64 {
 	h := fnv.New64()
-
-	if do {
-		h.Write(one)
-	} else {
-		h.Write(zero)
-	}
 
 	if cd {
 		h.Write(one)
@@ -348,6 +347,7 @@ type ResponseWriter struct {
 	wildcardFunc func() string // function to retrieve wildcard name that synthesized the result.
 	lastResponse *dns.Msg      // last response after cache TTL and DNSSEC adjustments.
 	lastItem     *item         // cache item written by the last response, if cacheable.
+	refreshItem  *item         // item that this refresh is replacing, nil for an ordinary miss.
 
 	pexcept []string // positive zone exceptions
 	nexcept []string // negative zone exceptions
@@ -436,7 +436,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	mt := cacheResponseType(res, w.now().UTC())
 
 	// key returns empty string for anything we don't want to cache.
-	hasKey, key := key(w.state.Name(), res, mt, w.do, w.cd)
+	hasKey, key := key(w.state.Name(), res, mt, w.cd)
 
 	var duration time.Duration
 	switch mt {
@@ -472,6 +472,11 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 		// But retain AD bit if requester set the AD bit in the request, per RFC6840 5.7-5.8
 		res.AuthenticatedData = false
 	}
+	if !w.do {
+		res.Answer = filterDNSSEC(res.Answer, w.state.QType())
+		res.Ns = filterDNSSEC(res.Ns, 0)
+		res.Extra = filterDNSSEC(res.Extra, 0)
+	}
 	w.lastResponse = res.Copy()
 
 	if w.prefetch {
@@ -484,6 +489,22 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {
 	// duration is expected > 0
 	// and key is valid
+	lock := &w.writeLocks[key%uint64(len(w.writeLocks))]
+	lock.Lock()
+	defer lock.Unlock()
+
+	// A DO=0 request may have missed before a concurrent DO=1 request
+	// filled the cache. Do not let its late response discard fresh DNSSEC
+	// data, even if the responses fall into different cache classes.
+	acquiredDO := requestDO(w.state.Req)
+	if !acquiredDO {
+		for _, cache := range []*cache.Cache[*item]{w.pcache, w.ncache} {
+			if previous, ok := cache.Get(key); ok && previous.do && previous.matches(w.state) && previous.ttl(w.now()) > 0 {
+				w.refreshUnsignedFallback(m, key, mt, duration)
+				return
+			}
+		}
+	}
 	switch mt {
 	case response.NoError, response.Delegation:
 		if plugin.Zones(w.pexcept).Contains(m.Question[0].Name) {
@@ -491,12 +512,20 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 			return
 		}
 		i := newItem(m, w.now(), duration)
+		i.do = acquiredDO
 		if w.wildcardFunc != nil {
 			i.wildcard = w.wildcardFunc()
 		}
 		if w.preferPositive && !i.answering {
 			if previous, ok := w.pcache.Get(key); ok {
-				i.lastKnownGood = previous.answeringItem(w.state)
+				// Retain the old answer independently of acquisition DO; the
+				// serving path still checks its capability for each client.
+				if !previous.answering {
+					previous = previous.lastKnownGood
+				}
+				if previous != nil && previous.answering && previous.matchesQuestion(w.state) {
+					i.lastKnownGood = previous
+				}
 			}
 		}
 		if w.pcache.Add(key, i) {
@@ -509,6 +538,13 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		if (!w.preferPositive && w.prefetch) || (w.preferPositive && i.answering) {
 			w.ncache.Remove(key)
 		}
+		// An upgrade may have changed from a denial to a positive response.
+		// The older DO=0 denial must not shadow it for unsigned clients.
+		if acquiredDO && (!w.preferPositive || i.answering) {
+			if previous, ok := w.ncache.Get(key); ok && !previous.do {
+				w.ncache.Remove(key)
+			}
+		}
 
 	case response.NameError, response.NoData, response.ServerError:
 		if plugin.Zones(w.nexcept).Contains(m.Question[0].Name) {
@@ -516,6 +552,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 			return
 		}
 		i := newItem(m, w.now(), duration)
+		i.do = acquiredDO
 		if w.wildcardFunc != nil {
 			i.wildcard = w.wildcardFunc()
 		}
@@ -523,12 +560,55 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
 		w.lastItem = i
+		// Preserve positive fallback for transient failures and for the
+		// explicit prefer_positive policy, but otherwise replace DO=0 data.
+		if acquiredDO && mt != response.ServerError && !w.preferPositive {
+			if previous, ok := w.pcache.Get(key); ok && !previous.do {
+				w.pcache.Remove(key)
+			}
+		}
 
 	case response.OtherError:
 		// don't cache these
 	default:
 		log.Warningf("Caching called with unknown classification: %d", mt)
 	}
+}
+
+// refreshUnsignedFallback updates only the answering item that initiated this
+// refresh. The caller holds the write lock and has found fresh DO1 state that
+// must survive; an ordinary late DO0 miss is not allowed to replace it.
+func (w *ResponseWriter) refreshUnsignedFallback(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {
+	if w.refreshItem == nil || w.refreshItem.do || (mt != response.NoError && mt != response.Delegation) {
+		return
+	}
+	if plugin.Zones(w.pexcept).Contains(m.Question[0].Name) {
+		return
+	}
+	previous, ok := w.pcache.Get(key)
+	if !ok || previous.answeringItem(w.state) != w.refreshItem {
+		return
+	}
+	if previous.do && (!w.preferPositive || previous.answering) {
+		return
+	}
+	if denial, ok := w.ncache.Get(key); ok && denial.do && !w.preferPositive && denial.Rcode != dns.RcodeServerFailure {
+		return
+	}
+	i := newItem(m, w.now(), duration)
+	if !i.answering {
+		return
+	}
+	if w.wildcardFunc != nil {
+		i.wildcard = w.wildcardFunc()
+	}
+	published := i
+	if previous.do {
+		published = previous.withLastKnownGood(i)
+	}
+	w.pcache.Add(key, published)
+	w.lastItem = i
+	// Keep the DO1 denial, if any, for clients the unsigned answer cannot serve.
 }
 
 // Write implements the dns.ResponseWriter interface.
