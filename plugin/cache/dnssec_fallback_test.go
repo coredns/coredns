@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+
 	"github.com/miekg/dns"
 )
 
