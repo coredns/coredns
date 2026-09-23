@@ -298,8 +298,10 @@ func propagateConfigParams(configs []*Config) {
 		c.Stacktrace = c.firstConfigInBlock.Stacktrace
 		c.NumSockets = c.firstConfigInBlock.NumSockets
 
-		// Fork TLSConfig for each encrypted connection
+		// Fork TLSConfig for each encrypted connection while preserving the
+		// listener-wide policy identity used to compare dynamic callbacks.
 		c.TLSConfig = c.firstConfigInBlock.TLSConfig.Clone()
+		c.tlsConfigIdentity = c.firstConfigInBlock.tlsConfigIdentity
 		c.ReadTimeout = c.firstConfigInBlock.ReadTimeout
 		c.WriteTimeout = c.firstConfigInBlock.WriteTimeout
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout

@@ -32,7 +32,8 @@ forward FROM TO...
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
   a protocol, `tls://9.9.9.9`, `quic://94.140.14.14`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
   for plain DNS. The number of upstreams is limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
-  a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup.
+  a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup and are treated as
+  absolute DNS names even without a trailing dot; resolver search domains are not applied.
   See the `resolver` option below.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a healthy proxy returns an error

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,101 @@ func (l *stubListener) Addr() net.Addr {
 		return l.addr
 	}
 	return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0}
+}
+
+func TestNewServerTLSRejectsConflictingSharedTLSConfig(t *testing.T) {
+	certificateA := tls.Certificate{Certificate: [][]byte{[]byte("certificate-a")}}
+	certificateB := tls.Certificate{Certificate: [][]byte{[]byte("certificate-b")}}
+
+	config := func(zone string, tlsConfig *tls.Config) *Config {
+		c := testConfig("tls", testPlugin{})
+		c.Zone = zone
+		c.TLSConfig = tlsConfig
+		return c
+	}
+
+	tests := []struct {
+		name    string
+		first   *tls.Config
+		second  *tls.Config
+		wantErr string
+	}{
+		{
+			name: "client authentication",
+			first: &tls.Config{
+				Certificates: []tls.Certificate{certificateA},
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+			},
+			second: &tls.Config{
+				Certificates: []tls.Certificate{certificateA},
+				ClientAuth:   tls.NoClientCert,
+			},
+			wantErr: "client authentication policies differ",
+		},
+		{
+			name: "TLS and plaintext",
+			first: &tls.Config{
+				Certificates: []tls.Certificate{certificateA},
+			},
+			second:  nil,
+			wantErr: "TLS is configured for only one server block",
+		},
+		{
+			name: "server certificate",
+			first: &tls.Config{
+				Certificates: []tls.Certificate{certificateA},
+			},
+			second: &tls.Config{
+				Certificates: []tls.Certificate{certificateB},
+			},
+			wantErr: "server certificates differ",
+		},
+		{
+			name: "dynamic TLS callbacks",
+			first: &tls.Config{
+				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return nil, nil },
+			},
+			second: &tls.Config{
+				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return nil, nil },
+			},
+			wantErr: "dynamic TLS callbacks differ",
+		},
+		{
+			name: "matching policies",
+			first: &tls.Config{
+				Certificates: []tls.Certificate{certificateA},
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+				MinVersion:   tls.VersionTLS12,
+			},
+			second: &tls.Config{
+				Certificates: []tls.Certificate{certificateA},
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+				MinVersion:   tls.VersionTLS12,
+			},
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewServerTLS("tls://127.0.0.1:0", []*Config{
+				config("a.example.test.", tt.first),
+				config("b.example.test.", tt.second),
+			})
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("NewServerTLS() failed: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("NewServerTLS() succeeded, want error containing %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("NewServerTLS() error = %q, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestServerTLSSetsTsigSecret(t *testing.T) {

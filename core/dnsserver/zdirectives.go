@@ -52,6 +52,7 @@ var Directives = []string{
 	"minimal",
 	"template",
 	"transfer",
+	"dynupdate",
 	"hosts",
 	"route53",
 	"azure",

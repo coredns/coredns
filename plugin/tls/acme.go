@@ -244,8 +244,9 @@ type acmeBackend interface {
 type acmeBackendFactory func([]*acmeEntry, *acmeDNS01Solver) (acmeBackend, error)
 
 type acmeEntry struct {
-	options acmeOptions
-	key     acmeConfigKey
+	options           acmeOptions
+	key               acmeConfigKey
+	tlsConfigIdentity *dnsserver.TLSConfigIdentity
 
 	mu      sync.RWMutex
 	manager certificateManager
@@ -330,7 +331,11 @@ func (r *acmeRuntime) add(options acmeOptions) (*acmeEntry, error) {
 		}
 	}
 
-	entry := &acmeEntry{options: options, key: key}
+	entry := &acmeEntry{
+		options:           options,
+		key:               key,
+		tlsConfigIdentity: dnsserver.NewTLSConfigIdentity(),
+	}
 	r.entries[key] = entry
 	for _, domain := range options.domains {
 		r.domainOwners[domain] = key

@@ -70,6 +70,10 @@ type Config struct {
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 
+	// tlsConfigIdentity identifies dynamic TLS configurations that are known to
+	// represent the same listener-wide policy even after tls.Config.Clone.
+	tlsConfigIdentity *TLSConfigIdentity
+
 	// MaxQUICStreams defines the maximum number of concurrent QUIC streams for a QUIC server.
 	// This is nil if not specified, allowing for a default to be used.
 	MaxQUICStreams *int
@@ -164,6 +168,22 @@ type Config struct {
 
 // FilterFunc is a function that filters requests from the Config
 type FilterFunc func(context.Context, *request.Request) bool
+
+// TLSConfigIdentity is an opaque identity for equivalent dynamic TLS policies.
+// Plugins should share one identity only when they can prove that independently
+// constructed TLS configs are interchangeable on the same listener.
+type TLSConfigIdentity struct {
+	_ byte
+}
+
+// NewTLSConfigIdentity returns a new opaque TLS policy identity.
+func NewTLSConfigIdentity() *TLSConfigIdentity { return &TLSConfigIdentity{} }
+
+// SetTLSConfigIdentity associates an opaque listener-wide policy identity with
+// this config.
+func (c *Config) SetTLSConfigIdentity(identity *TLSConfigIdentity) {
+	c.tlsConfigIdentity = identity
+}
 
 // keyForConfig builds a key for identifying the configs during setup time
 func keyForConfig(blocIndex int, blocKeyIndex int) string {

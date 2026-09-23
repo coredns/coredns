@@ -195,9 +195,11 @@ func lookupHost(hostname string, resolvers []string) ([]string, error) {
 	return dnsLookup(hostname, resolvers)
 }
 
+var netLookupHost = net.LookupHost
+
 // systemLookup resolves using the system resolver (/etc/resolv.conf).
 func systemLookup(hostname string) ([]string, error) {
-	ips, err := net.LookupHost(hostname)
+	ips, err := netLookupHost(dns.Fqdn(hostname))
 	if err != nil {
 		return nil, err
 	}

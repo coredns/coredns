@@ -9,7 +9,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -228,6 +231,73 @@ func TestServerQUIC_IsExpectedErr(t *testing.T) {
 			result := server.isExpectedErr(tt.err)
 			if result != tt.expected {
 				t.Errorf("isExpectedErr(%v) = %v, want %v", tt.err, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestIsTransientStreamError pins down the classification isTransientStreamError
+// makes: only conditions local to a single stream (this server's own read
+// deadline expiring, or the peer resetting just that stream) may bypass
+// tearing down the whole connection. Everything else - including a DoQ
+// framing violation, or a connection-level failure that also happens to
+// report Timeout() == true - must still be treated as connection-fatal.
+func TestIsTransientStreamError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "read deadline exceeded",
+			err:      os.ErrDeadlineExceeded,
+			expected: true,
+		},
+		{
+			name:     "wrapped read deadline exceeded",
+			err:      fmt.Errorf("stream read: %w", os.ErrDeadlineExceeded),
+			expected: true,
+		},
+		{
+			name:     "peer reset just this stream",
+			err:      &quic.StreamError{ErrorCode: 2},
+			expected: true,
+		},
+		{
+			name: "connection idle timeout is not stream-scoped",
+			// quic.IdleTimeoutError.Timeout() is also true, but it signals
+			// the whole connection died, not a local per-stream condition,
+			// so it must NOT be classified as transient.
+			err:      &quic.IdleTimeoutError{},
+			expected: false,
+		},
+		{
+			name:     "connection-level application error",
+			err:      &quic.ApplicationError{ErrorCode: 2},
+			expected: false,
+		},
+		{
+			name:     "premature STREAM FIN mid-message is a framing violation",
+			err:      io.ErrUnexpectedEOF,
+			expected: false,
+		},
+		{
+			name:     "unsupported DoQ version framing error",
+			err:      fmt.Errorf("message size is 0: probably unsupported DoQ version"),
+			expected: false,
+		},
+		{
+			name:     "unrelated error",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isTransientStreamError(tt.err)
+			if result != tt.expected {
+				t.Errorf("isTransientStreamError(%v) = %v, want %v", tt.err, result, tt.expected)
 			}
 		})
 	}
@@ -743,6 +813,204 @@ func TestServerQUIC_ServeQUIC_StalledStreamDoesNotStarveWorkerPool(t *testing.T)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("normal query was not served within 5s: stalled stream starved the worker pool")
+	}
+}
+
+// TestServerQUIC_ServeQUIC_StalledStreamDoesNotKillOtherStreamsOnSameConnection
+// is a regression test for https://github.com/coredns/coredns/issues/7087:
+// one stream timing out used to close the whole QUIC connection via
+// closeQUICConn(conn, DoQCodeProtocolError), silently failing every other
+// query multiplexed on that same connection. Since DoQ clients keep one
+// connection open and send each subsequent query as a new stream on it, a
+// single stalled or malformed stream could make unrelated, well-formed
+// queries appear to randomly fail. A per-stream read-deadline timeout must
+// only cancel that one stream and leave the connection - and every other
+// query on it - alone.
+func TestServerQUIC_ServeQUIC_StalledStreamDoesNotKillOtherStreamsOnSameConnection(t *testing.T) {
+	config := testConfig("quic", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+	// Keep the test fast: the stalled stream must time out quickly.
+	server.ReadTimeout = 250 * time.Millisecond
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() failed: %v", err)
+	}
+	defer conn.CloseWithError(DoQCodeNoError, "")
+
+	// Open a stream and announce a message but never send the body, so the
+	// server's readDOQMessage blocks on this one stream until the read
+	// deadline fires.
+	stallStream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for stalled stream failed: %v", err)
+	}
+	if _, err := stallStream.Write([]byte{0x00, 0x64}); err != nil {
+		t.Fatalf("stalled stream.Write() failed: %v", err)
+	}
+
+	// Give the server's read deadline time to fire on the stalled stream
+	// before sending the well-formed query below, so this test actually
+	// exercises the connection staying usable afterwards.
+	time.Sleep(500 * time.Millisecond)
+
+	// A second, well-formed query multiplexed as a new stream on the *same*
+	// connection must still be answered.
+	normalStream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for normal stream failed: %v", err)
+	}
+
+	q := new(dns.Msg)
+	q.SetQuestion("example.com.", dns.TypeA)
+	q.Id = 0
+	wire, err := q.Pack()
+	if err != nil {
+		t.Fatalf("dns.Msg.Pack() failed: %v", err)
+	}
+	if _, err := normalStream.Write(AddPrefix(wire)); err != nil {
+		t.Fatalf("normal stream.Write() failed: %v", err)
+	}
+	if err := normalStream.Close(); err != nil {
+		t.Fatalf("normal stream.Close() failed: %v", err)
+	}
+
+	respCh := make(chan error, 1)
+	go func() {
+		_, rerr := readDOQMessage(normalStream)
+		respCh <- rerr
+	}()
+
+	select {
+	case rerr := <-respCh:
+		if rerr != nil {
+			t.Fatalf("normal query on the same connection was not served: readDOQMessage() error = %v", rerr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("normal query on the same connection was not served within 5s: the stalled stream killed the connection")
+	}
+}
+
+// TestServerQUIC_ServeQUIC_PeerResetStreamDoesNotKillOtherStreamsOnSameConnection
+// is a regression test covering the other branch of isTransientStreamError:
+// a client that abandons one in-flight query (e.g. because it deduplicated
+// it, or its own timeout fired) sends a QUIC RESET_STREAM for that one
+// stream. That surfaces on the server as a *quic.StreamError while reading
+// - a condition local to that one stream, not a DoQ framing violation by
+// the peer (RFC 9250 §4.3.3) - so it must not take down the whole
+// connection and the other, unrelated queries in flight on it.
+func TestServerQUIC_ServeQUIC_PeerResetStreamDoesNotKillOtherStreamsOnSameConnection(t *testing.T) {
+	config := testConfig("quic", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() failed: %v", err)
+	}
+	defer conn.CloseWithError(DoQCodeNoError, "")
+
+	// Open a stream, send only part of the length prefix, then abandon it
+	// with a RESET_STREAM instead of finishing the query. The server's
+	// readDOQMessage is mid-read at that point, so it observes the reset
+	// as a *quic.StreamError.
+	abandonedStream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for abandoned stream failed: %v", err)
+	}
+	if _, err := abandonedStream.Write([]byte{0x00}); err != nil {
+		t.Fatalf("abandoned stream.Write() failed: %v", err)
+	}
+	abandonedStream.CancelWrite(0)
+	abandonedStream.CancelRead(0)
+
+	// A well-formed query multiplexed as a new stream on the *same*
+	// connection must still be answered.
+	normalStream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for normal stream failed: %v", err)
+	}
+
+	q := new(dns.Msg)
+	q.SetQuestion("example.com.", dns.TypeA)
+	q.Id = 0
+	wire, err := q.Pack()
+	if err != nil {
+		t.Fatalf("dns.Msg.Pack() failed: %v", err)
+	}
+	if _, err := normalStream.Write(AddPrefix(wire)); err != nil {
+		t.Fatalf("normal stream.Write() failed: %v", err)
+	}
+	if err := normalStream.Close(); err != nil {
+		t.Fatalf("normal stream.Close() failed: %v", err)
+	}
+
+	respCh := make(chan error, 1)
+	go func() {
+		_, rerr := readDOQMessage(normalStream)
+		respCh <- rerr
+	}()
+
+	select {
+	case rerr := <-respCh:
+		if rerr != nil {
+			t.Fatalf("normal query on the same connection was not served: readDOQMessage() error = %v", rerr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("normal query on the same connection was not served within 5s: the abandoned stream killed the connection")
 	}
 }
 

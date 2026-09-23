@@ -190,6 +190,7 @@ func parseACMETLS(c *caddy.Controller, config *dnsserver.Config) (*ctls.Config, 
 		return nil, err
 	}
 	runtime.installChallengeHandlers(c)
+	config.SetTLSConfigIdentity(entry.tlsConfigIdentity)
 	return entry.tlsConfig(), nil
 }
 

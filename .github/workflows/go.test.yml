@@ -112,7 +112,24 @@ jobs:
       - name: Build
         run: go build -v ./...
 
+      - name: Install clients for DDNS interoperability tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bind9-dnsutils kea-dhcp-ddns-server
+          nsupdate -V
+          kea-dhcp-ddns -v
+          # Keep the distribution AppArmor profile and use its allowed paths.
+          sudo systemctl stop kea-dhcp-ddns-server
+          sudo install -d -m 0700 -o "$(id -u)" -g "$(id -g)" /etc/kea/coredns-tests
+          sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /run/kea
+          sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" /dev/null /run/kea/logger_lockfile
+          test ! -e /run/kea/kea-dhcp-ddns.kea-dhcp-ddns.pid
+
       - name: Test
+        env:
+          COREDNS_KEA_CONFIG_DIR: /etc/kea/coredns-tests
+          KEA_PIDFILE_DIR: /run/kea
+          KEA_LOCKFILE_DIR: /run/kea
         run: |
           ( cd test; go test -race ./... )
 
