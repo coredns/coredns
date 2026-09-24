@@ -26,9 +26,6 @@ const (
 	NoData
 	// ServerFailure indicates a server failure during the lookup.
 	ServerFailure
-	// Refused indicates the lookup was refused, i.e. the target is not
-	// served by this process.
-	Refused
 )
 
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
@@ -488,12 +485,12 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 	if m.Rcode == dns.RcodeServerFailure {
 		return m.Answer, ServerFailure
 	}
-	if m.Rcode == dns.RcodeRefused {
-		return m.Answer, Refused
-	}
 	if m.Rcode == dns.RcodeSuccess && len(m.Answer) == 0 {
 		return m.Answer, NoData
 	}
+	// Anything else, including the REFUSED returned for a target outside every
+	// zone served here, keeps NOERROR: the CNAME is the answer and the resolver
+	// chases the target itself. See #7346.
 	return m.Answer, Success
 }
 
