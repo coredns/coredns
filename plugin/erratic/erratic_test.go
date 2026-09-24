@@ -78,6 +78,9 @@ func TestErraticTruncate(t *testing.T) {
 		if tc.truncate && !rec.Msg.Truncated {
 			t.Errorf("Test %d: Expected truncated message, but got %q", i, rec.Msg.Question[0].Name)
 		}
+		if !tc.truncate && rec.Msg.Truncated {
+			t.Errorf("Test %d: Expected non-trunctaed messaeg, but got %q", i, rec.Msg.Question[0].Name)
+		}
 	}
 }
 
