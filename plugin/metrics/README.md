@@ -57,6 +57,7 @@ This plugin can only be used once per Server Block.
 ~~~
 prometheus [ADDRESS] {
     runtime_metrics
+    tls CONFIG_FILE
 }
 ~~~
 
@@ -70,6 +71,10 @@ listens on `localhost:9153`. The metrics path is fixed to `/metrics`.
   and `go_sched_latencies_seconds` for goroutine scheduling delay. Adds roughly 100 scalars
   and 8 histograms. This is a process-wide latch: enabling it in any server block enables it
   for all, and it stays enabled across reloads until restart.
+* `tls` serves `/metrics` over HTTPS. **CONFIG_FILE** is a Prometheus
+  [web configuration file](https://prometheus.io/docs/prometheus/latest/configuration/https/)
+  whose `tls_server_config` section sets `cert_file`, `key_file` and, optionally,
+  `client_auth_type` and `client_ca_file` for mutual TLS.
 
 ## Examples
 
@@ -88,6 +93,24 @@ then:
 . {
     prometheus localhost:{$PORT}
 }
+~~~
+
+Serve the metrics over HTTPS:
+
+~~~ corefile
+. {
+    prometheus {
+        tls /etc/coredns/web-config.yml
+    }
+}
+~~~
+
+With `/etc/coredns/web-config.yml`:
+
+~~~ yaml
+tls_server_config:
+  cert_file: server.crt
+  key_file: server.key
 ~~~
 
 ## Bugs
