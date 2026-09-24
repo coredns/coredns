@@ -2,6 +2,7 @@ package file
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -69,6 +70,10 @@ func setup(c *caddy.Controller) error {
 }
 
 func fileParse(c *caddy.Controller) (Zones, fall.F, error) {
+	return fileParseWithParser(c, Parse)
+}
+
+func fileParseWithParser(c *caddy.Controller, parse func(io.Reader, string, string, int64) (*Zone, error)) (Zones, fall.F, error) {
 	z := make(map[string]*Zone)
 	names := []string{}
 	fall := fall.F{}
@@ -95,6 +100,12 @@ func fileParse(c *caddy.Controller) (Zones, fall.F, error) {
 		if err != nil {
 			openErr = err
 		}
+		var openedFileInfo os.FileInfo
+		if err == nil {
+			// Capture the version represented by the opened reader, before
+			// parsing can race with a replacement at the same pathname.
+			openedFileInfo, _ = reader.Stat()
+		}
 
 		err = func() error {
 			defer reader.Close()
@@ -103,7 +114,7 @@ func fileParse(c *caddy.Controller) (Zones, fall.F, error) {
 				z[origins[i]] = NewZone(origins[i], fileName)
 				if openErr == nil {
 					reader.Seek(0, 0)
-					zone, err := Parse(reader, origins[i], fileName, 0)
+					zone, err := parse(reader, origins[i], fileName, 0)
 					if err != nil {
 						return err
 					}
@@ -147,12 +158,8 @@ func fileParse(c *caddy.Controller) (Zones, fall.F, error) {
 			z[origins[i]].ReloadInterval = reload
 			z[origins[i]].Upstream = upstream.New()
 			z[origins[i]].ReloadByMtime = reload_by_mtime
-			if reload_by_mtime {
-				// Parse runs before reload_by_mtime is known, so initialize the
-				// baseline mtime after applying the server block options.
-				if fi, err := os.Stat(z[origins[i]].File()); err == nil {
-					z[origins[i]].file_mtime = fi.ModTime()
-				}
+			if reload_by_mtime && openedFileInfo != nil {
+				z[origins[i]].file_mtime = openedFileInfo.ModTime()
 			}
 		}
 	}
