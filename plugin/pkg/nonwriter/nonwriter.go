@@ -19,3 +19,9 @@ func (w *Writer) WriteMsg(res *dns.Msg) error {
 	w.Msg = res
 	return nil
 }
+
+func (w *Writer) TsigTimersOnly(b bool) {
+	if w.Msg == nil {
+		w.ResponseWriter.TsigTimersOnly(b)
+	}
+}
