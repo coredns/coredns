@@ -21,6 +21,7 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 			case <-tick.C:
 				zFile := z.File()
 				serial := z.SOASerialIfDefined()
+				var fileMtime time.Time
 
 				if z.ReloadByMtime {
 					fi, err := os.Stat(zFile)
@@ -28,9 +29,13 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 						log.Errorf("Failed to stat zone %q in %q: %v", z.origin, zFile, err)
 						continue
 					}
-					if !fi.ModTime().After(z.file_mtime) {
+					z.RLock()
+					lastMtime := z.file_mtime
+					z.RUnlock()
+					if !fi.ModTime().After(lastMtime) {
 						continue
 					}
+					fileMtime = fi.ModTime()
 					serial = 0 // force reload of the zone
 				}
 
@@ -50,6 +55,11 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 				}
 
 				z.setData(zone.Apex, zone.Tree)
+				if z.ReloadByMtime {
+					z.Lock()
+					z.file_mtime = fileMtime
+					z.Unlock()
+				}
 
 				log.Infof("Successfully reloaded zone %q in %q with %d SOA serial", z.origin, zFile, zone.SOA.Serial)
 				if t != nil {
