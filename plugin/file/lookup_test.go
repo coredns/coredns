@@ -557,3 +557,55 @@ cname-srv	IN CNAME	srv.example.org.
 dname		IN DNAME	dsub.example.org.
 srv.dsub	IN SRV	10 50 8080 host.example.org.
 `
+
+const dbExampleOrgOutOfZone = `$ORIGIN example.org.
+@	3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. ( 2017042745 7200 3600 1209600 3600 )
+	3600 IN NS  a.iana-servers.net.
+www	3600 IN CNAME www.example.net.
+`
+
+// refusedUpstream answers every lookup with REFUSED, which is what the server
+// returns for a name that matches none of the zones it serves.
+type refusedUpstream struct{}
+
+func (refusedUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+	m := new(dns.Msg)
+	m.SetQuestion(name, typ)
+	m.Rcode = dns.RcodeRefused
+	return m, nil
+}
+
+// TestLookupRefusedUpstream checks that a CNAME whose target lies outside every
+// served zone is answered with NOERROR and the CNAME, so the resolver can chase
+// the target itself. The self-lookup for such a target comes back REFUSED, which
+// is not an error for an authoritative answer. See #7346 and #7381.
+func TestLookupRefusedUpstream(t *testing.T) {
+	const origin = "example.org."
+	zone, err := Parse(strings.NewReader(dbExampleOrgOutOfZone), origin, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+	zone.Upstream = refusedUpstream{}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{origin: zone}, Names: []string{origin}}}
+
+	m := new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := fm.ServeDNS(context.TODO(), rec, m); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if rec.Msg == nil {
+		t.Fatal("Expected a response to be written, got none")
+	}
+	if rec.Msg.Rcode != dns.RcodeSuccess {
+		t.Errorf("rcode is %q, expected %q", dns.RcodeToString[rec.Msg.Rcode], dns.RcodeToString[dns.RcodeSuccess])
+	}
+	if len(rec.Msg.Answer) != 1 {
+		t.Fatalf("Expected the CNAME in the answer, got %d records", len(rec.Msg.Answer))
+	}
+	if _, ok := rec.Msg.Answer[0].(*dns.CNAME); !ok {
+		t.Errorf("Expected a CNAME in the answer, got %s", rec.Msg.Answer[0])
+	}
+}
