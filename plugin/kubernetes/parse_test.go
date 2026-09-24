@@ -30,6 +30,9 @@ func TestParseRequest(t *testing.T) {
 		{"..webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, false, ""},
 		// A multicluster request with a clusterid
 		{"1-2-3-4.cluster1.webs.mynamespace.svc.inter.webs.tests.", "..1-2-3-4.cluster1.webs.mynamespace.svc", true, false, ""},
+		// An escaped dot is part of the label, not a separator between two labels
+		{`foo\.bar.mynamespace.svc.inter.webs.tests.`, `....foo\.bar.mynamespace.svc`, false, false, ""},
+		{`_http._tcp.foo\.bar.mynamespace.svc.inter.webs.tests.`, `http.tcp...foo\.bar.mynamespace.svc`, false, false, ""},
 		// zone-scoped names, both directives
 		{"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
 		{"us-west-2a.prefer._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
@@ -102,4 +105,73 @@ func BenchmarkParseRequest(b *testing.B) {
 	for b.Loop() {
 		_, _ = parseRequest("1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", zone, false, false)
 	}
+}
+
+func TestSplitReverse(t *testing.T) {
+	tests := []string{
+		"webs.mynamespace.svc",
+		"_http._tcp.webs.mynamespace.svc",
+		`foo\.bar.mynamespace.svc`,
+		`foo\.bar.baz\.qux.svc`,
+		`a\\.mynamespace.svc`,
+		"..webs.mynamespace.svc",
+		".mynamespace.svc",
+		"svc",
+		"",
+	}
+	for _, base := range tests {
+		var arr [maxSegs]string
+		segs := splitReverse(base, &arr)
+		want := dns.SplitDomainName(base)
+		if !equalReversed(segs, want) {
+			t.Errorf("splitReverse(%q) = %q, want the reverse of %q", base, segs, want)
+		}
+	}
+
+	// A zone-scoped name carries more labels than arr holds, and grows off it.
+	var arr [maxSegs]string
+	long := "corp.example.com.pin._zone.webs.mynamespace.svc"
+	if segs := splitReverse(long, &arr); !equalReversed(segs, dns.SplitDomainName(long)) {
+		t.Errorf("splitReverse(%q) = %q, want the reverse of %q", long, segs, dns.SplitDomainName(long))
+	}
+}
+
+// FuzzSplitReverse checks the allocation-free split against dns.SplitDomainName,
+// which is the splitter the rest of CoreDNS uses and the one this replaces.
+func FuzzSplitReverse(f *testing.F) {
+	for _, s := range []string{
+		"webs.mynamespace.svc",
+		`foo\.bar.mynamespace.svc`,
+		"..webs.mynamespace.svc",
+		"_http._tcp.webs.mynamespace.svc",
+		"a.b.c.d.e.f.g.svc",
+	} {
+		f.Add(s)
+	}
+
+	f.Fuzz(func(t *testing.T, base string) {
+		if _, ok := dns.IsDomainName(base); !ok {
+			t.Skip()
+		}
+
+		var arr [maxSegs]string
+		segs := splitReverse(base, &arr)
+		want := dns.SplitDomainName(base)
+
+		if !equalReversed(segs, want) {
+			t.Fatalf("splitReverse(%q) = %q, want the reverse of %q", base, segs, want)
+		}
+	})
+}
+
+func equalReversed(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[len(want)-1-i] {
+			return false
+		}
+	}
+	return true
 }
