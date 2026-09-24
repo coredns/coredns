@@ -288,6 +288,45 @@ func TestFileParseReloadByMtimeMissingFileLeavesBaselineUnset(t *testing.T) {
 	}
 }
 
+func TestFileParseReloadByMtimeRecoversLaterZoneAfterMissingFile(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "missing.db")
+	existing := filepath.Join(dir, "existing.db")
+	if err := os.WriteFile(existing, []byte(dbMiekNL), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	corefile := fmt.Sprintf(`file %s example.org. {
+	reload 10ms
+	reload_by_mtime
+}
+file %s miek.nl. {
+	reload 10ms
+	reload_by_mtime
+}`, missing, existing)
+	zones, _, err := fileParse(caddy.NewTestController("dns", corefile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	z := zones.Z["miek.nl."]
+	if z == nil {
+		t.Fatal("later zone was not configured")
+	}
+	if err := z.Reload(nil); err != nil {
+		t.Fatal(err)
+	}
+	defer z.OnShutdown()
+
+	const wantSerial = 1282630057
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		if z.SOASerialIfDefined() == wantSerial {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatalf("later zone never loaded: SOA serial = %d, want %d", z.SOASerialIfDefined(), wantSerial)
+}
+
 func TestFileParseReloadByMtimeUsesOpenedFileMtime(t *testing.T) {
 	name, rm, err := test.TempFile(".", dbRelative)
 	if err != nil {

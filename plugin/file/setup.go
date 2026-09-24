@@ -158,7 +158,7 @@ func fileParseWithParser(c *caddy.Controller, parse func(io.Reader, string, stri
 			z[origins[i]].ReloadInterval = reload
 			z[origins[i]].Upstream = upstream.New()
 			z[origins[i]].ReloadByMtime = reload_by_mtime
-			if reload_by_mtime && openedFileInfo != nil {
+			if reload_by_mtime && openErr == nil && openedFileInfo != nil {
 				z[origins[i]].file_mtime = openedFileInfo.ModTime()
 			}
 		}
