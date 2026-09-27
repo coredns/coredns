@@ -132,7 +132,7 @@ func (t *trace) setupZipkin() error {
 	reporter := zipkinhttp.NewReporter(t.Endpoint, opts...)
 	recorder, err := zipkin.NewEndpoint(t.serviceName, t.serviceEndpoint)
 	if err != nil {
-		log.Warningf("build Zipkin endpoint found err: %v", err)
+		return fmt.Errorf("build Zipkin endpoint error: %w", err)
 	}
 	tracer, err := zipkin.NewTracer(
 		reporter,
