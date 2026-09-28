@@ -2,9 +2,7 @@
 package cache
 
 import (
-	"encoding/binary"
 	"fmt"
-	"hash/fnv"
 	"net"
 	"strings"
 	"time"
@@ -299,32 +297,40 @@ func (s nameSet) add(name string) {
 	s[strings.ToLower(name)] = struct{}{}
 }
 
-var one = []byte("1")
-var zero = []byte("0")
+// FNV-1 64-bit parameters, as used by hash/fnv.New64.
+const (
+	offset64 uint64 = 14695981039346656037
+	prime64  uint64 = 1099511628211
+)
 
+// hash returns the cache key for a query. It computes the same FNV-1 64-bit
+// hash as hash/fnv.New64 over the bytes "0"/"1" (DO), "0"/"1" (CD), qtype and
+// qclass in big endian, followed by qname, but does so inline without
+// allocating a hash.Hash64 or converting qname to a []byte.
 func hash(qname string, qtype, qclass uint16, do, cd bool) uint64 {
-	h := fnv.New64()
+	h := offset64
 
+	b := byte('0')
 	if do {
-		h.Write(one)
-	} else {
-		h.Write(zero)
+		b = '1'
 	}
+	h = (h * prime64) ^ uint64(b)
 
+	b = '0'
 	if cd {
-		h.Write(one)
-	} else {
-		h.Write(zero)
+		b = '1'
 	}
+	h = (h * prime64) ^ uint64(b)
 
-	var qtypeBytes [2]byte
-	binary.BigEndian.PutUint16(qtypeBytes[:], qtype)
-	h.Write(qtypeBytes[:])
-	var qclassBytes [2]byte
-	binary.BigEndian.PutUint16(qclassBytes[:], qclass)
-	h.Write(qclassBytes[:])
-	h.Write([]byte(qname))
-	return h.Sum64()
+	h = (h * prime64) ^ uint64(qtype>>8)
+	h = (h * prime64) ^ uint64(qtype&0xff)
+	h = (h * prime64) ^ uint64(qclass>>8)
+	h = (h * prime64) ^ uint64(qclass&0xff)
+
+	for i := range len(qname) {
+		h = (h * prime64) ^ uint64(qname[i])
+	}
+	return h
 }
 
 func computeTTL(msgTTL, minTTL, maxTTL time.Duration) time.Duration {
