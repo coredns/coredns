@@ -502,6 +502,61 @@ func BenchmarkCoreServeDNS(b *testing.B) {
 	}
 }
 
+// BenchmarkServeWire measures a full query round trip through the UDP and TCP
+// listeners, including the per-request handler set up in Serve/ServePacket.
+// Allocations of the server goroutines are included in allocs/op.
+func BenchmarkServeWire(b *testing.B) {
+	for _, network := range []string{"udp", "tcp"} {
+		b.Run(network, func(b *testing.B) {
+			s, err := NewServer("127.0.0.1:0", []*Config{testConfig("dns", new(updateResponsePlugin))})
+			if err != nil {
+				b.Fatalf("NewServer() failed: %v", err)
+			}
+			s.MaxTCPQueries = -1
+
+			var addr string
+			switch network {
+			case "udp":
+				pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+				if err != nil {
+					b.Fatalf("net.ListenPacket() failed: %v", err)
+				}
+				addr = pc.LocalAddr().String()
+				go func() { _ = s.ServePacket(pc) }()
+				b.Cleanup(func() { _ = pc.Close() })
+			case "tcp":
+				l, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					b.Fatalf("net.Listen() failed: %v", err)
+				}
+				addr = l.Addr().String()
+				go func() { _ = s.Serve(l) }()
+				b.Cleanup(func() { _ = l.Close() })
+			}
+			b.Cleanup(func() { _ = s.Stop() })
+
+			co, err := dns.Dial(network, addr)
+			if err != nil {
+				b.Fatalf("dns.Dial() failed: %v", err)
+			}
+			defer co.Close()
+
+			m := new(dns.Msg)
+			m.SetQuestion("aaa.example.com.", dns.TypeA)
+
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := co.WriteMsg(m); err != nil {
+					b.Fatalf("WriteMsg() failed: %v", err)
+				}
+				if _, err := co.ReadMsg(); err != nil {
+					b.Fatalf("ReadMsg() failed: %v", err)
+				}
+			}
+		})
+	}
+}
+
 // recordingWriter counts the packed frames the decorated writer receives
 // before forwarding them to the real writer. The decorator mints a fresh
 // wrapper per packet; the frames counter is shared across them.
