@@ -68,11 +68,13 @@ cache [TTL] [ZONES...] {
   available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
   attempt to refresh the cache entry after sending the expired cache entry to the client. The
   responses have a TTL of 0 by default for backward compatibility. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
-  `verify` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
+  For a request that starts its own refresh, `verify` checks the source before sending a stale entry.
+  If it receives an accepted updated response, that request uses the update. A positive **VERIFY_TIMEOUT**
+  permits the request to fall back to the stale entry when the wait expires. A positive **FAILURE_RECHECK**
+  lets concurrent requests return stale immediately while a verify is in flight, even if that verify later succeeds.
   `immediate` will immediately send the expired entry to the client before
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
-  value to `verify` can lead to increased latency when serving stale responses, but will prevent stale entries
-  from ever being served if an updated response can be retrieved from the source.
+  value to `verify` can lead to increased latency for requests that wait for an upstream refresh.
   In `immediate` mode, concurrent requests for the same expired entry dispatch at most one
   background refresh.
   **VERIFY_TIMEOUT** is only valid with `verify` and bounds how long the cache waits for the upstream
