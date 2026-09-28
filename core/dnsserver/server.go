@@ -106,6 +106,9 @@ type Server struct {
 	stopOnce sync.Once
 	stopErr  error
 
+	// baseCtx is the immutable root context for requests served by the plain
+	// DNS and DoT listeners. It carries Key{} and LoopKey{} and is built once in
+	// NewServer to avoid two context.WithValue allocations per query.
 	baseCtx context.Context
 }
 
