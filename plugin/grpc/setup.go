@@ -28,6 +28,7 @@ func setup(c *caddy.Controller) error {
 		g.Next = next // Set the Next field, so the plugin chaining works.
 		return g
 	})
+	c.OnShutdown(g.OnShutdown)
 
 	return nil
 }

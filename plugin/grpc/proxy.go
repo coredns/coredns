@@ -37,6 +37,7 @@ type Proxy struct {
 	addr string
 
 	// connection
+	conn     *grpc.ClientConn
 	client   pb.DnsServiceClient
 	dialOpts []grpc.DialOption
 }
@@ -66,9 +67,17 @@ func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
 	if err != nil {
 		return nil, err
 	}
+	p.conn = conn
 	p.client = pb.NewDnsServiceClient(conn)
 
 	return p, nil
+}
+
+func (p *Proxy) close() error {
+	if p.conn == nil {
+		return nil
+	}
+	return p.conn.Close()
 }
 
 // query sends the request and waits for a response.

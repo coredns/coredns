@@ -139,6 +139,15 @@ func (g *GRPC) Name() string { return "grpc" }
 // Len returns the number of configured proxies.
 func (g *GRPC) len() int { return len(g.proxies) }
 
+// OnShutdown closes all configured upstream connections.
+func (g *GRPC) OnShutdown() error {
+	var err error
+	for _, p := range g.proxies {
+		err = errors.Join(err, p.close())
+	}
+	return err
+}
+
 func (g *GRPC) match(state request.Request) bool {
 	if !plugin.Name(g.from).Matches(state.Name()) || !g.isAllowedDomain(state.Name()) {
 		return false
