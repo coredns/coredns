@@ -13,8 +13,6 @@ import (
 
 const Name = "dso"
 
-type instanceDSOKey struct{}
-
 var log = clog.NewWithPlugin(Name)
 
 func init() { plugin.Register(Name, setup) }
@@ -37,31 +35,24 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(Name, err)
 	}
 	dnsCfg := dnsserver.GetConfig(c)
-	instHandler, ok := c.Get(instanceDSOKey{}).(*instanceDSO)
-	if !ok {
-		instHandler = &instanceDSO{}
-		c.Set(instanceDSOKey{}, instHandler)
-		c.OnStartup(instHandler.onStartup)
-		c.OnRestart(instHandler.onRestart)
-		c.OnRestartFailed(instHandler.onRestartFailed)
-		c.OnFinalShutdown(instHandler.onFinalShutdown)
-	}
-	if dsoCfg != handlerOnlyConfig {
-		instHandler.addConfig(dnsCfg, dsoCfg)
-	}
+	instHandler := globalDSO.getInstanceDSO(c)
+	instHandler.addConfigPair(dnsCfg, dsoCfg)
 
-	// While DSO does not synthesise responses, handler
+	// While DSO does not synthesise responses, siteHandler
 	// must be installed to pair DSO and DNS servers.
-	handler := &dso{instanceDSO: instHandler}
+	siteHandler := instHandler.newSiteDSO()
 	dnsCfg.AddPlugin(func(h plugin.Handler) plugin.Handler {
-		handler.Next = h
-		return handler
+		siteHandler.Next = h
+		return siteHandler
 	})
 
 	return nil
 }
 
 var (
-	errShared    = fmt.Errorf("DSO cannot be shared by DNS servers")
-	errRedefined = fmt.Errorf("DSO must be defined once per DNS server")
+	errBare      = fmt.Errorf("missing definition")
+	errShared    = fmt.Errorf("cannot share definition")
+	errRedefined = fmt.Errorf("cannot redefine")
+	errAddress   = fmt.Errorf("bad address")
+	errTLSConfig = fmt.Errorf("missing TLS config")
 )

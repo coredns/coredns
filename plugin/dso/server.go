@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -98,7 +99,9 @@ func newServer(cfg *Config, upstream *dnsserver.Server) (s *Server) {
 	return s
 }
 
-// Serve serves DNS and DSO over accepted connections.
+// Serve serves DSO over connections accepted from listener until shutdown or error.
+//
+// Timeout errors are absorbed. Only exceptoin is [os.ErrDeadlineExceeded] which can be used to "release" listener.
 func (s *Server) Serve(ln net.Listener) error {
 	if !s.trackListener(ln, true) {
 		return ErrServerClosed
@@ -109,9 +112,9 @@ func (s *Server) Serve(ln net.Listener) error {
 		conn, err := ln.Accept()
 		if err != nil {
 			if s.shutdown.Load() {
-				return ErrServerClosed
+				return errors.Join(err, ErrServerClosed)
 			}
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() && !errors.Is(err, os.ErrDeadlineExceeded) {
 				continue
 			}
 			return err
@@ -123,12 +126,12 @@ func (s *Server) Serve(ln net.Listener) error {
 	}
 }
 
-// ServeTLS serves DNS and DSO via TLS over accepted connections.
+// ServeTLS is same as [Server.Serve] but connections are [tls]-wrapped.
 func (s *Server) ServeTLS(ln net.Listener) error {
 	return s.Serve(tls.NewListener(ln, s.Config.TLSConfig.Clone()))
 }
 
-// RefreshPushSubscriptions schedules
+// RefreshPushSubscriptions initiates refresh of push subscriptions. Can be called concurrently.
 func (s *Server) RefreshPushSubscriptions() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -140,7 +143,10 @@ func (s *Server) RefreshPushSubscriptions() {
 	}
 }
 
-// Shutdown tears down listeners and connections.
+// Shutdown tears down connections after listeners to stop accepting.
+//
+// Normally each client is asked to terminate gracefully via Retry Delay.
+// Passing negative reconnectInterval will cause connection to be closed immediately.
 func (s *Server) Shutdown(ctx context.Context, reconnectInterval time.Duration) error {
 	if !s.shutdown.CompareAndSwap(false, true) {
 		s.listenersGroup.Wait()
@@ -148,14 +154,14 @@ func (s *Server) Shutdown(ctx context.Context, reconnectInterval time.Duration) 
 		return nil
 	}
 
-	s.shutdownFunc(&shutdownError{dns.RcodeSuccess, reconnectInterval})
-
 	s.mu.Lock()
 	for l := range s.listeners {
 		l.Close()
 	}
 	s.mu.Unlock()
 	s.listenersGroup.Wait()
+
+	s.shutdownFunc(&shutdownError{dns.RcodeSuccess, reconnectInterval})
 
 	// All [Server.Serve] calls returned and no more connections are accepted.
 

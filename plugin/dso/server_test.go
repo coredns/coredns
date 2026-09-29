@@ -78,6 +78,8 @@ ETCzvyFmgiPOCs+6v17UNyYMIxDDj33w9F6uNGSjDkoBCA625xnwEIqBPfhvLDfZ
 rIGCRl49ih7emIzUrTWAh08=
 -----END PRIVATE KEY-----`)
 
+const noMessageTimeout = 500 * time.Millisecond
+
 type (
 	// testPlugin invokes serveDNSFunc if set. Writes [dns.RcodeServerFailure] otherwise.
 	testPlugin struct {
@@ -202,6 +204,9 @@ func (c *testConn) assertWriteMsg(tb testing.TB, m any) {
 }
 
 func (c *testConn) read() (msg []byte, err error) {
+	c.SetReadDeadline(time.Now().Add(noMessageTimeout))
+	defer c.SetReadDeadline(time.Time{})
+
 	var length uint16
 	if err := binary.Read(c, binary.BigEndian, &length); err != nil {
 		return nil, err
@@ -339,7 +344,7 @@ func (c *testConn) assertAborted(tb testing.TB) {
 func (s *testServer) start(tb testing.TB, useTLS bool) (*testListener, <-chan error) {
 	tb.Helper()
 
-	listener := newTestListener()
+	ln := newTestListener()
 	doneC := make(chan error, 1)
 	go func() {
 		defer close(doneC)
@@ -351,25 +356,25 @@ func (s *testServer) start(tb testing.TB, useTLS bool) (*testListener, <-chan er
 			s.Config.TLSConfig = &ctls.Config{
 				Certificates: []ctls.Certificate{cert},
 			}
-			doneC <- s.ServeTLS(listener)
+			doneC <- s.ServeTLS(ln)
 		} else {
-			doneC <- s.Serve(listener)
+			doneC <- s.Serve(ln)
 		}
 	}()
 	tb.Cleanup(func() {
 		s.Shutdown(tb.Context(), 0)
 		<-doneC
 	})
-	return listener, doneC
+	return ln, doneC
 }
 
 func (s *testServer) assertStart(tb testing.TB, useTLS bool) *testListener {
 	tb.Helper()
 
-	listener, doneC := s.start(tb, useTLS)
+	ln, doneC := s.start(tb, useTLS)
 	tb.Cleanup(func() {
 		s.Shutdown(tb.Context(), 0)
-		if err := <-doneC; err != ErrServerClosed {
+		if err := <-doneC; !errors.Is(err, ErrServerClosed) {
 			tb.Errorf("Got Serve()=%v, want %v", err, ErrServerClosed)
 		}
 		if len(s.listeners) > 0 {
@@ -379,7 +384,7 @@ func (s *testServer) assertStart(tb testing.TB, useTLS bool) *testListener {
 			tb.Errorf("Got %v, want no connections", s.conns)
 		}
 	})
-	return listener
+	return ln
 }
 
 func assertUnpackMsg(tb testing.TB, msg []byte) (m any) {
@@ -466,19 +471,19 @@ func TestServerShutdown(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
-		server, listener, conn := setupServerConn(t, false, false)
+		server, ln, conn := setupServerConn(t, false, false)
 
 		server.Shutdown(t.Context(), 0)
 		synctest.Wait()
 
-		if !listener.closed {
+		if !ln.closed {
 			t.Error("Want closed listener")
 		}
 
 		conn.assertClosed(t, false)
 
 		_, doneC := server.start(t, false)
-		if err := <-doneC; err != ErrServerClosed {
+		if err := <-doneC; !errors.Is(err, ErrServerClosed) {
 			t.Errorf("Got Serve()=%v, want %v", err, ErrServerClosed)
 		}
 
@@ -508,6 +513,20 @@ func TestServerShutdownDSO(t *testing.T) {
 		}
 
 		conn.assertClosedAfter(t, false, dsosession.SessionGracefulCloseTimeout)
+	})
+}
+
+func TestServerForcefulShutdown(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		server, _, conn := setupServerConn(t, false, false)
+
+		conn.assertExchangeKeepAlive(t, 1, dsomessage.KeepAlive{})
+		synctest.Wait()
+
+		go server.Shutdown(t.Context(), -1)
+		conn.assertClosed(t, false)
 	})
 }
 
@@ -602,8 +621,8 @@ func TestServerReadTimeout(t *testing.T) {
 				server.Upstream.ReadTimeout = tc.readTimeout
 				server.Config.InactivityTimeout = tc.inactivityTimeout
 				server.Config.KeepAliveInterval = tc.keepaliveTimeout
-				listener := server.assertStart(t, false)
-				conn := listener.addConn(false)
+				ln := server.assertStart(t, false)
+				conn := ln.addConn(false)
 
 				if tc.session {
 					conn.assertExchangeKeepAlive(t, 1, dsomessage.KeepAlive{
@@ -659,7 +678,6 @@ func TestServerReadTimeout(t *testing.T) {
 			conn.assertExchangeSubscribe(t, 1, dsomessage.Subscribe{Name: "test.", RRType: dns.TypeA, Class: dns.ClassINET})
 
 			time.Sleep(time.Minute)
-			conn.SetReadDeadline(time.Now())
 			_, err := conn.readMsg(t)
 			if !errors.Is(err, os.ErrDeadlineExceeded) {
 				t.Fatalf("Got %v, want functional connection", err)

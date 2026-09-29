@@ -169,7 +169,7 @@ func TestConfigParsePushZones(t *testing.T) {
 			c.ServerBlockKeys = []string{"dns://test."}
 			cfg, err := parseConfig(c)
 			if err != nil {
-				t.Errorf("Expected no error, got %v", err)
+				t.Errorf("Got parseConfig()=%v", err)
 			} else if !slices.Equal(cfg.Push.Zones, test.zones) {
 				t.Errorf("Zones mismatch:\n%s", cmp.Diff(test.zones, cfg.Push.Zones))
 			}
@@ -317,8 +317,8 @@ func TestConfigParseSentinel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Got %v, err", err)
 	}
-	if cfg != handlerOnlyConfig {
-		t.Errorf("Got %v, want sentinel (%v)", cfg, handlerOnlyConfig)
+	if cfg != bareConfig {
+		t.Errorf("Got %v, want sentinel (%v)", cfg, bareConfig)
 	}
 }
 

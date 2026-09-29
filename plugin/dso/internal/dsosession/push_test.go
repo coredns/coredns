@@ -688,7 +688,7 @@ func TestPushCancelDebounce(t *testing.T) {
 
 		err := <-doneC
 		if err != context.Canceled {
-			t.Errorf("Expected Serve() error %v, got %v", context.Canceled, err)
+			t.Errorf("Got Serve()=%v, want %v", err, context.Canceled)
 		}
 
 		push.assertChanges(t)

@@ -72,7 +72,7 @@ type (
 	LogConfig struct{}
 )
 
-var handlerOnlyConfig = &Config{}
+var bareConfig = &Config{}
 
 var (
 	DefaultTCPPort                   = 0
@@ -139,7 +139,7 @@ func parseConfig(c *caddy.Controller) (cfg *Config, err error) {
 
 		ok := c.NextBlock()
 		if !ok {
-			return handlerOnlyConfig, nil
+			return bareConfig, nil
 		}
 		for ok {
 			switch c.Val() {
