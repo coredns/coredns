@@ -662,16 +662,16 @@ func FuzzSession(f *testing.F) {
 		seed uint64,
 	) {
 		synctest.Test(t, func(t *testing.T) {
-			sesh := setupWaitingSession(t)
-			defer sesh.Close()
-
 			var (
+				sesh = setupWaitingSession(t)
+
 				pcg = rand.NewPCG(seed, 0)
 				r   = rand.New(pcg)
 
 				wg sync.WaitGroup
 			)
 			defer wg.Wait()
+			defer sesh.Close()
 
 			wg.Go(func() {
 				io.Copy(io.Discard, sesh.clientConn)

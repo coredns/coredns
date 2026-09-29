@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -71,6 +70,14 @@ func (s State) String() string {
 	}
 }
 
+func packStateCount(s State, w uint32) uint64 {
+	return uint64(s)<<32 | uint64(w)
+}
+
+func unpackStateCount(sc uint64) (State, uint32) {
+	return State(sc >> 32), uint32(sc)
+}
+
 // Session implements server-side state management of RFC 8490 DNS Stateful Operations session.
 //
 //  1. Initially, state is [StateWaiting]
@@ -84,23 +91,27 @@ func (s State) String() string {
 type Session struct {
 	Conn net.Conn
 
-	closedC    chan struct{} // closed to signal that underlying connection is closed
-	state      atomic.Uint32
-	writeGroup sync.WaitGroup
+	closedC chan struct{} // closed to signal that underlying connection is closed
+
+	stateCount  atomic.Uint64 // session state (high 32 bits) and count of in-flight writers (low 32 bits)
+	writersC    chan struct{} // closed to signal final non-close write
+	writersFlag atomic.Bool   // guards writersC to close once
 }
 
 // New creates new Session.
 func New(conn net.Conn) (s *Session) {
 	s = &Session{
-		Conn:    conn,
-		closedC: make(chan struct{}),
+		Conn:     conn,
+		closedC:  make(chan struct{}),
+		writersC: make(chan struct{}),
 	}
 	return s
 }
 
 // State returns current state.
-func (s *Session) State() State {
-	return State(s.state.Load())
+func (s *Session) State() (state State) {
+	state, _ = unpackStateCount(s.stateCount.Load())
+	return state
 }
 
 // ReadMsg reads and returns one DNS message without length-prefix.
@@ -127,7 +138,7 @@ func (s *Session) ReadMsg(deadline time.Time) (msg []byte, err error) {
 	// RFC 8490, Section 5.5.2: If ... server receives a response (QR=1) ...
 	// that does not match ... any of its outstanding operations, this is
 	// a fatal error and the recipient MUST forcibly abort the connection immediately.
-	if raw.opcode() == dns.OpcodeStateful && (raw.id() == 0 || raw.response()) && State(s.state.Load()) == StateWaiting {
+	if raw.opcode() == dns.OpcodeStateful && (raw.id() == 0 || raw.response()) && s.State() == StateWaiting {
 		err = ErrState
 	}
 
@@ -173,10 +184,10 @@ func (s *Session) Abort() error {
 }
 
 func (s *Session) writeDNS(msg []byte) (n int, err error) {
-	s.writeGroup.Add(1)
-	defer s.writeGroup.Done()
+	state := s.beginWrite()
+	defer s.endWrite()
 
-	switch State(s.state.Load()) {
+	switch state {
 	case StateWaiting:
 		fallthrough
 	case StatePending:
@@ -200,7 +211,7 @@ func (s *Session) doClose() {
 	// forcibly abort the connection.
 	select {
 	case <-time.After(SessionGracefulCloseTimeout):
-		if State(s.state.Swap(uint32(StateClosed))) != StateClosed {
+		if s.swapState(StateClosed) != StateClosed {
 			abortConn(s.Conn)
 			close(s.closedC)
 		}
@@ -218,21 +229,20 @@ func (s *Session) doClose() {
 func (s *Session) writeCloseUnidirectional(msg []byte) (n int, err error) {
 	var state State
 	for {
-		state = State(s.state.Load())
+		state = s.State()
 		if state == StateClosing || state == StateClosed {
 			return 0, ErrStateClosed
 		}
-		if s.state.CompareAndSwap(uint32(state), uint32(StateClosing)) {
+		if s.compareAndSwapState(state, StateClosing) {
 			break
 		}
 	}
 
-	s.writeGroup.Wait()
+	s.waitWriters()
 
 	switch state {
 	case StateWaiting:
-		if State(s.state.Swap(uint32(StateClosed))) != StateClosed {
-			s.state.Store(uint32(StateClosed))
+		if s.swapState(StateClosed) != StateClosed {
 			close(s.closedC)
 			s.Conn.Close()
 		}
@@ -251,10 +261,10 @@ func (s *Session) writeCloseUnidirectional(msg []byte) (n int, err error) {
 }
 
 func (s *Session) writeUnidirectional(msg []byte) (n int, err error) {
-	s.writeGroup.Add(1)
-	defer s.writeGroup.Done()
+	state := s.beginWrite()
+	defer s.endWrite()
 
-	switch State(s.state.Load()) {
+	switch state {
 	case StateWaiting:
 		fallthrough
 	case StatePending:
@@ -271,10 +281,10 @@ func (s *Session) writeUnidirectional(msg []byte) (n int, err error) {
 }
 
 func (s *Session) writeRequest(msg []byte) (n int, err error) {
-	s.writeGroup.Add(1)
-	defer s.writeGroup.Done()
+	state := s.beginWrite()
+	defer s.endWrite()
 
-	switch State(s.state.Load()) {
+	switch state {
 	case StateWaiting:
 		fallthrough
 	case StatePending:
@@ -291,10 +301,10 @@ func (s *Session) writeRequest(msg []byte) (n int, err error) {
 }
 
 func (s *Session) writeErrorResponse(msg []byte) (n int, err error) {
-	s.writeGroup.Add(1)
-	defer s.writeGroup.Done()
+	state := s.beginWrite()
+	defer s.endWrite()
 
-	switch State(s.state.Load()) {
+	switch state {
 	case StateWaiting:
 		fallthrough
 	case StatePending:
@@ -311,19 +321,24 @@ func (s *Session) writeErrorResponse(msg []byte) (n int, err error) {
 }
 
 func (s *Session) writeResponse(msg []byte) (n int, err error) {
-	s.writeGroup.Add(1)
-	defer s.writeGroup.Done()
+	state := s.beginWrite()
+	defer s.endWrite()
 
-	switch State(s.state.Load()) {
+	switch state {
 	case StateWaiting:
-		if s.state.CompareAndSwap(uint32(StateWaiting), uint32(StatePending)) {
+		// There is at most one in-flight request that's waiting for response.
+		if s.compareAndSwapState(StateWaiting, StatePending) {
 			n, err = s.Conn.Write(msg)
 			if n == len(msg) {
-				s.state.CompareAndSwap(uint32(StatePending), uint32(StateEstablished))
+				s.compareAndSwapState(StatePending, StateEstablished)
 			} else {
-				s.state.CompareAndSwap(uint32(StatePending), uint32(StateWaiting))
+				s.compareAndSwapState(StatePending, StateWaiting)
 			}
 			return n, err
+		}
+		// Lost race to close.
+		if state = s.State(); state == StateClosing || state == StateClosed {
+			return 0, ErrStateClosed
 		}
 		fallthrough
 	case StatePending:
@@ -340,7 +355,7 @@ func (s *Session) writeResponse(msg []byte) (n int, err error) {
 }
 
 func (s *Session) close(abort bool) (err error) {
-	switch State(s.state.Swap(uint32(StateClosed))) {
+	switch s.swapState(StateClosed) {
 	case StateWaiting:
 		fallthrough
 	case StatePending:
@@ -359,6 +374,53 @@ func (s *Session) close(abort bool) (err error) {
 		panic("dso.Session: unexpected DSO state")
 	}
 	return err
+}
+
+// beginWrite increments in-flight writers counter.
+func (s *Session) beginWrite() (state State) {
+	state, _ = unpackStateCount(s.stateCount.Add(1))
+	return state
+}
+
+// endWrite decrements in-flight writers counter and unblocks [Session.waitWriters] after last writer on closed session.
+func (s *Session) endWrite() {
+	state, writers := unpackStateCount(s.stateCount.Add(^uint64(0)))
+	if (state == StateClosing || state == StateClosed) && writers == 0 {
+		if s.writersFlag.CompareAndSwap(false, true) {
+			close(s.writersC)
+		}
+	}
+}
+
+// waitWriters waits until count of in-flight writers is zero.
+func (s *Session) waitWriters() {
+	if _, writers := unpackStateCount(s.stateCount.Load()); writers == 0 {
+		return
+	}
+	<-s.writersC
+}
+
+func (s *Session) compareAndSwapState(old, new State) bool {
+	for {
+		sc := s.stateCount.Load()
+		state, writers := unpackStateCount(sc)
+		if state != old {
+			return false
+		}
+		if s.stateCount.CompareAndSwap(sc, packStateCount(new, writers)) {
+			return true
+		}
+	}
+}
+
+func (s *Session) swapState(new State) State {
+	for {
+		sc := s.stateCount.Load()
+		state, writers := unpackStateCount(sc)
+		if s.stateCount.CompareAndSwap(sc, packStateCount(new, writers)) {
+			return state
+		}
+	}
 }
 
 func abortConn(conn net.Conn) {
