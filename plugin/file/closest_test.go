@@ -37,3 +37,27 @@ func TestClosestEncloser(t *testing.T) {
 		}
 	}
 }
+
+func TestClosestEncloserConcurrentSetData(t *testing.T) {
+	z, err := Parse(strings.NewReader(dbMiekNL), testzone, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expect no error when reading zone, got %q", err)
+	}
+
+	apex, zoneTree := z.snapshot()
+	start := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		<-start
+		for range 10000 {
+			z.setData(apex, zoneTree)
+		}
+	}()
+
+	close(start)
+	for range 10000 {
+		z.ClosestEncloser("blaat.www.miek.nl.")
+	}
+	<-done
+}
