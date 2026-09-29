@@ -130,20 +130,22 @@ func (c *PacketConn) readFrom(p []byte, addr net.Addr) (_ int, _ net.Addr, err e
 		fallthrough
 	case proxyproto.USE:
 		if header != nil {
-			addr = &Addr{u: addr, r: header.SourceAddr}
+			if !header.Command.IsLocal() {
+				addr = &Addr{u: addr, r: header.SourceAddr}
 
-			if c.UDPSessionTrackingTTL > 0 {
-				// Cache the real source address for subsequent headerless datagrams.
-				// Spectrum sends the header in a standalone datagram with no DNS
-				// payload; refresh or insert the entry either way so that the TTL
-				// resets on every header packet.
-				c.storeSession(addr.(*Addr).u, header)
-
-				if len(payload) == 0 {
-					// Header-only datagram: no DNS payload to return; loop back
-					// to read the next datagram.
-					return 0, nil, errHeaderOnly
+				if c.UDPSessionTrackingTTL > 0 {
+					// Cache the real source address for subsequent headerless datagrams.
+					// Spectrum sends the header in a standalone datagram with no DNS
+					// payload; refresh or insert the entry either way so that the TTL
+					// resets on every header packet.
+					c.storeSession(addr.(*Addr).u, header)
 				}
+			}
+
+			if c.UDPSessionTrackingTTL > 0 && len(payload) == 0 {
+				// Header-only datagram: no DNS payload to return; loop back
+				// to read the next datagram.
+				return 0, nil, errHeaderOnly
 			}
 		} else if c.UDPSessionTrackingTTL > 0 {
 			// No header present – look for a cached header for this remote.
