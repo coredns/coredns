@@ -8,18 +8,17 @@
 
 The *dso* plugin allows clients to establish DNS Stateful Operations sessions. The service runs alongside
 the DNS server of its server block, on its own ports (TCP and/or TLS). It reuses the listen hosts of that
-server block, so *bind* applies to it as well and only the port differs.
+server block, so *bind* applies to it as well and only the ports differ.
 
-A DSO service belongs to exactly one DNS server. Since a single DNS server may be defined by several server
-blocks, the service is configured in one of them, and the remaining blocks repeat `dso` with no block of
-their own so that traffic to any of them pairs the service, see [Examples](#examples).
+A DSO service belongs to exactly one DNS server. While a single DNS server may be defined by several server
+blocks, only one full form is allowed. The remaining blocks may repeat bare `dso` so that traffic to any of
+them pairs the service, see [Examples](#examples).
 
 If `push` is enabled, [RFC 8765][rfc8765] DNS Push Notification service is provided over TLS that notifies
 subscribed clients about changes in resource records. The plugin then also responds authoritatively to queries
-received over a session for names within the push zones; names outside them are answered with NOTAUTH.
-Without `push` such queries are refused. TLS and TSIG configurations are taken from [*tls*][tls] and [*tsig*][tsig]
+received over a session for names within the push zones; other names are answered with NOTAUTH and without `push`
+such queries are refused. TLS and TSIG configurations are taken from [*tls*][tls] and [*tsig*][tsig]
 respectively, see [Bugs](#bugs).
-
 
 Discovery of DSO services is performed by clients and is outside of the plugin's responsibilities.
 Typically for DNS Push Notifications the main DNS server must respond to *_dns-push-tls._tcp.&lt;ZONE&gt;* `SRV` query.
@@ -97,23 +96,25 @@ example.org {
 
 Minimal DSO service with DNS Push Notifications:
 
-~~~ corefile
+~~~ txt
 example.org {
     dso {
         tls_port 8853
         push
     }
+    tls ...
 }
 ~~~
 
 Minimal DSO service for a DNS server defined by two server blocks:
 
-~~~ corefile
+~~~ txt
 example.org {
     dso {
         tls_port 8853
         push example.org example.net
     }
+    tls ...
 }
 
 example.net {
@@ -132,20 +133,13 @@ Since a DSO service belongs to exactly one DNS server, the Corefile is constrain
 
 * `dso` can be used at most once per server block.
 * All keys of a server block using `dso` must listen on the same port.
-* At most one server block per DNS server may carry a `dso` configuration block; the others must use the
-  bare `dso` form.
-
-Queries carried over a session are accepted more strictly than queries to the DNS server: only questions that
-can produce resource record of desired type are answered. E.g. `AXFR`, `IXFR` question types are rejected,
-so zone transfer over a DSO session is not possible.
+* At most one server block per DNS server may carry the full `dso` form; the others must use the bare `dso` form.
 
 ## Bugs
 
 Per [RFC 8765][rfc8765], push server must respond to DNS queries for served zones. However, it's possible to define
 a plugin stack such that additional information present in client's DNS queries may result in answers that differ
 from push lookups.
-
-The plugin only sees *tsig* configuration in its immediate block.
 
 ## See Also
 
