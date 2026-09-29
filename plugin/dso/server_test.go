@@ -1005,9 +1005,9 @@ func TestServerHandleDNSWithTSIG(t *testing.T) {
 					w.WriteMsg(answer)
 				}
 				if tc.wantBadTsig {
-					server.Config.TsigSecret = map[string]string{} // force [dns.RcodeBadKey]
+					server.Upstream.TsigSecret = map[string]string{} // force [dns.RcodeBadKey]
 				} else {
-					server.Config.TsigSecret = map[string]string{
+					server.Upstream.TsigSecret = map[string]string{
 						"key.test.": Secret,
 					}
 				}

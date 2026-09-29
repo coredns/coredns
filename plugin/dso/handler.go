@@ -566,7 +566,6 @@ func (cs configSet) resolve() (starters map[string]*serverStarter, err error) {
 				}
 				dsoCfg.TLSConfig = dnsCfg.TLSConfig.Clone()
 			}
-			dsoCfg.TsigSecret = maps.Clone(dnsCfg.TsigSecret) // TODO: https://github.com/coredns/coredns/pull/8434
 			starters[dnsAddr].config = dsoCfg
 
 			for i, port := range []int{dsoCfg.TCPPort, dsoCfg.TLSPort} {

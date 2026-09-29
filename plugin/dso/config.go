@@ -34,11 +34,6 @@ type (
 		// ShutdownReconnectInterval is RetryDelay interval for gracefully closed sessions due to Shutdown. Set to <0 to disable.
 		ShutdownReconnectInterval time.Duration
 
-		// TsigSecret is TSIG secrets inherited from [dnsserver.Config] plugin is part of.
-		//
-		// If non-nil then [Server] will validate requests against their TSIG.
-		TsigSecret map[string]string
-
 		// TLSConfig is TLS configuration inherited from [dnsserver.Config] plugin is part of.
 		TLSConfig *tls.Config
 

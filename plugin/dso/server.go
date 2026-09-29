@@ -476,7 +476,7 @@ func (h *dnsMsgHandler) handle(writer io.Writer, upstream *connHandler, msg []by
 		answer := new(dns.Msg).SetRcode(query, rcode)
 		state := request.Request{Req: query, W: nil}
 		state.SizeAndDo(answer)
-		if h.config.TsigSecret != nil {
+		if h.upstream.TsigSecret != nil {
 			if t := query.IsTsig(); t != nil {
 				tsigRR := &dns.TSIG{
 					Hdr: dns.RR_Header{
@@ -521,7 +521,7 @@ func (h *dnsMsgHandler) handle(writer io.Writer, upstream *connHandler, msg []by
 
 // packMsg packs message and signs it, if TSIG is present.
 func (h *dnsMsgHandler) packMsg(m *dns.Msg, buf []byte) (msg []byte, err error) {
-	if h.config.TsigSecret != nil {
+	if h.upstream.TsigSecret != nil {
 		if t := m.IsTsig(); t != nil {
 			buf, h.tsigMAC, err = dns.TsigGenerate(m, h.tsigSecret, h.tsigMAC, false)
 		} else {
@@ -553,10 +553,10 @@ func (h *dnsMsgHandler) unpackMsg(msg []byte) (query *dns.Msg, err error) {
 	if err := query.Unpack(msg); err != nil {
 		return nil, err
 	}
-	if h.config.TsigSecret != nil {
+	if h.upstream.TsigSecret != nil {
 		if t := query.IsTsig(); t != nil {
 			var ok bool
-			if h.tsigSecret, ok = h.config.TsigSecret[t.Hdr.Name]; ok {
+			if h.tsigSecret, ok = h.upstream.TsigSecret[t.Hdr.Name]; ok {
 				h.tsigStatus = dns.TsigVerify(msg, h.tsigSecret, "", false)
 				h.tsigMAC = t.MAC
 			} else {
