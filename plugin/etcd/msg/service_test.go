@@ -1,6 +1,9 @@
 package msg
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestSplit255(t *testing.T) {
 	xs := split255("abc")
@@ -26,6 +29,23 @@ func TestSplit255(t *testing.T) {
 	xs = split255(s)
 	if len(xs) != 3 || xs[2] != "a" {
 		t.Errorf("Failure to split 510 char long string: %d", len(xs))
+	}
+}
+
+func TestTargetStripLargeValueReturns(t *testing.T) {
+	const name = "b.z1.test."
+	done := make(chan string, 1)
+	go func() {
+		done <- targetStrip(name, int(^uint(0)>>1))
+	}()
+
+	select {
+	case got := <-done:
+		if got != name {
+			t.Fatalf("targetStrip returned %q, want %q", got, name)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("targetStrip did not return after reaching the end of the name")
 	}
 }
 
