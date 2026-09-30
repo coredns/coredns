@@ -81,7 +81,7 @@ func (z *Zone) CopyWithoutApex() *Zone {
 
 // Insert inserts r into z.
 func (z *Zone) Insert(r dns.RR) error {
-	r.Header().Name = strings.ToLower(canonicalEscape(r.Header().Name))
+	r.Header().Name = dns.CanonicalName(canonicalEscape(r.Header().Name))
 
 	switch h := r.Header().Rrtype; h {
 	case dns.TypeNS:
