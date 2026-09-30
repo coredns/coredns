@@ -269,7 +269,13 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buf, _ := dw.Msg.Pack()
+	buf, err := dw.Msg.Pack()
+	if err != nil {
+		clog.Errorf("failed to pack DNS response: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		s.countResponse(http.StatusInternalServerError)
+		return
+	}
 	mt, _ := response.Typify(dw.Msg, time.Now().UTC())
 	age := dnsutil.MinimalTTLWithMaximum(dw.Msg, mt, dnsutil.MaximumDefaultTTL)
 
@@ -279,7 +285,9 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	s.countResponse(http.StatusOK)
-	w.Write(buf)
+	if _, err := w.Write(buf); err != nil {
+		clog.Errorf("failed to write DoH response: %v", err)
+	}
 }
 
 func (s *ServerHTTPS3) countResponse(status int) {
