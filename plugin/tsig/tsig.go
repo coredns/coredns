@@ -32,6 +32,14 @@ func (t TSIGServer) Name() string { return pluginName }
 
 // ServeDNS implements plugin.Handler
 func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	for i, rr := range r.Extra {
+		if rr.Header().Rrtype == dns.TypeTSIG && i != len(r.Extra)-1 {
+			resp := new(dns.Msg).SetRcode(r, dns.RcodeFormatError)
+			w.WriteMsg(resp)
+			return dns.RcodeSuccess, nil
+		}
+	}
+
 	var (
 		state  = request.Request{Req: r, W: w}
 		tsigRR = r.IsTsig()
