@@ -44,10 +44,23 @@ func (k *Kubernetes) serviceRecordForIP(ip, _name string) []msg.Service {
 		}
 		for _, eps := range ep.Subsets {
 			for _, addr := range eps.Addresses {
-				if addr.IP == ip {
-					domain := strings.Join([]string{endpointHostname(addr, k.endpointNameMode), ep.Index, Svc, k.primaryZone()}, ".")
-					svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
+				if addr.IP != ip {
+					continue
 				}
+				// When ptr_hostname_only is set, only endpoints with an explicit hostname get a
+				// PTR record (the behavior added in #6898 and later reverted in #7194). This keeps
+				// a single, hostname-based PTR for pods selected by more than one service, at the
+				// cost of no PTR at all for endpoints that have no hostname.
+				if k.ptrHostnameOnly {
+					if addr.Hostname == "" {
+						continue
+					}
+					domain := strings.Join([]string{addr.Hostname, ep.Index, Svc, k.primaryZone()}, ".")
+					svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
+					continue
+				}
+				domain := strings.Join([]string{endpointHostname(addr, k.endpointNameMode), ep.Index, Svc, k.primaryZone()}, ".")
+				svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
 			}
 		}
 	}
