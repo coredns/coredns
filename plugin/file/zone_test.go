@@ -1,12 +1,79 @@
 package file
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
+
 	"github.com/miekg/dns"
 )
+
+const dbSRVCaseFolding = `
+home.arpa. 500 IN SOA ns1.home.arpa. root.home.arpa. 1 6048 4000 2419200 6048
+home.arpa. 500 IN NS  ns1.home.arpa.
+`
+
+func TestSRVCaseFolding(t *testing.T) {
+	tests := []struct {
+		name  string
+		owner string
+		qname string
+	}{
+		{`\DDD space`, `Home\032Media._smb._tcp.home.arpa.`, `home\ media._smb._tcp.home.arpa.`},
+		{"utf-8", `ÄPrinter._ipp._tcp.home.arpa.`, `\195\132printer._ipp._tcp.home.arpa.`},
+		{`\DDD UTF-8`, `\195\132Printer._ipp._tcp.home.arpa.`, `\195\132printer._ipp._tcp.home.arpa.`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db := dbSRVCaseFolding + tc.owner + " 5 IN SRV 0 0 445 sAmBa.hOmE.arpa.\n"
+			zone, err := Parse(strings.NewReader(db), "home.arpa.", "stdin", 0)
+			if err != nil {
+				t.Fatalf("Parse: %v", err)
+			}
+
+			fm := File{
+				Next: test.ErrorHandler(),
+				Zones: Zones{
+					Z:     map[string]*Zone{"home.arpa.": zone},
+					Names: []string{"home.arpa."},
+				},
+			}
+
+			tcase := test.Case{
+				Qname: tc.qname, Qtype: dns.TypeSRV,
+				Answer: []dns.RR{
+					test.SRV(tc.qname + " 5 IN SRV 0 0 445 samba.home.arpa."),
+				},
+				Ns: []dns.RR{
+					test.NS(`home.arpa. 500 IN NS ns1.home.arpa.`),
+				},
+			}
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+			if _, err := fm.ServeDNS(context.TODO(), rec, tcase.Msg()); err != nil {
+				t.Fatalf("ServeDNS: %v", err)
+			}
+
+			buf, err := rec.Msg.Pack()
+			if err != nil {
+				t.Fatalf("Pack: %v", err)
+			}
+			resp := new(dns.Msg)
+			if err := resp.Unpack(buf); err != nil {
+				t.Fatalf("Unpack: %v", err)
+			}
+
+			if err := test.SortAndCheck(resp, tcase); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
 
 func TestNameFromRight(t *testing.T) {
 	z := NewZone("example.org.", "stdin")
