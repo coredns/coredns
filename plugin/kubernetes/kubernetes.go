@@ -552,8 +552,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 							if topoZone != "" && ep.Zones[addr.IP] != topoZone {
 								continue
 							}
+							// The hostname is derived at most once per address, and
+							// only once something needs it: matching the requested
+							// endpoint, or keying a port that matched.
+							var epHost string
 							if r.endpoint != "" {
-								if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+								epHost = endpointHostname(addr, k.endpointNameMode)
+								if !match(r.endpoint, epHost) {
 									continue
 								}
 							}
@@ -562,8 +567,11 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 								if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
 									continue
 								}
+								if epHost == "" {
+									epHost = endpointHostname(addr, k.endpointNameMode)
+								}
 								s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-								s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+								s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, epHost}, "/")
 
 								err = nil
 
@@ -665,8 +673,13 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
 						// See comments in parse.go parseRequest about the endpoint handling.
+						var epHost string
 						if r.endpoint != "" {
-							if !match(r.cluster, ep.ClusterId) || !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							if !match(r.cluster, ep.ClusterId) {
+								continue
+							}
+							epHost = endpointHostname(addr, k.endpointNameMode)
+							if !match(r.endpoint, epHost) {
 								continue
 							}
 						}
@@ -675,8 +688,11 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 							if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
 								continue
 							}
+							if epHost == "" {
+								epHost = endpointHostname(addr, k.endpointNameMode)
+							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, ep.ClusterId, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, ep.ClusterId, epHost}, "/")
 
 							err = nil
 
