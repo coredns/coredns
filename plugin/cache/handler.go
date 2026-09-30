@@ -54,7 +54,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		if c.verifyStale {
 			failureRecheck := c.staleRecheck
 			nowFunc := c.now
-			trackRefresh := failureRecheck > 0
+			trackRefresh := failureRecheck > 0 || c.verifyStaleTimeout > 0
 			if !trackRefresh || i.beginRefresh(now, failureRecheck) {
 				refreshState := authenticatedRefreshState(state)
 				crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd}
@@ -187,9 +187,7 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 	}
 	go func() {
 		rc, re := c.doRefresh(refreshCtx, state, cw)
-		if failureRecheck > 0 {
-			i.endRefresh(now(), failureRecheck, cw.refreshed)
-		}
+		i.endRefresh(now(), failureRecheck, cw.refreshed)
 		done <- result{rc, re}
 	}()
 	timer := time.NewTimer(c.verifyStaleTimeout)

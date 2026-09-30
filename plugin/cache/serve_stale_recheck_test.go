@@ -299,6 +299,49 @@ func TestServeStaleFailureRecheckVerifyTimeoutCoalesces(t *testing.T) {
 	}
 }
 
+func TestServeStaleVerifyTimeoutCoalescesWithoutFailureRecheck(t *testing.T) {
+	clock := newStaleRecheckClock()
+	c := New()
+	c.now = clock.Now
+	c.minpttl = 0
+	c.minnttl = 0
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 10 * time.Millisecond
+	c.Next = ttlBackend(1)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	serveStaleRecheckRequest(t, c, req)
+	item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false, false)
+	clock.Set(2 * time.Second)
+
+	var calls atomic.Int32
+	started := make(chan struct{}, 2)
+	completed := make(chan struct{}, 2)
+	release := make(chan struct{})
+	defer close(release)
+	failure := servFailBackend(30)
+	c.Next = plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		rcode, err := failure.ServeDNS(ctx, w, r)
+		completed <- struct{}{}
+		return rcode, err
+	})
+
+	serveStaleRecheckRequest(t, c, req)
+	waitForStaleSignal(t, started, "background verify did not start")
+	serveStaleRecheckRequest(t, c, req)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected concurrent stale request to share the in-flight verify, got %d attempts", got)
+	}
+
+	release <- struct{}{}
+	waitForStaleRefresh(t, completed, item)
+}
+
 func TestServeStaleFailureRecheckDisabledPreservesVerifyBehavior(t *testing.T) {
 	clock := newStaleRecheckClock()
 	c := New()
