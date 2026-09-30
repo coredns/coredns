@@ -2,6 +2,7 @@ package dnsserver
 
 import (
 	"fmt"
+	"iter"
 	"net"
 	"slices"
 	"sync"
@@ -257,6 +258,26 @@ func (c *Config) Handlers() []plugin.Handler {
 	return hs
 }
 
+// Addrs returns a slice of resolved addresses that will be assigned to corresponding [Server.Addr].
+//
+// Each yielded value follows the `[Config.Transport] + [Config.ListenHosts][i] + [Config.Port]` form.
+func (c *Config) Addrs() iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		for _, h := range c.ListenHosts {
+			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, c.Port))
+			var ok bool
+			if err != nil {
+				ok = yield("", err)
+			} else {
+				ok = yield(c.Transport+"://"+addr.String(), nil)
+			}
+			if !ok {
+				return
+			}
+		}
+	}
+}
+
 func (h *dnsContext) validateZonesAndListeningAddresses() error {
 	//Validate Zone and addresses
 	checker := newOverlapZone()
@@ -331,13 +352,11 @@ func propagateConfigParams(configs []*Config) {
 func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 	groups := make(map[string][]*Config)
 	for _, conf := range configs {
-		for _, h := range conf.ListenHosts {
-			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, conf.Port))
+		for addr, err := range conf.Addrs() {
 			if err != nil {
 				return nil, err
 			}
-			addrstr := conf.Transport + "://" + addr.String()
-			groups[addrstr] = append(groups[addrstr], conf)
+			groups[addr] = append(groups[addr], conf)
 		}
 	}
 
