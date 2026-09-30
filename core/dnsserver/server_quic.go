@@ -55,7 +55,7 @@ type ServerQUIC struct {
 	listenAddr        net.Addr
 	tlsConfig         *tls.Config
 	quicConfig        *quic.Config
-	quicListener      *quic.Listener
+	quicListener      *quic.EarlyListener
 	maxStreams        int
 	streamProcessPool chan struct{}
 	maxConnections    int
@@ -119,7 +119,7 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 func (s *ServerQUIC) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
 	if s.quicListener == nil {
-		listener, err := quic.Listen(p, s.tlsConfig, s.quicConfig)
+		listener, err := quic.ListenEarly(p, s.tlsConfig, s.quicConfig)
 		if err != nil {
 			s.m.Unlock()
 			return err
@@ -255,7 +255,7 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 		return
 	}
 
-	if !validRequest(req) {
+	if !validRequest(req, conn.ConnectionState().Used0RTT) {
 		// If a peer encounters such an error condition, it is considered a
 		// fatal error. It SHOULD forcibly abort the connection using QUIC's
 		// CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
@@ -304,7 +304,7 @@ func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	s.quicListener, err = quic.Listen(p, s.tlsConfig, s.quicConfig)
+	s.quicListener, err = quic.ListenEarly(p, s.tlsConfig, s.quicConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func (s *ServerQUIC) closeQUICConn(conn *quic.Conn, code quic.ApplicationErrorCo
 
 // validRequest checks for protocol errors in the unpacked DNS message.
 // See https://www.rfc-editor.org/rfc/rfc9250.html#name-protocol-errors
-func validRequest(req *dns.Msg) (ok bool) {
+func validRequest(req *dns.Msg, Used0RTT bool) (ok bool) {
 	// 1. a client or server receives a message with a non-zero Message ID.
 	if req.Id != 0 {
 		return false
@@ -381,7 +381,18 @@ func validRequest(req *dns.Msg) (ok bool) {
 		}
 	}
 
-	// 3. the client or server does not indicate the expected STREAM FIN after
+	// 3. check if 0RTT was used and if the opcode is either query or notify (RFC9250 section 4.5)
+	// To do: add more checks to prevent replay attacks, such as replay cache, and nonces:
+	// 		- https://martinuke0.github.io/posts/2026-05-27-implementing-tls-13-zero-round-trip-resumption-architecture-security-trade-offs-and-performance-patterns/
+	//      - https://martinuke0.github.io/posts/2026-06-02-mastering-tls-13-zero-round-trip-resumption-latency-optimization-security-trade-offs-and-real-world-implementation/
+	if Used0RTT {
+		if req.Opcode != dns.OpcodeQuery && req.Opcode != dns.OpcodeNotify {
+			clog.Debugf("Rejection: Opcode %d is not allowed in 0-RTT early data", req.Opcode)
+			return false
+		}
+	}
+
+	// 4. the client or server does not indicate the expected STREAM FIN after
 	// sending requests or responses.
 	//
 	// This is quite problematic to validate this case since this would imply
@@ -389,7 +400,7 @@ func validRequest(req *dns.Msg) (ok bool) {
 	// the message. So we're consciously ignoring this case in this
 	// implementation.
 
-	// 4. a server receives a "replayable" transaction in 0-RTT data
+	// 5. a server receives a "replayable" transaction in 0-RTT data
 	//
 	// The information necessary to validate this is not exposed by quic-go.
 
