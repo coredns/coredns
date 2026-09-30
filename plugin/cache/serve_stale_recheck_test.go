@@ -55,7 +55,7 @@ func TestServeStaleFailureRecheckImmediate(t *testing.T) {
 			req := new(dns.Msg)
 			req.SetQuestion("cached.org.", dns.TypeA)
 			serveStaleRecheckRequest(t, c, req)
-			item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false, false)
+			item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false)
 			if item == nil {
 				t.Fatal("expected primed cache item")
 			}
@@ -106,7 +106,7 @@ func TestServeStaleFailureRecheckImmediate(t *testing.T) {
 			if got := calls.Load(); got != 2 {
 				t.Fatalf("expected refresh after recheck elapsed, got %d attempts", got)
 			}
-			if got := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false, false).Rcode; got != tc.expectedRcode {
+			if got := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false).Rcode; got != tc.expectedRcode {
 				t.Fatalf("failed refresh replaced stale state: expected rcode %d, got %d", tc.expectedRcode, got)
 			}
 		})
@@ -213,7 +213,7 @@ func TestServeStaleFailureRecheckRejectsInvalidRefresh(t *testing.T) {
 				req.SetQuestion("cached.org.", dns.TypeA)
 				req.SetEdns0(4096, true)
 				serveStaleRecheckRequest(t, c, req)
-				item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, true, false)
+				item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false)
 				if item == nil {
 					t.Fatal("expected primed cache item")
 				}
@@ -260,7 +260,7 @@ func TestServeStaleFailureRecheckVerifyTimeoutCoalesces(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("cached.org.", dns.TypeA)
 	serveStaleRecheckRequest(t, c, req)
-	item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false, false)
+	item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false)
 	clock.Set(2 * time.Second)
 
 	var calls atomic.Int32
