@@ -85,9 +85,12 @@ cache [TTL] [ZONES...] {
   `serve_stale 1h verify 100ms 30s`; use `0` as the timeout to wait for the upstream while setting a response
   TTL, as in `serve_stale 1h verify 0 30s`. The response TTL must be a whole number of seconds.
   **FAILURE_RECHECK** follows **RESPONSE_TTL** and limits how frequently a failed refresh is attempted again
-  for the same cache entry. While a refresh is in flight or its failure recheck period is active, the stale
-  entry is served immediately without another upstream request. A failed refresh leaves the stale cache entry
-  intact. The default of `0` preserves the existing retry behavior. RFC 8767 recommends `30s` and says this
+  for the same cache entry. While a refresh is in flight or its failure recheck period is active, no second
+  upstream request is started for the same entry. In `verify` mode a request arriving while a refresh is in
+  flight waits for that refresh (bounded by **VERIFY_TIMEOUT** when set) and is then answered from the
+  refreshed entry; while the failure recheck delay is active, or in `immediate` mode, the stale entry is
+  served immediately. A failed refresh leaves the stale cache entry intact. The default of `0` preserves the
+  existing retry behavior. RFC 8767 recommends `30s` and says this
   value should not exceed 5 minutes. Examples: `serve_stale 1h immediate 30s 30s` and
   `serve_stale 1h verify 100ms 30s 30s`.
 * `serve_stale_policy` controls cache selection while `serve_stale` is enabled. The only supported policy is
