@@ -135,7 +135,7 @@ A limited set of fields will be exported as labels, all values are stored using 
 | `geoip/country/code`                 | `string`  | `GB`             | Country [ISO 3166-1](https://en.wikipedia.org/wiki/ISO_3166-1) code.
 | `geoip/country/name`                 | `string`  | `United Kingdom` | The country name in English language.
 | `geoip/country/is_in_european_union` | `bool`    | `false`          | Either `true` or `false`.
-| `geoip/continent/code`               | `string`  | `EU`             | See [Continent codes](#ContinentCodes).
+| `geoip/continent/code`               | `string`  | `EU`             | See [Continent codes](#continent-codes).
 | `geoip/continent/name`               | `string`  | `Europe`         | The continent name in English language.
 | `geoip/latitude`                     | `float64` | `52.2242`        | Base 10, max available precision.
 | `geoip/longitude`                    | `float64` | `0.1315`         | Base 10, max available precision.
