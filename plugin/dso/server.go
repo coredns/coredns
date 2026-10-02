@@ -228,8 +228,8 @@ func newConnHandler(server *Server, conn net.Conn) (h *connHandler) {
 		connState: &connState{
 			sesh: dsosession.New(conn),
 			ka: dsomessage.KeepAlive{
-				InactivityTimeout: uint32(server.Config.InactivityTimeout.Milliseconds()),
-				KeepAliveInterval: uint32(server.Config.KeepAliveInterval.Milliseconds()),
+				InactivityTimeout: uint32(server.Config.InactivityTimeout.Milliseconds()), // #nosec G115 -- DSO protocol mandates uint32 for Inactivity
+				KeepAliveInterval: uint32(server.Config.KeepAliveInterval.Milliseconds()), // #nosec G115 -- DSO protocol mandates uint32 for KeepAlive
 			},
 
 			config:   server.Config,
@@ -265,7 +265,7 @@ func (h *connHandler) handle(ctx context.Context) {
 
 	if shutdownErr, ok := errors.AsType[*shutdownError](err); ok {
 		if shutdownErr.reconnectInterval >= 0 {
-			retryDelay := uint32(shutdownErr.reconnectInterval.Milliseconds()) // #nosec G115
+			retryDelay := uint32(shutdownErr.reconnectInterval.Milliseconds()) // #nosec G115 -- DSO protocol mandates uint32 for RetryDelay
 			err = h.closeNotify(dns.RcodeSuccess, retryDelay)
 		} else {
 			h.sesh.Close()
@@ -500,7 +500,7 @@ func (h *dnsMsgHandler) handle(writer io.Writer, upstream *connHandler, msg []by
 						// See [tsig.restoreTsigWriter.WriteMsg].
 						tsigRR.TimeSigned = t.TimeSigned
 						b := make([]byte, 8)
-						binary.BigEndian.PutUint64(b, uint64(time.Now().Unix()))
+						binary.BigEndian.PutUint64(b, uint64(time.Now().Unix())) // #nosec G115 -- Unix time fits in uint64
 						tsigRR.OtherData = hex.EncodeToString(b[2:])
 						tsigRR.OtherLen = 6
 					case dns.ErrSecret:
@@ -543,7 +543,7 @@ func (h *dnsMsgHandler) packMsg(m *dns.Msg, buf []byte) (msg []byte, err error) 
 		buf = buf[:msgLen+2]
 		copy(buf[2:], buf)
 	}
-	binary.BigEndian.PutUint16(buf, uint16(msgLen))
+	binary.BigEndian.PutUint16(buf, uint16(msgLen)) // #nosec G115 -- upstream takes care of message length
 	return buf, nil
 }
 
@@ -700,8 +700,8 @@ func (h *dsoMsgHandler) handleKeepAlive(writer io.Writer, msg []byte) (err error
 
 	// Accept reduced timeout and keepalive as it helps server shed connection sooner.
 	// Note server merely agrees to receive KA more often.
-	h.ka.InactivityTimeout = min(uint32(h.config.InactivityTimeout.Milliseconds()), ka.InactivityTimeout)
-	h.ka.KeepAliveInterval = max(min(uint32(h.config.KeepAliveInterval.Milliseconds()), ka.KeepAliveInterval), dsomessage.KeepAliveIntervalMin)
+	h.ka.InactivityTimeout = min(uint32(h.config.InactivityTimeout.Milliseconds()), ka.InactivityTimeout)                                       // #nosec G115 -- DSO protocol mandates uint32 for Inactivity
+	h.ka.KeepAliveInterval = max(min(uint32(h.config.KeepAliveInterval.Milliseconds()), ka.KeepAliveInterval), dsomessage.KeepAliveIntervalMin) // #nosec G115 -- DSO protocol mandates uint32 for KeepAlive
 
 	_, err = writer.Write(h.buildKeepAlive(h.msgHeader.ID, msg))
 	return err

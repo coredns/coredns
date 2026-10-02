@@ -75,7 +75,7 @@ func packStateCount(s State, w uint32) uint64 {
 }
 
 func unpackStateCount(sc uint64) (State, uint32) {
-	return State(sc >> 32), uint32(sc)
+	return State(sc >> 32), uint32(sc) // #nosec G115 -- intentional as lower 32 bits hold count of writers
 }
 
 // Session implements server-side state management of RFC 8490 DNS Stateful Operations session.

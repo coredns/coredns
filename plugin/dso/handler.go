@@ -141,7 +141,7 @@ func (h *processDSO) getInstanceDSO(c *caddy.Controller) *instanceDSO {
 		c.OnShutdown(instH.onShutdown)
 	}
 	hookOnce.Do(func() {
-		caddy.RegisterEventHook(Name, func(event caddy.EventName, info interface{}) error {
+		caddy.RegisterEventHook(Name, func(event caddy.EventName, _ any) error {
 			if event != caddy.InstanceStartupEvent {
 				return nil
 			}
