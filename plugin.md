@@ -127,7 +127,7 @@ entire domain and all sub domains.
 
 ~~~ txt
 . {
-    file example.org db.example
+    file db.example example.org
 }
 ~~~
 
