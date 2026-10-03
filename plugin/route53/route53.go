@@ -121,9 +121,14 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	m.Authoritative = true
 	var result file.Result
 	for _, hostedZone := range z {
+		// Only the zone pointer itself needs to be guarded against a
+		// concurrent swap in updateZones; Lookup can run unlocked since it
+		// may block for a while resolving external names via upstream, and
+		// a panic inside it must not leave zMu permanently locked.
 		h.zMu.RLock()
-		m.Answer, m.Ns, m.Extra, result = hostedZone.z.Lookup(ctx, state, qname)
+		hz := hostedZone.z
 		h.zMu.RUnlock()
+		m.Answer, m.Ns, m.Extra, result = hz.Lookup(ctx, state, qname)
 
 		// Take the answer if it's non-empty OR if there is another
 		// record type exists for this name (NODATA).
