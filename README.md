@@ -35,6 +35,7 @@ Currently CoreDNS is able to:
 * Allow for zone transfers, i.e., act as a primary server (*file* + *transfer*).
 * Automatically load zone files from disk (*auto*).
 * Caching of DNS responses (*cache*).
+* Serve the last known good answer when an upstream returns NXDOMAIN/NODATA/SERVFAIL (*dnslkg*).
 * Use etcd as a backend (replacing [SkyDNS](https://github.com/skynetservices/skydns)) (*etcd*).
 * Use k8s (kubernetes) as a backend (*kubernetes*).
 * Serve as a proxy to forward queries to some other (recursive) nameserver (*forward*).
