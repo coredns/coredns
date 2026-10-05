@@ -13,6 +13,17 @@ type ResponseWriter struct {
 	TCP      bool // if TCP is true we return an TCP connection instead of an UDP one.
 	RemoteIP string
 	Zone     string
+	Protocol string
+}
+
+func (w *ResponseWriter) Proto() string {
+	if w.Protocol == "" {
+		if w.TCP {
+			return "tcp"
+		}
+		return "udp"
+	}
+	return w.Protocol
 }
 
 // LocalAddr returns the local address, 127.0.0.1:53 (UDP, TCP if t.TCP is true).
