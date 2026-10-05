@@ -21,8 +21,8 @@ func TestDoQWriterAddPrefix(t *testing.T) {
 }
 
 func TestDoQWriter_ResponseWriterMethods(t *testing.T) {
-	localAddr := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 1234}
-	remoteAddr := &net.UDPAddr{IP: net.ParseIP("8.8.8.8"), Port: 53}
+	localAddr := quicAddr{&net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 1234}}
+	remoteAddr := quicAddr{&net.UDPAddr{IP: net.ParseIP("8.8.8.8"), Port: 53}}
 
 	writer := &DoQWriter{
 		localAddr:  localAddr,
