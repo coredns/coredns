@@ -1,7 +1,6 @@
 package dnsserver
 
 import (
-	"context"
 	"crypto/tls"
 	"net"
 	"time"
@@ -57,9 +56,7 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 			return s.IdleTimeout
 		},
 		Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-			ctx := context.WithValue(context.Background(), Key{}, s.Server)
-			ctx = context.WithValue(ctx, LoopKey{}, 0)
-			s.ServeDNS(ctx, w, r)
+			s.ServeDNS(s.baseCtx, w, r)
 		})}
 
 	s.m.Unlock()
