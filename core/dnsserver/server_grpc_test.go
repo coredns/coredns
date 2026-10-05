@@ -1,3 +1,5 @@
+//go:build !nogrpc
+
 package dnsserver
 
 import (
