@@ -91,7 +91,7 @@ func (z *Zone) Insert(r dns.RR) error {
 		r.(*dns.NS).Ns = strings.ToLower(r.(*dns.NS).Ns)
 
 		if r.Header().Name == z.origin {
-			z.NS = append(z.NS, r)
+			z.NS = appendUniqueRecord(z.NS, r)
 			return nil
 		}
 	case dns.TypeSOA:
@@ -106,11 +106,11 @@ func (z *Zone) Insert(r dns.RR) error {
 		x := r.(*dns.RRSIG)
 		switch x.TypeCovered {
 		case dns.TypeSOA:
-			z.SIGSOA = append(z.SIGSOA, x)
+			z.SIGSOA = appendUniqueRecord(z.SIGSOA, x)
 			return nil
 		case dns.TypeNS:
 			if r.Header().Name == z.origin {
-				z.SIGNS = append(z.SIGNS, x)
+				z.SIGNS = appendUniqueRecord(z.SIGNS, x)
 				return nil
 			}
 		}
@@ -128,6 +128,16 @@ func (z *Zone) Insert(r dns.RR) error {
 
 	z.Tree.Insert(r)
 	return nil
+}
+
+func appendUniqueRecord(records []dns.RR, rr dns.RR) []dns.RR {
+	for _, existing := range records {
+		if dns.IsDuplicate(existing, rr) {
+			return records
+		}
+	}
+
+	return append(records, rr)
 }
 
 // File retrieves the file path in a safe way.
