@@ -11,7 +11,7 @@ another IP instead.
 
 If several addresses are provided, a listener will be open on each of the IP provided.
 
-Each address has to be an IP or name of one of the interfaces of the host. Bind by interface name, binds to the IPs on that interface at the time of startup or reload (reload will happen with a SIGHUP or if the config file changes).
+Each address has to be an IP, a host name (not recommended as it resolves to at most one IP) or name of one of the interfaces of the host. Bind by interface name, binds to the IPs on that interface at the time of startup or reload (reload will happen with a SIGHUP or if the config file changes).
 
 If the given argument is an interface name, and that interface has several IP addresses, CoreDNS will listen on all of the interface IP addresses (including IPv4 and IPv6).
 
