@@ -28,6 +28,7 @@ type CloudDNS struct {
 	zoneNames []string
 	client    gcpDNS
 	upstream  *upstream.Upstream
+	refresh   time.Duration
 
 	zMu   sync.RWMutex
 	zones zones
@@ -46,8 +47,9 @@ type zones map[string][]*zone
 // string of project name and hosted zone name lists as its values, validates
 // that each domain name/zone id pair does exist, and returns a new *CloudDNS.
 // In addition to this, upstream is passed for doing recursive queries against CNAMEs.
+// refresh sets how often the zones are refreshed from Cloud DNS.
 // Returns error if it cannot verify any given domain name/zone id pair.
-func New(_ctx context.Context, c gcpDNS, keys map[string][]string, up *upstream.Upstream) (*CloudDNS, error) {
+func New(_ctx context.Context, c gcpDNS, keys map[string][]string, up *upstream.Upstream, refresh time.Duration) (*CloudDNS, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for dnsName, hostedZoneDetails := range keys {
@@ -72,6 +74,7 @@ func New(_ctx context.Context, c gcpDNS, keys map[string][]string, up *upstream.
 		zoneNames: zoneNames,
 		zones:     zones,
 		upstream:  up,
+		refresh:   refresh,
 	}, nil
 }
 
@@ -82,11 +85,10 @@ func (h *CloudDNS) Run(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		delay := 1 * time.Minute
-		timer := time.NewTimer(delay)
+		timer := time.NewTimer(h.refresh)
 		defer timer.Stop()
 		for {
-			timer.Reset(delay)
+			timer.Reset(h.refresh)
 			select {
 			case <-ctx.Done():
 				log.Debugf("Breaking out of CloudDNS update loop for %v: %v", h.zoneNames, ctx.Err())

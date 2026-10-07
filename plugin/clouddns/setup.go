@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -64,6 +66,7 @@ func setup(c *caddy.Controller) error {
 		}
 
 		var opt option.ClientOption
+		refresh := time.Duration(1) * time.Minute // default update frequency to 1 minute
 		for c.NextBlock() {
 			switch c.Val() {
 			case "upstream":
@@ -79,6 +82,22 @@ func setup(c *caddy.Controller) error {
 				opt = option.WithAuthCredentialsFile(credType, c.Val())
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
+			case "refresh":
+				if !c.NextArg() {
+					return plugin.Error("clouddns", c.ArgErr())
+				}
+				refreshStr := c.Val()
+				_, err := strconv.Atoi(refreshStr)
+				if err == nil {
+					refreshStr += "s"
+				}
+				refresh, err = time.ParseDuration(refreshStr)
+				if err != nil {
+					return plugin.Error("clouddns", c.Errf("unable to parse duration: %v", err))
+				}
+				if refresh <= 0 {
+					return plugin.Error("clouddns", c.Errf("refresh interval must be greater than 0: %q", refreshStr))
+				}
 			default:
 				return plugin.Error("clouddns", c.Errf("unknown property %q", c.Val()))
 			}
@@ -91,7 +110,7 @@ func setup(c *caddy.Controller) error {
 			return err
 		}
 
-		h, err := New(ctx, client, keys, up)
+		h, err := New(ctx, client, keys, up, refresh)
 		if err != nil {
 			cancel()
 			return plugin.Error("clouddns", c.Errf("failed to create plugin: %v", err))

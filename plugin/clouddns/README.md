@@ -21,6 +21,7 @@ the hosted zone.
 clouddns [ZONE:PROJECT_ID:HOSTED_ZONE_NAME...] {
     credentials [FILENAME]
     fallthrough [ZONES...]
+    refresh DURATION
 }
 ~~~
 
@@ -44,6 +45,12 @@ clouddns [ZONE:PROJECT_ID:HOSTED_ZONE_NAME...] {
     If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin is
     authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then
     only queries for those zones will be subject to fallthrough.
+
+*   `refresh` can be used to control how long between record retrievals from Cloud DNS. It requires
+    a duration string as a parameter to specify the duration between update cycles. Each update
+    cycle may result in many Cloud DNS API calls depending on how many domains use this plugin and
+    how many records are in each. Adjusting the update frequency may help reduce the potential of
+    API throttling by Google Cloud. If not provided the default refresh is 1 minute.
 
 ## Examples
 
@@ -71,5 +78,15 @@ Enable clouddns with multiple hosted zones with the same domain:
 ~~~ txt
 . {
     clouddns example.org.:gcp-example-project:example-zone example.com.:gcp-example-project:other-example-zone
+}
+~~~
+
+Enable clouddns and refresh records every 3 minutes:
+
+~~~ txt
+example.org {
+    clouddns example.org.:gcp-example-project:example-zone {
+        refresh 3m
+    }
 }
 ~~~
