@@ -56,7 +56,7 @@ require (
 	github.com/letsencrypt/pebble/v2 v2.10.1
 	github.com/mholt/acmez/v3 v3.1.7
 	github.com/pires/go-proxyproto v0.15.0
-	github.com/prometheus/exporter-toolkit v0.19.0
+	github.com/prometheus/exporter-toolkit v0.20.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.59.0
 )
