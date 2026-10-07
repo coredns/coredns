@@ -54,7 +54,7 @@ require (
 	github.com/caddyserver/certmagic v0.25.4
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/letsencrypt/pebble/v2 v2.10.1
-	github.com/mholt/acmez/v3 v3.1.6
+	github.com/mholt/acmez/v3 v3.1.7
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/prometheus/exporter-toolkit v0.19.0
 	go.uber.org/zap v1.28.0
