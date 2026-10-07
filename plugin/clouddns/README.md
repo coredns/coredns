@@ -20,6 +20,7 @@ the hosted zone.
 ~~~ txt
 clouddns [ZONE:PROJECT_ID:HOSTED_ZONE_NAME...] {
     credentials [FILENAME]
+    endpoint ENDPOINT
     fallthrough [ZONES...]
     refresh DURATION
 }
@@ -40,6 +41,10 @@ clouddns [ZONE:PROJECT_ID:HOSTED_ZONE_NAME...] {
     file has a valid credentials type, but does not validate the credentials file for malicious input. Please see
     Google Cloud's [authentication method](https://cloud.google.com/docs/authentication) and
     [validating credential configurations from external sources](https://docs.cloud.google.com/docs/authentication/client-libraries#external-credentials) for more details.
+
+*   `endpoint` can be used to control the endpoint to use when querying Cloud DNS (optional).
+    **ENDPOINT** is the URL of the endpoint to use. If this is not provided the default Cloud DNS
+    endpoint is used. Useful for pointing at a local emulator or test environment.
 
 *   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
     If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin is
@@ -87,6 +92,16 @@ Enable clouddns and refresh records every 3 minutes:
 example.org {
     clouddns example.org.:gcp-example-project:example-zone {
         refresh 3m
+    }
+}
+~~~
+
+Enable clouddns against a custom Cloud DNS endpoint:
+
+~~~ txt
+example.org {
+    clouddns example.org.:gcp-example-project:example-zone {
+        endpoint https://dns.googleapis.com
     }
 }
 ~~~
