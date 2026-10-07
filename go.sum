@@ -282,8 +282,8 @@ github.com/mdlayher/socket v0.6.0 h1:ScZPaAGyO1icQnbFrhPM8mnXyMu9qukC1K4ZoM2IQKU
 github.com/mdlayher/socket v0.6.0/go.mod h1:q7vozUAnxSqnjHc12Fik5yUKIzfZ8ITCfMkhOtE9z18=
 github.com/mdlayher/vsock v1.3.0 h1:bqQfZ1OznI03y6YiXp2sze05RVdzLn/zsfjnjd4+ivI=
 github.com/mdlayher/vsock v1.3.0/go.mod h1:WsuksavOvwCnV5UqGHUkvAvCy+Dqy81y4goKQTzxxNY=
-github.com/mholt/acmez/v3 v3.1.6 h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=
-github.com/mholt/acmez/v3 v3.1.6/go.mod h1:5nTPosTGosLxF3+LU4ygbgMRFDhbAVpqMI4+a4aHLBY=
+github.com/mholt/acmez/v3 v3.1.7 h1:XTqpuUcRdRoIBuDoI+M4mCnRnPTPN4rqH3Mb723Rg4U=
+github.com/mholt/acmez/v3 v3.1.7/go.mod h1:Lwv6P/czh/AOq+c99tAzP68/VP92s+8y+hDs4FCgxvo=
 github.com/miekg/dns v1.1.31/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
 github.com/miekg/dns v1.1.73 h1:uhT8nJxmTrPJYClxVxTCX+CVn6qnzSiybRk72Z6DgrE=
 github.com/miekg/dns v1.1.73/go.mod h1:RW2Obtfd5NZHvOFe3zYG0W8koWOQtAzyHaLo8vASBuQ=
