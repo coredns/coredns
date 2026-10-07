@@ -33,6 +33,7 @@ type Azure struct {
 	publicClient  publicdns.RecordSetsClient
 	privateClient privatedns.RecordSetsClient
 	upstream      *upstream.Upstream
+	refresh       time.Duration
 	zMu           sync.RWMutex
 	zones         zones
 	updates       sync.WaitGroup
@@ -42,7 +43,8 @@ type Azure struct {
 }
 
 // New initializes the configured DNS zones without contacting Azure.
-func New(_ctx context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
+// refresh sets how often the zones are refreshed from Azure DNS.
+func New(_ctx context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string, refresh time.Duration) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, 0, len(keys))
 	for resourceGroup, znames := range keys {
@@ -64,13 +66,14 @@ func New(_ctx context.Context, publicClient publicdns.RecordSetsClient, privateC
 		zones:         zones,
 		zoneNames:     names,
 		upstream:      upstream.New(),
+		refresh:       refresh,
 	}, nil
 }
 
 // Run starts initial and periodic zone synchronization in the background.
 func (h *Azure) Run(ctx context.Context) error {
 	h.updates.Go(func() {
-		h.run(ctx, time.Minute)
+		h.run(ctx, h.refresh)
 	})
 	return nil
 }
