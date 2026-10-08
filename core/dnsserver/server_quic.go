@@ -260,7 +260,7 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 		// fatal error. It SHOULD forcibly abort the connection using QUIC's
 		// CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
 		// DOQ_PROTOCOL_ERROR.
-		// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-3
+		// See https://www.rfc-editor.org/info/rfc9250/#section-4.3.3-3
 		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
@@ -362,7 +362,7 @@ func (s *ServerQUIC) closeQUICConn(conn *quic.Conn, code quic.ApplicationErrorCo
 }
 
 // validRequest checks for protocol errors in the unpacked DNS message.
-// See https://www.rfc-editor.org/rfc/rfc9250.html#name-protocol-errors
+// See https://www.rfc-editor.org/info/rfc9250/#name-protocol-errors
 func validRequest(req *dns.Msg) (ok bool) {
 	// 1. a client or server receives a message with a non-zero Message ID.
 	if req.Id != 0 {
@@ -404,7 +404,7 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	// All DNS messages (queries and responses) sent over DoQ connections MUST
 	// be encoded as a 2-octet length field followed by the message content as
 	// specified in [RFC1035].
-	// See https://www.rfc-editor.org/rfc/rfc9250.html#section-4.2-4
+	// See https://www.rfc-editor.org/info/rfc9250/#section-4.2-4
 	sizeBuf := make([]byte, 2)
 	_, err := io.ReadFull(r, sizeBuf)
 	if err != nil {
@@ -422,7 +422,7 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 
 	// A client or server receives a STREAM FIN before receiving all the bytes
 	// for a message indicated in the 2-octet length field.
-	// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-2.2
+	// See https://www.rfc-editor.org/info/rfc9250/#section-4.3.3-2.2
 	if size != uint16(len(buf)) { // #nosec G115 -- buf length fits in uint16
 		return nil, fmt.Errorf("message size does not match 2-byte prefix")
 	}

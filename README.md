@@ -20,10 +20,10 @@ provided out of the box you can add it by [writing a plugin](https://coredns.io/
 
 CoreDNS can listen for DNS requests coming in over:
 * UDP/TCP (go'old DNS).
-* TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
-* DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
+* TLS - DoT ([RFC 7858](https://www.rfc-editor.org/info/rfc7858/)).
+* DNS over HTTP/2 - DoH ([RFC 8484](https://www.rfc-editor.org/info/rfc8484/)).
 * DNS over HTTP/3 - DoH3
-* DNS over QUIC - DoQ ([RFC 9250](https://tools.ietf.org/html/rfc9250)). 
+* DNS over QUIC - DoQ ([RFC 9250](https://www.rfc-editor.org/info/rfc9250/)).
 * [gRPC](https://grpc.io) (not a standard).
 
 Currently CoreDNS is able to:

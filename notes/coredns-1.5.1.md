@@ -18,7 +18,7 @@ PR](https://github.com/coredns/coredns/pull/2793) otherwise we'll remove it in t
 
 # Plugins
 
-* A new plugin [*any*](/plugins/any) that block ANY queries according to [RFC 8482](https://tools.ietf.org/html/rfc8482) was added.
+* A new plugin [*any*](/plugins/any) that block ANY queries according to [RFC 8482](https://www.rfc-editor.org/info/rfc8482/) was added.
 * Failed reload fixes for: [*ready*](/plugins/ready), [*health*](/plugins/health) and
   [*prometheus*](/plugins/metrics) - when CoreDNS reloads and the Corefile is invalid these plugins
   now keep on working. The [*reload*](/plugin/reload) also gained a metric that export failed

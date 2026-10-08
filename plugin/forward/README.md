@@ -382,8 +382,8 @@ Forward to an upstream identified by hostname, using a specific resolver to look
 
 ## See Also
 
-[RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.
+[RFC 7858](https://www.rfc-editor.org/info/rfc7858/) for DNS over TLS.
 
-[RFC 8484](https://tools.ietf.org/html/rfc8484) for DNS over HTTPS.
+[RFC 8484](https://www.rfc-editor.org/info/rfc8484/) for DNS over HTTPS.
 
-[RFC 9250](https://www.rfc-editor.org/rfc/rfc9250.html) for DNS over QUIC.
+[RFC 9250](https://www.rfc-editor.org/info/rfc9250/) for DNS over QUIC.
