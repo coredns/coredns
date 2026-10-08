@@ -320,6 +320,10 @@ func propagateConfigParams(configs []*Config) {
 		// Propagate MaxHTTPSStreams so a `https { max_streams N }` set once in a
 		// server block applies to the block's HTTPS key regardless of key order.
 		c.MaxHTTPSStreams = c.firstConfigInBlock.MaxHTTPSStreams
+
+		// Propagate MaxQUICConnections so a `quic { max_connections N }` set once
+		// in a server block applies to the block's QUIC key regardless of key order.
+		c.MaxQUICConnections = c.firstConfigInBlock.MaxQUICConnections
 	}
 }
 

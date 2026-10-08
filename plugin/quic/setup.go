@@ -54,6 +54,22 @@ func parseQuic(c *caddy.Controller) error {
 				return c.Err("max_streams already defined for this server block")
 			}
 			config.MaxQUICStreams = &val
+		case "max_connections":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return c.ArgErr()
+			}
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return c.Errf("invalid max_connections value '%s': %v", args[0], err)
+			}
+			if val < 0 {
+				return c.Errf("max_connections must be a non-negative integer: %d", val)
+			}
+			if config.MaxQUICConnections != nil {
+				return c.Err("max_connections already defined for this server block")
+			}
+			config.MaxQUICConnections = &val
 		case "worker_pool_size":
 			args := c.RemainingArgs()
 			if len(args) != 1 {
