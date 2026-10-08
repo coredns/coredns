@@ -1,10 +1,30 @@
 package dns64
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/coredns/caddy"
 )
+
+func TestSetupDns64PrefixLengths(t *testing.T) {
+	for _, length := range []int{32, 40, 48, 56, 64, 72, 80, 88, 96} {
+		prefix := fmt.Sprintf("2001:db8::/%d", length)
+		for _, input := range []string{
+			"dns64 " + prefix,
+			"dns64 {\n prefix " + prefix + "\n}",
+		} {
+			t.Run(input, func(t *testing.T) {
+				c := caddy.NewTestController("dns", input)
+				_, err := dns64Parse(c)
+				invalid := length == 72 || length == 80 || length == 88
+				if (err != nil) != invalid {
+					t.Errorf("prefix /%d: expected error %v, got %v", length, invalid, err)
+				}
+			})
+		}
+	}
+}
 
 func TestSetupDns64(t *testing.T) {
 	tests := []struct {
