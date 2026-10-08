@@ -21,7 +21,7 @@ dns64 [PREFIX]
 
 * **PREFIX** defines a custom prefix instead of the default `64:ff9b::/96`.
   Its length must be 32, 40, 48, 56, 64, or 96 bits, as defined in
-  [RFC 6052 Section 2.2](https://www.rfc-editor.org/rfc/rfc6052.html#section-2.2).
+  [RFC 6052 Section 2.2](https://www.rfc-editor.org/info/rfc6052/#section-2.2).
 
 Or use this slightly longer form with more options:
 
