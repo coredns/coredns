@@ -101,7 +101,7 @@ With the *transfer* plugin, zone transfer notifications from CoreDNS are not TSI
 
 ### Special Considerations for Forwarding Servers (RFC 8945 5.5)
 
-https://datatracker.ietf.org/doc/html/rfc8945#section-5.5
+https://www.rfc-editor.org/info/rfc8945/#section-5.5
 
 CoreDNS does not implement this section as follows ...
 

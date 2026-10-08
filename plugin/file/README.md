@@ -64,7 +64,7 @@ example.org {
 }
 ~~~
 
-Where `db.example.org` would contain RRSets (<https://tools.ietf.org/html/rfc7719#section-4>) in the
+Where `db.example.org` would contain RRSets (<https://www.rfc-editor.org/info/rfc7719/#section-4>) in the
 (text) presentation format from RFC 1035:
 
 ~~~
@@ -133,5 +133,5 @@ example.org {
 See the *loadbalance* plugin if you need simple record shuffling. And the *transfer* plugin for zone
 transfers. Lastly the *root* plugin can help you specify the location of the zone files.
 
-See [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.txt) for more info on how to structure zone
+See [RFC 1035](https://www.rfc-editor.org/info/rfc1035/) for more info on how to structure zone
 files.

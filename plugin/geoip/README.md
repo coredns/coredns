@@ -89,7 +89,7 @@ geoip [DBFILE] {
 
   **NOTE:** due to security reasons, recursive DNS resolvers may mask a few bits off of the clients' IP address, which can cause inaccuracies in GeoIP resolution.
 
-  There is no defined mask size in the standards, but there are examples: [RFC 7871's example](https://datatracker.ietf.org/doc/html/rfc7871#section-13) conceals the last 72 bits of an IPv6 source address, and NS1 Help Center [mentions](https://help.ns1.com/hc/en-us/articles/360020256573-About-the-EDNS-Client-Subnet-ECS-DNS-extension) that ECS-enabled DNS resolvers send only the first three octets (eg. /24) of the source IPv4 address.
+  There is no defined mask size in the standards, but there are examples: [RFC 7871's example](https://www.rfc-editor.org/info/rfc7871/#section-13) conceals the last 72 bits of an IPv6 source address, and NS1 Help Center [mentions](https://help.ns1.com/hc/en-us/articles/360020256573-About-the-EDNS-Client-Subnet-ECS-DNS-extension) that ECS-enabled DNS resolvers send only the first three octets (eg. /24) of the source IPv4 address.
 
 ## Examples
 

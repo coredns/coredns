@@ -165,4 +165,4 @@ exceptions, and fall through for everything else under `example.com`.
 
 ## See also
 
-The form of the entries in the `/etc/hosts` file are based on IETF [RFC 952](https://tools.ietf.org/html/rfc952) which was updated by IETF [RFC 1123](https://tools.ietf.org/html/rfc1123).
+The form of the entries in the `/etc/hosts` file are based on IETF [RFC 952](https://www.rfc-editor.org/info/rfc952/) which was updated by IETF [RFC 1123](https://www.rfc-editor.org/info/rfc1123/).

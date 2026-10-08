@@ -1,6 +1,6 @@
 // Package dns64 implements a plugin that performs DNS64.
 //
-// See: RFC 6147 (https://tools.ietf.org/html/rfc6147)
+// See: RFC 6147 (https://www.rfc-editor.org/info/rfc6147/)
 package dns64
 
 import (

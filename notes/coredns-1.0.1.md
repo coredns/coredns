@@ -11,7 +11,7 @@ author = "coredns"
 We are pleased to announce the [release](https://github.com/coredns/coredns/releases/tag/v1.0.1) of CoreDNS-1.0.1!
 
 This release fixes a crash in the *file* plugin and has some minor bug fixes for other plugins.
-One new plugin was added: *nsid*, that implements [RFC 5001](https://tools.ietf.org/html/rfc5001).
+One new plugin was added: *nsid*, that implements [RFC 5001](https://www.rfc-editor.org/info/rfc5001/).
 
 ## Plugins
 * *file* fixes a crash when an request with a DO bit (pretty much the default) hits an unsigned zone. The default configuration should recover the go-routine, but this is nonetheless serious. *file* received some other fixes when returning (secure) delegations.

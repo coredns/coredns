@@ -9,7 +9,7 @@ of the request will be reduced. Otherwise the request is unaffected.
 It prevents IP fragmentation, mitigating certain DNS vulnerabilities.
 It cannot increase UDP size requested by the client, it can be reduced only.
 This will only affect queries that have
-an OPT RR ([EDNS(0)](https://www.rfc-editor.org/rfc/rfc6891)).
+an OPT RR ([EDNS(0)](https://www.rfc-editor.org/info/rfc6891/)).
 
 ## Syntax
 ```txt

@@ -8,7 +8,7 @@
 ## Description
 
 *any* basically blocks ANY queries by responding to them with a short HINFO reply. See [RFC
-8482](https://tools.ietf.org/html/rfc8482) for details.
+8482](https://www.rfc-editor.org/info/rfc8482/) for details.
 
 ## Syntax
 
@@ -33,4 +33,4 @@ example.org.  8482	IN	HINFO	"ANY obsoleted" "See RFC 8482"
 
 ## See Also
 
-[RFC 8482](https://tools.ietf.org/html/rfc8482).
+[RFC 8482](https://www.rfc-editor.org/info/rfc8482/).
