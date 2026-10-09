@@ -217,6 +217,10 @@ func TestHealthLocalAddress(t *testing.T) {
 	if dnsClient.Dialer.LocalAddr.String() != "127.0.0.1:0" {
 		t.Errorf("Expected local address to be 127.0.0.1:0, got %s", dnsClient.Dialer.LocalAddr.String())
 	}
+	// A Dialer replaces dns.Client's own dial timeout, so it must carry one.
+	if dnsClient.Dialer.Timeout != 2*time.Second {
+		t.Errorf("Expected dial timeout to be 2s, got %s", dnsClient.Dialer.Timeout)
+	}
 
 	// check type of underlying transport
 	_, ok := dnsClient.Dialer.LocalAddr.(*net.UDPAddr)

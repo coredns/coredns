@@ -53,6 +53,8 @@ func NewHealthChecker(proxyName, protocol string, recursionDesired bool, domain 
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
+		// A Dialer replaces dns.Client's own 2s dial timeout, so keep it.
+		c.Dialer = &net.Dialer{Timeout: 2 * time.Second, Control: recvErr}
 		setDefaultTimeout(c)
 
 		return &dnsHc{
