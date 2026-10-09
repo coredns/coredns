@@ -56,6 +56,24 @@ func TestSetupCloudDNS(t *testing.T) {
 		{`clouddns example.org.:example-project:zone-name {
     credentials
 }`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh 3m
+}`, false},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh 30
+}`, false},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh abc
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh 0
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh -5m
+}`, true},
 		{`clouddns example.org.:example-project:zone-name example.org.:example-project:zone-name {
 	}`, true},
 
