@@ -152,6 +152,10 @@ func TestSplitZone(t *testing.T) {
 		expectedZone string
 	}{
 		{
+			"[fe80::53%eth0]:53", "[fe80::53%eth0]:53", "",
+		}, {
+			"dns://[fe80::53%eth0]:53", "dns://[fe80::53%eth0]:53", "",
+		}, {
 			"tls://127.0.0.1%example.net:854", "tls://127.0.0.1:854", "example.net",
 		}, {
 			"tls://127.0.0.1%example.net", "tls://127.0.0.1", "example.net",
@@ -336,7 +340,7 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		// fail
 		{`forward . ` + nullResolv, true, "no valid upstream addresses found", nil},
 		// IPV6 with local zone
-		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
+		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f%en0]:53"}},
 		// pass when empty forward file is found
 		{`forward . ` + emptyResolv + ` 127.0.0.1`, false, "", []string{"127.0.0.1:53"}},
 	}
