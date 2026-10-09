@@ -117,10 +117,9 @@ func TestPrefetch(t *testing.T) {
 					do:     true,
 				},
 				{
-					// Should be 127.0.0.3 as 127.0.0.2 was the prefetch WITH do bit
+					// A DO=0 client reuses the prefetched DO=1 entry.
 					after:  80 * time.Second,
-					answer: "do.prefetch.example.org. 80 IN A 127.0.0.3",
-					fetch:  true,
+					answer: "do.prefetch.example.org. 73 IN A 127.0.0.2",
 				},
 			},
 		},

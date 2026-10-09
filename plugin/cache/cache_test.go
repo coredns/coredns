@@ -535,10 +535,11 @@ func TestCacheInsertion(t *testing.T) {
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 			mt, _ := response.Typify(m, utc)
-			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+			valid, k := key(state.Name(), m, mt, state.Req.CheckingDisabled)
 
 			if valid {
 				// Insert cache entry
+				crr.state = state
 				crr.set(m, k, mt, c.pttl)
 			}
 
@@ -1231,7 +1232,7 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	if c.pcache.Len() != 1 {
 		t.Errorf("Msg should have been cached")
 	}
-	_, k := key(qname, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
+	_, k := key(qname, w.Msg, response.NoError, state.Req.CheckingDisabled)
 	i, _ := c.pcache.Get(k)
 	if i.wildcard != wildcard {
 		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.wildcard)
@@ -1314,7 +1315,7 @@ func TestCacheSeparation(t *testing.T) {
 			},
 		},
 		{
-			name: "DO bit should be unique",
+			name: "DO query cannot use an unsigned acquisition",
 			initial: test.Case{
 				Qname: "example.org.",
 				Qtype: dns.TypeA,
@@ -1388,10 +1389,11 @@ func TestCacheSeparation(t *testing.T) {
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 			mt, _ := response.Typify(m, utc)
-			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+			valid, k := key(state.Name(), m, mt, state.Req.CheckingDisabled)
 
 			if valid {
 				// Insert cache entry
+				crr.state = state
 				crr.set(m, k, mt, c.pttl)
 			}
 
@@ -1443,7 +1445,7 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	posMsg.Response = true
 	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
 	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
-	k := hash("example.org.", dns.TypeA, dns.ClassINET, false, false)
+	k := hash("example.org.", dns.TypeA, dns.ClassINET, false)
 	c.pcache.Add(k, posItem)
 
 	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).
@@ -1478,7 +1480,7 @@ func TestPreferPositiveCachePolicy(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Req.CheckingDisabled)
 
 	positive := new(dns.Msg)
 	positive.SetReply(req)
@@ -1509,7 +1511,7 @@ func TestPreferPositiveRejectsNonAnswer(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("alias.example.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Req.CheckingDisabled)
 
 	incomplete := new(dns.Msg)
 	incomplete.SetReply(req)
@@ -1667,7 +1669,7 @@ func TestPreferPositiveDoesNotServeLKGOutsideStaleWindow(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("cached.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Req.CheckingDisabled)
 
 	positive := new(dns.Msg)
 	positive.SetReply(req)
@@ -2017,7 +2019,7 @@ func TestKeyEmptyQuestion(t *testing.T) {
 	m.Response = true
 	m.Rcode = dns.RcodeSuccess
 
-	if ok, _ := key("example.org.", m, response.NoError, false, false); ok {
+	if ok, _ := key("example.org.", m, response.NoError, false); ok {
 		t.Fatal("expected a response with an empty question section to be non-cacheable")
 	}
 }
