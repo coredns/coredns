@@ -35,6 +35,8 @@ forward FROM TO...
   a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup and are treated as
   absolute DNS names even without a trailing dot; resolver search domains are not applied.
   See the `resolver` option below.
+  Plain DNS IPv6 addresses can include an interface zone, for example `[fe80::53%eth0]:53`.
+  Interface zones in nameserver addresses read from a resolver file are also preserved.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a healthy proxy returns an error
 during the exchange the next upstream in the list is tried.

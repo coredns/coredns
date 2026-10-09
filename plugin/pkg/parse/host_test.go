@@ -121,3 +121,17 @@ func TestParseHostPort(t *testing.T) {
 		}
 	}
 }
+
+func TestHostPortOrFileScopedNameserver(t *testing.T) {
+	path := t.TempDir() + "/resolv.conf"
+	if err := os.WriteFile(path, []byte("nameserver fe80::53%eth0\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	servers, err := HostPortOrFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(servers) != 1 || servers[0] != "[fe80::53%eth0]:53" {
+		t.Errorf("scoped nameserver = %v, want [fe80::53%%eth0]:53", servers)
+	}
+}
