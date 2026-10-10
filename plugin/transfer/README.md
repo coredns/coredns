@@ -17,6 +17,11 @@ The following plugins implement zone transfers using this plugin: *file*, *auto*
 *kubernetes*. See `transfer.go` for implementation details if you are a plugin author that wants to
 use this plugin.
 
+Zone transfers contain the data supplied by the plugin that provides the zone. They do not merge
+answers from the rest of the plugin chain. For example, records served by *hosts* are not included
+in a transfer of a zone provided by *file*, even if both plugins serve the same zone in one server
+block.
+
 ## Syntax
 
 ~~~
