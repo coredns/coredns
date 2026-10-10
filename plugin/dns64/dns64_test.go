@@ -584,7 +584,7 @@ func TestDNS64NilUpstreamResponse(t *testing.T) {
 
 func TestDNS64FallbackError(t *testing.T) {
 	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
-	for _, rcode := range []int{dns.RcodeServerFailure, dns.RcodeRefused, dns.RcodeNameError, dns.RcodeNotImplemented} {
+	for _, rcode := range []int{dns.RcodeSuccess, dns.RcodeServerFailure, dns.RcodeRefused, dns.RcodeFormatError, dns.RcodeNameError, dns.RcodeNotImplemented} {
 		t.Run(dns.RcodeToString[rcode], func(t *testing.T) {
 			req := new(dns.Msg)
 			req.SetQuestion("example.com.", dns.TypeAAAA)
@@ -605,8 +605,11 @@ func TestDNS64FallbackError(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got != rcode || rec.Msg.Rcode != rcode {
-				t.Errorf("fallback %s returned handler code %s and response code %s", dns.RcodeToString[rcode], dns.RcodeToString[got], dns.RcodeToString[rec.Msg.Rcode])
+			if got != dns.RcodeSuccess {
+				t.Errorf("written fallback %s returned handler code %s, want NOERROR", dns.RcodeToString[rcode], dns.RcodeToString[got])
+			}
+			if rec.Msg.Rcode != rcode {
+				t.Errorf("fallback %s returned response code %s", dns.RcodeToString[rcode], dns.RcodeToString[rec.Msg.Rcode])
 			}
 			if rec.Msg.Id != req.Id || !reflect.DeepEqual(rec.Msg.Question, req.Question) {
 				t.Errorf("response did not preserve the original AAAA query: %s", rec.Msg)
