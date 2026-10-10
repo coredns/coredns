@@ -581,3 +581,42 @@ func TestDNS64NilUpstreamResponse(t *testing.T) {
 		t.Error("Expected error when upstream returns nil response, got nil")
 	}
 }
+
+func TestDNS64FallbackError(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+	for _, rcode := range []int{dns.RcodeSuccess, dns.RcodeServerFailure, dns.RcodeRefused, dns.RcodeFormatError, dns.RcodeNameError, dns.RcodeNotImplemented} {
+		t.Run(dns.RcodeToString[rcode], func(t *testing.T) {
+			req := new(dns.Msg)
+			req.SetQuestion("example.com.", dns.TypeAAAA)
+			initial := new(dns.Msg)
+			initial.SetReply(req)
+			fallback := new(dns.Msg)
+			fallback.SetRcode(req, rcode)
+			fallback.Id++
+			fallback.Question[0].Qtype = dns.TypeA
+			fallback.Ns = []dns.RR{test.SOA("example.com. 60 IN SOA ns.example.com. hostmaster.example.com. 1 1 1 1 1")}
+			d := DNS64{
+				Next:     &fakeHandler{t, initial},
+				Prefix:   prefix,
+				Upstream: &fakeUpstream{t, req.Question[0].Name, fallback},
+			}
+			rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+			got, err := d.ServeDNS(t.Context(), rec, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != dns.RcodeSuccess {
+				t.Errorf("written fallback %s returned handler code %s, want NOERROR", dns.RcodeToString[rcode], dns.RcodeToString[got])
+			}
+			if rec.Msg.Rcode != rcode {
+				t.Errorf("fallback %s returned response code %s", dns.RcodeToString[rcode], dns.RcodeToString[rec.Msg.Rcode])
+			}
+			if rec.Msg.Id != req.Id || !reflect.DeepEqual(rec.Msg.Question, req.Question) {
+				t.Errorf("response did not preserve the original AAAA query: %s", rec.Msg)
+			}
+			if !reflect.DeepEqual(rec.Msg.Ns, fallback.Ns) {
+				t.Errorf("response did not preserve fallback authority records: %s", rec.Msg)
+			}
+		})
+	}
+}

@@ -63,7 +63,7 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	w.WriteMsg(msg)
-	return msg.Rcode, nil
+	return dns.RcodeSuccess, nil
 }
 
 // Name implements the Handler interface.
@@ -134,6 +134,7 @@ func (d *DNS64) DoDNS64(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, o
 func (d *DNS64) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 	ret := dns.Msg{}
 	ret.SetReply(origReq)
+	ret.Rcode = resp.Rcode
 
 	// persist truncated state of AAAA response
 	ret.Truncated = resp.Truncated
