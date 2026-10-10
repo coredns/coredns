@@ -52,6 +52,10 @@ func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 		Ns:       nil,
 		Extra:    nil,
 	}
+	// OPT carries EDNS response metadata, rather than additional zone data.
+	if opt := nw.Msg.IsEdns0(); opt != nil {
+		d.Extra = []dns.RR{opt}
+	}
 
 	w.WriteMsg(d)
 	return 0, nil
