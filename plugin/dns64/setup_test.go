@@ -32,17 +32,20 @@ func TestSetupDns64(t *testing.T) {
 		shouldErr      bool
 		wantPrefix     string
 		wantAllowIpv4  bool
+		wantFilterA    bool
 	}{
 		{
 			`dns64`,
 			false,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 64:dead::/96`,
 			false,
 			"64:dead::/96",
+			false,
 			false,
 		},
 		{
@@ -52,11 +55,13 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64`,
 			false,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -65,6 +70,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -74,6 +80,7 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"64:ff9b::/32",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -81,6 +88,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			true,
 			"64:ff9b::/52",
+			false,
 			false,
 		},
 		{
@@ -90,6 +98,7 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"64:ff9b::/104",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -98,6 +107,7 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"8.8.9.9/24",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -105,6 +115,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -114,6 +125,7 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"2002:ac12:b083::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -121,6 +133,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"2002:c0a8:a88a::/48",
+			false,
 			false,
 		},
 		{
@@ -130,11 +143,13 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 foobar`,
 			true,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -144,6 +159,7 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -151,6 +167,26 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"64:ff9b::/96",
+			true,
+			false,
+		},
+		{
+			`dns64 {
+				filter_a
+			}`,
+			false,
+			"64:ff9b::/96",
+			false,
+			true,
+		},
+		{
+			`dns64 {
+				allow_ipv4
+				filter_a
+			}`,
+			false,
+			"64:ff9b::/96",
+			true,
 			true,
 		},
 	}
@@ -166,7 +202,10 @@ func TestSetupDns64(t *testing.T) {
 				t.Errorf("Test %d expected prefix %s, got %v", i+1, test.wantPrefix, dns64.Prefix.String())
 			}
 			if dns64.AllowIPv4 != test.wantAllowIpv4 {
-				t.Errorf("Test %d expected prefix %v, got %v", i+1, test.wantAllowIpv4, dns64.AllowIPv4)
+				t.Errorf("Test %d expected allow_ipv4 %v, got %v", i+1, test.wantAllowIpv4, dns64.AllowIPv4)
+			}
+			if dns64.FilterA != test.wantFilterA {
+				t.Errorf("Test %d expected filter_a %v, got %v", i+1, test.wantFilterA, dns64.FilterA)
 			}
 		}
 	}
