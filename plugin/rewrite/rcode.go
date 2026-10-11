@@ -133,7 +133,7 @@ func newRCodeRule(nextAction string, args ...string) (Rule, error) {
 		case PrefixMatch:
 			return &prefixRCodeRule{
 				newRCodeRuleBase(nextAction, old, new),
-				plugin.Name(args[1]).Normalize(),
+				strings.ToLower(args[1]),
 			}, nil
 		case SuffixMatch:
 			return &suffixRCodeRule{
@@ -143,7 +143,7 @@ func newRCodeRule(nextAction string, args ...string) (Rule, error) {
 		case SubstringMatch:
 			return &substringRCodeRule{
 				newRCodeRuleBase(nextAction, old, new),
-				plugin.Name(args[1]).Normalize(),
+				strings.ToLower(args[1]),
 			}, nil
 		case RegexMatch:
 			if len(args[1]) > maxRegexpLen {
