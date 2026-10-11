@@ -101,7 +101,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		now = i.stored
 	}
 	var resp *dns.Msg
-	if stale && c.staleTTL > 0 {
+	if stale {
 		staleTTL := uint32(c.staleTTL / time.Second) // #nosec G115 -- configuration parsing bounds this to the DNS TTL range.
 		resp = i.toMsgWithTTL(r, staleTTL, do, ad)
 	} else {
