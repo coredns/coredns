@@ -323,6 +323,11 @@ If a range is supplied, the TTL value is set to `MIN` if it is below, or set to 
 The TTL value is left unchanged if it is already inside the provided range.
 The ranges can be unbounded on either side.
 
+A TTL rewrite applies to all records in the answer, authority and additional sections
+of a matching response. The EDNS0 OPT pseudo-record is never rewritten: its header TTL
+field does not hold a TTL but encodes EDNS0 metadata (extended RCODE, version and flags
+such as the DNSSEC DO bit), which would be corrupted by rewriting.
+
 TTL examples with ranges:
 ```
 # rewrite TTL to be between 30s and 300s
