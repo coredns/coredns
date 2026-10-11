@@ -28,7 +28,8 @@ trace [ENDPOINT\-TYPE] [ENDPOINT]
 Defaults to \fB\fCzipkin\fR.
 .IP \(bu 4
 \fBENDPOINT\fP is the tracing destination, and defaults to \fB\fClocalhost:9411\fR. For Zipkin, if
-\fBENDPOINT\fP does not begin with \fB\fChttp\fR, then it will be transformed to \fB\fChttp://ENDPOINT/api/v2/spans\fR.
+\fBENDPOINT\fP does not begin with \fB\fChttp://\fR or \fB\fChttps://\fR, then it will be transformed to
+\fB\fChttp://ENDPOINT/api/v2/spans\fR.
 
 
 .PP

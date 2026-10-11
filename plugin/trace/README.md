@@ -20,7 +20,8 @@ trace [ENDPOINT-TYPE] [ENDPOINT]
 * **ENDPOINT-TYPE** is the type of tracing destination. Currently only `zipkin` and `datadog` are supported.
   Defaults to `zipkin`.
 * **ENDPOINT** is the tracing destination, and defaults to `localhost:9411`. For Zipkin, if
-  **ENDPOINT** does not begin with `http`, then it will be transformed to `http://ENDPOINT/api/v2/spans`.
+  **ENDPOINT** does not begin with `http://` or `https://`, then it will be transformed to
+  `http://ENDPOINT/api/v2/spans`.
 
 With this form, all queries will be traced.
 
