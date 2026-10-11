@@ -23,6 +23,10 @@ func TestTraceParse(t *testing.T) {
 		// oks
 		{`trace`, false, "http://localhost:9411/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
 		{`trace localhost:1234`, false, "http://localhost:1234/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
+		{`trace zipkin-http.monitoring:9411`, false, "http://zipkin-http.monitoring:9411/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
+		{`trace zipkin http-collector:9411`, false, "http://http-collector:9411/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
+		{`trace zipkin myhttpscollector:9411`, false, "http://myhttpscollector:9411/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
+		{`trace zipkin https://zipkin-http.monitoring:9411/custom/spans`, false, "https://zipkin-http.monitoring:9411/custom/spans", 1, `coredns`, false, 0, 0, 0},
 		{`trace http://localhost:1234/somewhere/else`, false, "http://localhost:1234/somewhere/else", 1, `coredns`, false, 0, 0, 0},
 		{`trace zipkin localhost:1234`, false, "http://localhost:1234/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
 		{`trace datadog localhost`, false, "localhost", 1, `coredns`, false, 0, 0, 0},
