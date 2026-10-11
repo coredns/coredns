@@ -146,7 +146,10 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 		default:
 			return nil, fmt.Errorf("unknown cname rewrite type: %s", rewriteType)
 		}
-		paramFromTarget, paramToTarget = strings.ToLower(args[1]), strings.ToLower(args[2])
+		paramFromTarget, paramToTarget = args[1], strings.ToLower(args[2])
+		if rewriteType != RegexMatch {
+			paramFromTarget = strings.ToLower(paramFromTarget)
+		}
 	} else if len(args) == 2 {
 		rewriteType = ExactMatch
 		paramFromTarget, paramToTarget = strings.ToLower(args[0]), strings.ToLower(args[1])
