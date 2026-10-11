@@ -45,7 +45,16 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		refreshState := authenticatedRefreshState(state)
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd,
 			nexcept: c.nexcept, pexcept: c.pexcept, wildcardFunc: wildcardFunc(ctx)}
-		return c.doRefresh(ctx, refreshState, crr)
+		ret, err := c.doRefresh(ctx, refreshState, crr)
+		// The next plugin can fail without writing a response, e.g. forward when
+		// the upstream times out. In that case the failure never reaches
+		// ResponseWriter.WriteMsg, so it is not cached and every client retry
+		// hits the upstream again. Store a SERVFAIL bounded by the servfail TTL
+		// so identical queries are answered from the cache while it is valid.
+		if err != nil && ret == dns.RcodeServerFailure && crr.lastResponse == nil && c.failttl > 0 {
+			crr.cacheServerFailure(refreshState.Req)
+		}
+		return ret, err
 	}
 	ttl := i.ttl(now)
 	stale := ttl <= 0

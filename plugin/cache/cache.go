@@ -481,6 +481,17 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	return w.ResponseWriter.WriteMsg(res)
 }
 
+// cacheServerFailure stores a SERVFAIL response for req in the cache without
+// writing it to the client. It is used when the next plugin fails without
+// producing a response, so the failure can be served from the cache while the
+// servfail TTL is valid.
+func (w *ResponseWriter) cacheServerFailure(req *dns.Msg) {
+	resp := new(dns.Msg)
+	resp.SetRcode(req, dns.RcodeServerFailure)
+	w.prefetch = true
+	_ = w.WriteMsg(resp)
+}
+
 func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {
 	// duration is expected > 0
 	// and key is valid
