@@ -127,7 +127,7 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 		case PrefixMatch:
 			return &prefixTTLRule{
 				newTTLRuleBase(nextAction, minTtl, maxTtl),
-				plugin.Name(args[1]).Normalize(),
+				strings.ToLower(args[1]),
 			}, nil
 		case SuffixMatch:
 			return &suffixTTLRule{
@@ -137,7 +137,7 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 		case SubstringMatch:
 			return &substringTTLRule{
 				newTTLRuleBase(nextAction, minTtl, maxTtl),
-				plugin.Name(args[1]).Normalize(),
+				strings.ToLower(args[1]),
 			}, nil
 		case RegexMatch:
 			if len(args[1]) > maxRegexpLen {

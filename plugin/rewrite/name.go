@@ -316,10 +316,14 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 	}
 	if len(args) >= 3 {
 		matchType = strings.ToLower(args[0])
-		if matchType == RegexMatch {
+		switch matchType {
+		case RegexMatch:
 			rewriteQuestionFrom = args[1]
 			rewriteQuestionTo = args[2]
-		} else {
+		case PrefixMatch, SubstringMatch:
+			rewriteQuestionFrom = strings.ToLower(args[1])
+			rewriteQuestionTo = strings.ToLower(args[2])
+		default:
 			rewriteQuestionFrom = plugin.Name(args[1]).Normalize()
 			rewriteQuestionTo = plugin.Name(args[2]).Normalize()
 		}
