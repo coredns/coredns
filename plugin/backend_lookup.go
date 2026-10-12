@@ -393,6 +393,9 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			if e1 != nil || m1 == nil {
 				continue
 			}
+			if m1.Truncated {
+				truncated = true
+			}
 			// Len(m1.Answer) > 0 here is well?
 			records = append(records, newRecord)
 			records = append(records, m1.Answer...)
