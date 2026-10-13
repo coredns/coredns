@@ -11,7 +11,8 @@ removes resource records from the AUTHORITY and ADDITIONAL sections.
 
 Specifically this plugin looks at successful responses (this excludes negative responses, i.e.
 nodata or name error). If the successful response isn't a delegation only the RRs in the answer
-section are written to the client. The EDNS OPT record is retained, including its response options.
+section are written to the client. For EDNS-enabled requests, the response OPT record and its options
+are retained.
 
 ## Syntax
 
