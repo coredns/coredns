@@ -363,19 +363,24 @@ func TestPodModified(t *testing.T) {
 		changed bool
 	}{
 		{
-			oldPod:  &object.Pod{Version: "1", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
-			newPod:  &object.Pod{Version: "2", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
+			oldPod:  &object.Pod{Version: "1", PodIPs: []string{"10.240.0.1"}, Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIPs: []string{"10.240.0.1"}, Name: "dns-test", Namespace: "testns"},
 			changed: false,
 		},
 		{
-			oldPod:  &object.Pod{Version: "1", PodIP: "", Name: "dns-test", Namespace: "testns"},
-			newPod:  &object.Pod{Version: "2", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
+			oldPod:  &object.Pod{Version: "1", PodIPs: []string{}, Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIPs: []string{"10.240.0.1"}, Name: "dns-test", Namespace: "testns"},
 			changed: true,
 		},
 		{
-			oldPod:  &object.Pod{Version: "1", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
-			newPod:  &object.Pod{Version: "2", PodIP: "10.240.0.2", Name: "dns-test", Namespace: "testns"},
+			oldPod:  &object.Pod{Version: "1", PodIPs: []string{"10.240.0.1"}, Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIPs: []string{"10.240.0.2"}, Name: "dns-test", Namespace: "testns"},
 			changed: true,
+		},
+		{
+			oldPod:  &object.Pod{Version: "1", PodIPs: []string{"10.240.0.1", "fd00::1"}, Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIPs: []string{"10.240.0.1", "fd00::1"}, Name: "dns-test", Namespace: "testns"},
+			changed: false,
 		},
 	}
 
@@ -390,14 +395,14 @@ func TestPodModified(t *testing.T) {
 func TestDetectChangesPodUpdate(t *testing.T) {
 	dns := &dnsControl{}
 
-	p1 := &object.Pod{Version: "1", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"}
-	p2 := &object.Pod{Version: "2", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"}
+	p1 := &object.Pod{Version: "1", PodIPs: []string{"10.240.0.1"}, Name: "dns-test", Namespace: "testns"}
+	p2 := &object.Pod{Version: "2", PodIPs: []string{"10.240.0.1"}, Name: "dns-test", Namespace: "testns"}
 	dns.detectChanges(p1, p2)
 	if dns.Modified(ModifiedInternal) != 0 {
 		t.Fatal("pod update with an unchanged IP should not update the modified timestamp")
 	}
 
-	p3 := &object.Pod{Version: "3", PodIP: "10.240.0.2", Name: "dns-test", Namespace: "testns"}
+	p3 := &object.Pod{Version: "3", PodIPs: []string{"10.240.0.2"}, Name: "dns-test", Namespace: "testns"}
 	dns.detectChanges(p2, p3)
 	if dns.Modified(ModifiedInternal) == 0 {
 		t.Fatal("pod update with a changed IP should update the modified timestamp")
