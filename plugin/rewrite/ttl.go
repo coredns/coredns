@@ -19,6 +19,12 @@ type ttlResponseRule struct {
 }
 
 func (r *ttlResponseRule) RewriteResponse(_res *dns.Msg, rr dns.RR) {
+	// The OPT pseudo-record does not carry an actual TTL: its header TTL field
+	// encodes EDNS0 metadata (version, extended RCODE and flags such as the DO
+	// bit). Clamping it would corrupt the EDNS0 header, so leave it untouched.
+	if rr.Header().Rrtype == dns.TypeOPT {
+		return
+	}
 	if rr.Header().Ttl < r.minTTL {
 		rr.Header().Ttl = r.minTTL
 	} else if rr.Header().Ttl > r.maxTTL {
