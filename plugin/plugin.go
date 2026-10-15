@@ -134,6 +134,21 @@ func (pw *pluginWriter) TsigTimersOnly(b bool) { pw.ResponseWriter.TsigTimersOnl
 // Hijack implements dns.ResponseWriter.
 func (pw *pluginWriter) Hijack() { pw.ResponseWriter.Hijack() }
 
+// Proto gets the protocol used as the transport. This will be udp or tcp.
+func (pw *pluginWriter) Proto() string {
+	// return Write.Proto(), if it is implemented
+	if protoProvider, ok := pw.ResponseWriter.(interface{ Proto() string }); ok {
+		return protoProvider.Proto()
+	}
+	if _, ok := pw.ResponseWriter.RemoteAddr().(*net.UDPAddr); ok {
+		return "udp"
+	}
+	if _, ok := pw.ResponseWriter.RemoteAddr().(*net.TCPAddr); ok {
+		return "tcp"
+	}
+	return "udp"
+}
+
 // ClientWrite returns true if the response has been written to the client.
 // Each plugin to adhere to this protocol.
 func ClientWrite(rcode int) bool {

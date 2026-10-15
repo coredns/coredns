@@ -70,6 +70,7 @@ func (w *DoQWriter) Hijack()                {}
 func (w *DoQWriter) LocalAddr() net.Addr    { return w.localAddr }
 func (w *DoQWriter) RemoteAddr() net.Addr   { return w.remoteAddr }
 func (w *DoQWriter) Network() string        { return "" }
+func (w *DoQWriter) Proto() string          { return "quic" }
 
 // ConnectionState implements the dns.ConnectionStater interface, exposing the
 // TLS state of the underlying QUIC connection (e.g. for plugins that need to
