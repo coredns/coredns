@@ -51,7 +51,9 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// ResponseWriter.WriteMsg, so it is not cached and every client retry
 		// hits the upstream again. Store a SERVFAIL bounded by the servfail TTL
 		// so identical queries are answered from the cache while it is valid.
-		if err != nil && ret == dns.RcodeServerFailure && crr.lastResponse == nil && c.failttl > 0 {
+		// A canceled request context (e.g. a canceled DoH request) is not an
+		// upstream failure, so it must not poison the shared failure cache.
+		if err != nil && ret == dns.RcodeServerFailure && ctx.Err() == nil && crr.lastResponse == nil && c.failttl > 0 {
 			crr.cacheServerFailure(refreshState.Req)
 		}
 		return ret, err
