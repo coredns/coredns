@@ -20,7 +20,7 @@ If the given argument is an interface name, and that interface has several IP ad
 In its basic form, a simple bind uses this syntax:
 
 ~~~ txt
-bind ADDRESS|IFACE  ...
+bind ADDRESS|IFACE|ipv4|ipv6  ...
 ~~~
 
 You can also exclude some addresses with their IP address or interface name in expanded syntax:
@@ -35,7 +35,13 @@ bind ADDRESS|IFACE ... {
 
 * **ADDRESS|IFACE** is an IP address or interface name to bind to.
 When several addresses are provided a listener will be opened on each of the addresses. Please read the *Description* for more details.
+* **ipv4** is a shorthand for `0.0.0.0` that ensures the listener uses an IPv4-only socket.
+* **ipv6** is a shorthand for `::` that ensures the listener uses an IPv6-only socket.
 * `except`, excludes interfaces or IP addresses to bind to. `except` option only excludes addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
+
+Note: By default, Go creates dual-stack sockets, which means that binding to `0.0.0.0` or `::` will
+listen on both IPv4 and IPv6. Use the `ipv4` or `ipv6` keywords instead to restrict listening to a
+single address family. The keywords can be combined with other addresses in the same `bind` directive.
 ## Examples
 
 To make your socket accessible only to that machine, bind to IP 127.0.0.1 (localhost):
@@ -79,6 +85,30 @@ You can exclude some addresses by their IP or interface name (The following will
     bind lo {
         except 127.0.0.1
     }
+}
+~~~
+
+To bind to IPv4 only:
+
+~~~ corefile
+. {
+    bind ipv4
+}
+~~~
+
+To bind to IPv6 only:
+
+~~~ corefile
+. {
+    bind ipv6
+}
+~~~
+
+To bind to specific addresses and all IPv6 addresses:
+
+~~~ corefile
+. {
+    bind 127.0.0.1 127.0.0.2 ipv6
 }
 ~~~
 
