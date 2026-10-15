@@ -10,9 +10,17 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
+type quicAddr struct {
+	net.Addr
+}
+
+func (a quicAddr) Network() string {
+	return "quic"
+}
+
 type DoQWriter struct {
-	localAddr  net.Addr
-	remoteAddr net.Addr
+	localAddr  quicAddr
+	remoteAddr quicAddr
 	stream     *quic.Stream
 	conn       *quic.Conn
 	Msg        *dns.Msg

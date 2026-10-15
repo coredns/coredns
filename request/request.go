@@ -110,15 +110,9 @@ func (r *Request) RemoteAddr() string { return r.W.RemoteAddr().String() }
 // LocalAddr returns the net.Addr of the server handling the current request.
 func (r *Request) LocalAddr() string { return r.W.LocalAddr().String() }
 
-// Proto gets the protocol used as the transport. This will be udp or tcp.
+// Proto gets the protocol used as the transport. This will be udp, tcp, or quic.
 func (r *Request) Proto() string {
-	if _, ok := r.W.RemoteAddr().(*net.UDPAddr); ok {
-		return "udp"
-	}
-	if _, ok := r.W.RemoteAddr().(*net.TCPAddr); ok {
-		return "tcp"
-	}
-	return "udp"
+	return r.W.RemoteAddr().Network()
 }
 
 // Family returns the family of the transport, 1 for IPv4 and 2 for IPv6.
