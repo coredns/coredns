@@ -22,6 +22,7 @@ const (
 )
 
 type reload struct {
+	configHash   [sha512.Size]byte
 	dur          time.Duration
 	u            int
 	mtx          sync.RWMutex
@@ -90,12 +91,7 @@ func hook(event caddy.EventName, info any) error {
 	if r == nil || r.usage() == unused {
 		return nil
 	}
-	parsedCorefile, err := parse(instance.Caddyfile())
-	if err != nil {
-		return err
-	}
-
-	sha512sum := sha512.Sum512(parsedCorefile)
+	sha512sum := r.configHash
 	log.Infof("Running configuration SHA512 = %x\n", sha512sum)
 	quit := r.quit
 	interval := r.interval()

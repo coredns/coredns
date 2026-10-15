@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
@@ -76,6 +77,7 @@ func setup(c *caddy.Controller) error {
 
 	// prepare info for next onInstanceStartup event
 	state := reloadForController(c)
+	state.configHash = dnsserver.GetConfigHash(c)
 	state.setInterval(i)
 	state.setUsage(used)
 	once.Do(func() {
