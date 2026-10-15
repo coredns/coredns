@@ -298,7 +298,7 @@ func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
 	}
 
 	if s.connPolicy != nil {
-		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy, UDPSessionTrackingTTL: s.udpSessionTrackingTTL, UDPSessionTrackingMaxSessions: s.udpSessionTrackingMaxSessions, CaptureTLVs: s.proxyProtoTLVMetadata}
 	}
 
 	s.m.Lock()

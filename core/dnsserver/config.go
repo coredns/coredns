@@ -106,6 +106,12 @@ type Config struct {
 	// Has no effect unless ProxyProtoUDPSessionTrackingTTL is positive.
 	ProxyProtoUDPSessionTrackingMaxSessions int
 
+	// ProxyProtoTLVMetadata, when true, captures the PPv2 TLV vector and exposes
+	// it to downstream plugins as the "proxyproto/tlv" metadata label (raw hex).
+	// Opt-in: off by default so existing listeners skip the extra TLV processing.
+	// Has no effect unless ProxyProtoConnPolicy is also set.
+	ProxyProtoTLVMetadata bool
+
 	// MaxGRPCStreams defines the maximum number of concurrent streams per gRPC connection.
 	// This is nil if not specified, allowing for a default to be used.
 	MaxGRPCStreams *int

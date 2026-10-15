@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -77,7 +78,11 @@ func (s *ServerTLS) Listen() (net.Listener, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		if s.proxyProtoTLVMetadata {
+			l = cproxyproto.NewTLVListener(l, s.connPolicy)
+		} else {
+			l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		}
 	}
 	return l, nil
 }

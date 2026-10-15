@@ -59,6 +59,10 @@ type PacketConn struct {
 	// positive.
 	UDPSessionTrackingMaxSessions int
 
+	// CaptureTLVs populates Addr.rawTLVs from the PPv2 header when set. Opt-in,
+	// so connections without it skip the extra TLV processing.
+	CaptureTLVs bool
+
 	// sessionCache is a thread-safe expirable LRU; lazily initialized on
 	// first use when UDPSessionTrackingTTL > 0.
 	sessionCache *expirable.LRU[string, *proxyproto.Header]
@@ -131,7 +135,7 @@ func (c *PacketConn) readFrom(p []byte, addr net.Addr) (_ int, _ net.Addr, err e
 	case proxyproto.USE:
 		if header != nil {
 			if !header.Command.IsLocal() {
-				addr = &Addr{u: addr, r: header.SourceAddr}
+				addr = &Addr{u: addr, r: header.SourceAddr, rawTLVs: c.tlvsFor(header)}
 
 				if c.UDPSessionTrackingTTL > 0 {
 					// Cache the real source address for subsequent headerless datagrams.
@@ -150,7 +154,7 @@ func (c *PacketConn) readFrom(p []byte, addr net.Addr) (_ int, _ net.Addr, err e
 		} else if c.UDPSessionTrackingTTL > 0 {
 			// No header present – look for a cached header for this remote.
 			if cachedHeader, ok := c.lookupSession(addr); ok {
-				addr = &Addr{u: addr, r: cachedHeader.SourceAddr}
+				addr = &Addr{u: addr, r: cachedHeader.SourceAddr, rawTLVs: c.tlvsFor(cachedHeader)}
 			}
 		}
 	default:
@@ -162,6 +166,17 @@ func (c *PacketConn) readFrom(p []byte, addr net.Addr) (_ int, _ net.Addr, err e
 type Addr struct {
 	u net.Addr
 	r net.Addr
+	// rawTLVs is the uninterpreted PPv2 TLV vector. It rides on Addr only to
+	// cross the miekg/dns ResponseWriter boundary; the proxyproto plugin reads
+	// it back off RemoteAddr and publishes it as request metadata.
+	rawTLVs []byte
+}
+
+// NewAddr returns an Addr whose Network reflects underlying, whose String
+// reflects real (the PROXY-reported client), and that carries the raw PPv2 TLV
+// vector (may be nil).
+func NewAddr(underlying, real net.Addr, rawTLVs []byte) *Addr {
+	return &Addr{u: underlying, r: real, rawTLVs: rawTLVs}
 }
 
 func (a *Addr) Network() string {
@@ -170,6 +185,45 @@ func (a *Addr) Network() string {
 
 func (a *Addr) String() string {
 	return a.r.String()
+}
+
+// RawTLVs returns the raw PPv2 TLV vector carried with this address, or nil.
+func (a *Addr) RawTLVs() []byte {
+	return a.rawTLVs
+}
+
+// Unwrap returns the underlying real client address (a *net.TCPAddr or
+// *net.UDPAddr). Callers that classify by concrete transport/family type —
+// e.g. request.Proto and request.Family — unwrap through this so an Addr is
+// treated as its real transport rather than an unknown net.Addr.
+func (a *Addr) Unwrap() net.Addr {
+	return a.r
+}
+
+// tlvsFor returns the header's raw TLVs when TLV capture is enabled, else nil.
+func (c *PacketConn) tlvsFor(header *proxyproto.Header) []byte {
+	if !c.CaptureTLVs {
+		return nil
+	}
+	return rawTLVs(header)
+}
+
+// rawTLVs returns the header's TLV vector as uninterpreted bytes, or nil if
+// the header carries no TLVs. It uses the library's public API; NOOP padding
+// is dropped, which does not matter to consumers that re-split the vector.
+func rawTLVs(header *proxyproto.Header) []byte {
+	if header == nil {
+		return nil
+	}
+	tlvs, err := header.TLVs()
+	if err != nil || len(tlvs) == 0 {
+		return nil
+	}
+	raw, err := proxyproto.JoinTLVs(tlvs)
+	if err != nil {
+		return nil
+	}
+	return raw
 }
 
 func parseProxyProtocol(packet []byte) (*proxyproto.Header, []byte, error) {

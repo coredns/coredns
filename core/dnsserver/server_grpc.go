@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/pb"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -134,7 +135,11 @@ func (s *ServergRPC) Listen() (net.Listener, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		if s.proxyProtoTLVMetadata {
+			l = cproxyproto.NewTLVListener(l, s.connPolicy)
+		} else {
+			l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		}
 	}
 	return l, nil
 }
@@ -183,12 +188,21 @@ func (s *ServergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 		return nil, errors.New("no peer in gRPC context")
 	}
 
-	a, ok := p.Addr.(*net.TCPAddr)
-	if !ok {
+	// The peer address is normally a *net.TCPAddr. When proxyproto tlv_metadata
+	// is enabled, the TLV-capturing listener surfaces a *cproxyproto.Addr whose
+	// RemoteAddr carries the PPv2 TLVs; accept it so the metadata provider can
+	// read them. Validate the real client address is TCP in both cases.
+	var remoteAddr net.Addr
+	switch pa := p.Addr.(type) {
+	case *cproxyproto.Addr:
+		remoteAddr = pa
+	case *net.TCPAddr:
+		remoteAddr = pa
+	default:
 		return nil, fmt.Errorf("no TCP peer in gRPC context: %v", p.Addr)
 	}
 
-	w := &gRPCresponse{localAddr: s.listenAddr, remoteAddr: a, Msg: msg}
+	w := &gRPCresponse{localAddr: s.listenAddr, remoteAddr: remoteAddr, Msg: msg}
 
 	if tsig := msg.IsTsig(); tsig != nil {
 		if s.TsigSecret == nil {
