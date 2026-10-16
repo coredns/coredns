@@ -371,6 +371,156 @@ func TestServeStaleFailureRecheckDisabledPreservesVerifyBehavior(t *testing.T) {
 	}
 }
 
+func TestServeStaleVerifyWaitsForInFlightRefresh(t *testing.T) {
+	clock := newStaleRecheckClock()
+	c := New()
+	c.now = clock.Now
+	c.minpttl = 0
+	c.minnttl = 0
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.staleRecheck = 30 * time.Second
+	c.Next = ttlBackend(1)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	serveStaleRecheckRequest(t, c, req) // prime the cache
+	clock.Set(2 * time.Second)
+
+	var calls atomic.Int32
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.99")}
+		if err := w.WriteMsg(m); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+		return dns.RcodeSuccess, nil
+	})
+
+	type outcome struct {
+		msg *dns.Msg
+		err error
+	}
+	serve := func() <-chan outcome {
+		ch := make(chan outcome, 1)
+		go func() {
+			recorder := dnstest.NewRecorder(&test.ResponseWriter{})
+			_, err := c.ServeDNS(context.Background(), recorder, req.Copy())
+			ch <- outcome{recorder.Msg, err}
+		}()
+		return ch
+	}
+
+	first := serve()
+	waitForStaleSignal(t, started, "verify did not start")
+	second := serve()
+
+	// The concurrent request must wait for the in-flight verify instead of
+	// serving the stale entry right away.
+	select {
+	case o := <-second:
+		if o.err != nil {
+			t.Fatalf("concurrent ServeDNS failed: %v", o.err)
+		}
+		t.Fatalf("concurrent request did not wait for the in-flight verify, got answer %v", o.msg.Answer)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(release)
+
+	for idx, ch := range []<-chan outcome{first, second} {
+		o := <-ch
+		if o.err != nil {
+			t.Fatalf("ServeDNS %d failed: %v", idx, o.err)
+		}
+		assertRefreshedAddress(t, o.msg)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected one upstream verify, got %d", got)
+	}
+}
+
+func assertRefreshedAddress(t *testing.T, msg *dns.Msg) {
+	t.Helper()
+	if msg == nil || msg.Truncated || len(msg.Answer) != 1 {
+		t.Fatalf("expected one complete answer, got %#v", msg)
+	}
+	a, ok := msg.Answer[0].(*dns.A)
+	if !ok || a.A.String() != "192.0.2.99" {
+		t.Fatalf("expected refreshed address 192.0.2.99, got %v", msg.Answer)
+	}
+}
+
+func TestServeStaleVerifyTimeoutWaitsForInFlightRefresh(t *testing.T) {
+	clock := newStaleRecheckClock()
+	c := New()
+	c.now = clock.Now
+	c.minpttl = 0
+	c.minnttl = 0
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 500 * time.Millisecond
+	c.staleRecheck = 30 * time.Second
+	c.Next = ttlBackend(1)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	serveStaleRecheckRequest(t, c, req) // prime the cache
+	clock.Set(2 * time.Second)
+
+	var calls atomic.Int32
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.99")}
+		if err := w.WriteMsg(m); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+		return dns.RcodeSuccess, nil
+	})
+
+	type outcome struct {
+		msg *dns.Msg
+		err error
+	}
+	firstCh := make(chan outcome, 1)
+	go func() {
+		recorder := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err := c.ServeDNS(context.Background(), recorder, req.Copy())
+		firstCh <- outcome{recorder.Msg, err}
+	}()
+	waitForStaleSignal(t, started, "background verify did not start")
+
+	// Release the upstream well before the verify timeout: the concurrent
+	// request below must wait for the in-flight verify and be served the
+	// refreshed entry rather than the stale one.
+	time.AfterFunc(100*time.Millisecond, func() { close(release) })
+	second := serveStaleRecheckRequest(t, c, req)
+	assertRefreshedAddress(t, second)
+
+	first := <-firstCh
+	if first.err != nil {
+		t.Fatalf("ServeDNS failed: %v", first.err)
+	}
+	assertRefreshedAddress(t, first.msg)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected one upstream verify, got %d", got)
+	}
+}
+
 func serveStaleRecheckRequest(t *testing.T, c *Cache, req *dns.Msg) *dns.Msg {
 	t.Helper()
 	recorder := dnstest.NewRecorder(&test.ResponseWriter{})
