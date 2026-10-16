@@ -136,10 +136,15 @@ functions defined below.
 * `opcode() int`: query OPCODE
 * `port() string`: client's port
 * `proto() string`: protocol used (tcp or udp)
-* `server_ip() string`: server's IP address; for IPv6 addresses these are enclosed in brackets: `[::1]`
+* `server_ip() string`: server's destination IP address; IPv6 addresses have no brackets: `::1`
 * `server_port() string` : server's port
 * `size() int`: request size in bytes
 * `type() string`: type of the request (A, AAAA, TXT, ...)
+
+For wildcard UDP listeners, `server_ip()` uses the destination address of the individual packet
+when the operating system supplies packet information. If that information is unavailable, including
+with custom packet listeners that do not expose it, the listening address is used instead.
+With *proxyproto*, this is the transport packet's destination, not the destination claimed in the PROXY header.
 
 #### Utility Functions
 
