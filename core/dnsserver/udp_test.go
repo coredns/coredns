@@ -60,16 +60,24 @@ func TestUDPDestinationReadWrite(t *testing.T) {
 				}
 				probe.Close()
 			}
-			if tc.name == "ipv4" && runtime.GOOS == "windows" {
-				// Winsock cannot select an unassigned 127.0.0.2 as the packet
-				// source. Use a second configured local address on Windows.
-				tc.destinations[1] = secondLocalIPv4(t)
-			} else if tc.name == "ipv4" {
-				probe, err := net.ListenPacket("udp4", "127.0.0.2:0")
-				if err != nil {
-					t.Skipf("second loopback address is unavailable: %v", err)
+			if tc.name == "ipv4" {
+				switch runtime.GOOS {
+				case "windows":
+					// Winsock cannot select an unassigned 127.0.0.2 as the
+					// source. Use a second configured local address instead.
+					tc.destinations[1] = secondLocalIPv4(t)
+				case "aix", "dragonfly", "freebsd", "netbsd", "openbsd":
+					// x/net can receive IPv4 destinations but cannot marshal
+					// IPv4 source control on these systems. Preserve their
+					// existing routing behavior with one destination here.
+					tc.destinations[1] = tc.destinations[0]
+				default:
+					probe, err := net.ListenPacket("udp4", "127.0.0.2:0")
+					if err != nil {
+						t.Skipf("second loopback address is unavailable: %v", err)
+					}
+					probe.Close()
 				}
-				probe.Close()
 			}
 			raw := udpTestConn(t, tc.network, tc.bind)
 			conn := withUDPDestination(raw)
