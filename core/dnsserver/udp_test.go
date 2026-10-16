@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net"
 	"runtime"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -93,16 +94,16 @@ func TestUDPDestinationReadWrite(t *testing.T) {
 				}
 				addresses = append(addresses, addr)
 			}
-			for i := len(addresses) - 1; i >= 0; i-- {
-				packet, ok := addresses[i].(interface{ LocalAddr() net.Addr })
+			for i, addr := range slices.Backward(addresses) {
+				packet, ok := addr.(interface{ LocalAddr() net.Addr })
 				if !ok {
-					t.Fatalf("missing destination on %T", addresses[i])
+					t.Fatalf("missing destination on %T", addr)
 				}
 				want := net.JoinHostPort(tc.destinations[i], strconv.Itoa(port))
 				if got := packet.LocalAddr().String(); got != want {
 					t.Errorf("destination = %s, want %s", got, want)
 				}
-				if n, err := conn.WriteTo([]byte{byte(i)}, addresses[i]); err != nil || n != 1 {
+				if n, err := conn.WriteTo([]byte{byte(i)}, addr); err != nil || n != 1 {
 					t.Fatalf("WriteTo = %d, %v, want 1 byte", n, err)
 				}
 				buf := make([]byte, 16)
