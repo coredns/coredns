@@ -169,7 +169,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_forward_max_concurrent_rejects_total{}` - count of queries rejected because the
   number of concurrent queries were at maximum.
 * `coredns_proxy_request_duration_seconds{proxy_name="forward", to, rcode}` - histogram per upstream, RCODE
-* `coredns_proxy_healthcheck_failures_total{proxy_name="forward", to, rcode}`- count of failed health checks per upstream.
+* `coredns_proxy_healthcheck_failures_total{proxy_name="forward", to}`- count of failed health checks per upstream.
 * `coredns_proxy_conn_cache_hits_total{proxy_name="forward", to, proto}`- count of connection cache hits per upstream and protocol.
 * `coredns_proxy_conn_cache_misses_total{proxy_name="forward", to, proto}` - count of connection cache misses per upstream and protocol.
 
@@ -178,7 +178,7 @@ from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls
 
 The following metrics have recently been deprecated:
 * `coredns_forward_healthcheck_failures_total{to, rcode}`
-  * Can be replaced with `coredns_proxy_healthcheck_failures_total{proxy_name="forward", to, rcode}`
+  * Can be replaced with `coredns_proxy_healthcheck_failures_total{proxy_name="forward", to}`
 * `coredns_forward_requests_total{to}`
   * Can be replaced with `sum(coredns_proxy_request_duration_seconds_count{proxy_name="forward", to})`
 * `coredns_forward_responses_total{to, rcode}`
