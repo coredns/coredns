@@ -71,8 +71,6 @@ answer for `test.` depending on client's IP address.  It returns ...
   }
 }
 
-}
-
 . {
   hosts {
     3.3.3.3 test
