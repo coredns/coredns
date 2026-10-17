@@ -101,6 +101,7 @@ func parseForward(c *caddy.Controller) ([]*Forward, error) {
 
 // Splits the zone, preserving any port that comes after the zone
 func splitZone(host string) (newHost string, zone string) {
+	originalHost := host
 	trans, host, found := strings.Cut(host, "://")
 	if !found {
 		host, trans = trans, ""
@@ -108,6 +109,13 @@ func splitZone(host string) (newHost string, zone string) {
 	newHost = host
 	if strings.Contains(host, "%") {
 		lastPercent := strings.LastIndex(host, "%")
+		// For plain DNS, an IPv6 zone identifies the interface to use.
+		// It is part of the endpoint rather than a TLS server name.
+		if trans == "" || trans == transport.DNS {
+			if ip := net.ParseIP(strings.TrimPrefix(host[:lastPercent], "[")); ip != nil && ip.To4() == nil {
+				return originalHost, ""
+			}
+		}
 		newHost = host[:lastPercent]
 		if strings.HasPrefix(newHost, "[") {
 			newHost = newHost + "]"
@@ -123,7 +131,7 @@ func splitZone(host string) (newHost string, zone string) {
 	if trans != "" {
 		newHost = trans + "://" + newHost
 	}
-	return
+	return newHost, zone
 }
 
 func parseStanza(c *caddy.Controller) (*Forward, error) {
