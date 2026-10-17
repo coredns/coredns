@@ -2,6 +2,7 @@ package dnsserver
 
 import (
 	"context"
+	"crypto/sha512"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -209,6 +210,13 @@ func GetConfig(c *caddy.Controller) *Config {
 	// the configs.
 	ctx.saveConfig(key, &Config{ListenHosts: []string{""}})
 	return GetConfig(c)
+}
+
+// GetConfigHash returns the SHA512 hash of the parsed configuration for c's
+// instance, including all server blocks and expanded imports. It is captured
+// before server block normalization and plugin setup, without re-reading files.
+func GetConfigHash(c *caddy.Controller) [sha512.Size]byte {
+	return c.Context().(*dnsContext).configHash
 }
 
 // AddPluginToAllServerBlocks adds m once to every server block in c's

@@ -1,6 +1,8 @@
 package dnsserver
 
 import (
+	"crypto/sha512"
+	"encoding/json"
 	"fmt"
 	"net"
 	"slices"
@@ -54,6 +56,7 @@ func newContext(_i *caddy.Instance) caddy.Context {
 
 type dnsContext struct {
 	keysToConfigs map[string]*Config
+	configHash    [sha512.Size]byte
 
 	// configs is the master list of all site configs.
 	configs []*Config
@@ -71,6 +74,15 @@ var _ caddy.Context = &dnsContext{}
 // executing directives and otherwise prepares the directives to
 // be parsed and executed.
 func (h *dnsContext) InspectServerBlocks(_sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
+	// Fingerprint the parsed input, including imports, before normalizing keys
+	// or executing plugins. Re-reading imports later could describe a different
+	// configuration from the one this instance actually executes.
+	parsed, err := json.Marshal(serverBlocks)
+	if err != nil {
+		return nil, err
+	}
+	h.configHash = sha512.Sum512(parsed)
+
 	// Normalize and check all the zone names and check for duplicates
 	for ib, s := range serverBlocks {
 		// Walk the s.Keys and expand any reverse address in their proper DNS in-addr zones. If the expansions leads for
