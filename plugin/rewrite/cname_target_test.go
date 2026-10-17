@@ -408,3 +408,47 @@ func TestCNAMETargetRewriteLoop(t *testing.T) {
 		t.Fatalf("rewrite cname recursion was not bounded: got %d internal lookups", upstream.calls)
 	}
 }
+
+func TestCNAMETargetRewriteRegexEscapes(t *testing.T) {
+	for _, tc := range []struct {
+		name, pattern, target string
+		match                 bool
+	}{
+		{"non-digit class", `^(\D+)\.example\.com\.$`, "def.example.com.", true},
+		{"non-digit class rejects digits", `^(\D+)\.example\.com\.$`, "123.example.com.", false},
+		{"quoted literal", `^\Qdef.example.com.\E$`, "def.example.com.", true},
+		{"unicode letter class", `^\p{L}+\.example\.com\.$`, "def.example.com.", true},
+		{"uppercase literal", `^DEF\.example\.com\.$`, "DEF.example.com.", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rule, err := newCNAMERule(Stop, RegexMatch, tc.pattern, "xyz.example.com.")
+			if err != nil {
+				t.Fatal(err)
+			}
+			rule.(*cnameTargetRule).Upstream = &MockedUpstream{}
+			next := plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+				res := new(dns.Msg).SetReply(r)
+				res.Answer = []dns.RR{
+					test.CNAME("query.example.com. 300 IN CNAME " + tc.target),
+					test.A(tc.target + " 300 IN A 192.0.2.1"),
+				}
+				return 0, w.WriteMsg(res)
+			})
+			req := new(dns.Msg).SetQuestion("query.example.com.", dns.TypeA)
+			res := serveEdns0Rewrite(t, rule, next, req)
+			if res == nil || len(res.Answer) != 2 {
+				t.Fatalf("expected a CNAME and an A record, got %v", res)
+			}
+			wantTarget, wantAddress := tc.target, "192.0.2.1"
+			if tc.match {
+				wantTarget, wantAddress = "xyz.example.com.", "3.4.5.6"
+			}
+			if got := res.Answer[0].(*dns.CNAME).Target; got != wantTarget {
+				t.Errorf("CNAME target = %q, want %q", got, wantTarget)
+			}
+			if got := res.Answer[1].(*dns.A).A.String(); got != wantAddress {
+				t.Errorf("A address = %q, want %q", got, wantAddress)
+			}
+		})
+	}
+}
