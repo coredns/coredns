@@ -3,6 +3,7 @@ package request
 
 import (
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/edns"
@@ -40,19 +41,81 @@ func (r *Request) NewWithQuestion(name string, typ uint16) Request {
 	return req1
 }
 
+// addrHost returns the host part of addr, as net.SplitHostPort(addr.String())
+// would, or all of addr.String() if it has no port.
+//
+// A *net.UDPAddr or *net.TCPAddr already holds the host, so it is taken directly
+// instead of rendering the address and splitting it again. The result is what
+// String puts in the host part: an address without an IP gives "" rather than
+// ip.String()'s "<nil>", and the zone is kept, so fe80::1%eth0 and fe80::1%eth1
+// stay distinct for everything that matches on IP, such as acl and metrics.
+func addrHost(addr net.Addr) string {
+	var (
+		ip   net.IP
+		zone string
+	)
+	switch a := addr.(type) {
+	case *net.UDPAddr:
+		if a == nil {
+			return addrHostSlow(addr)
+		}
+		ip, zone = a.IP, a.Zone
+	case *net.TCPAddr:
+		if a == nil {
+			return addrHostSlow(addr)
+		}
+		ip, zone = a.IP, a.Zone
+	default:
+		return addrHostSlow(addr)
+	}
+
+	host := ""
+	if len(ip) != 0 {
+		host = ip.String()
+	}
+	if zone != "" {
+		return host + "%" + zone
+	}
+	return host
+}
+
+func addrHostSlow(addr net.Addr) string {
+	s := addr.String()
+	host, _, err := net.SplitHostPort(s)
+	if err != nil {
+		return s
+	}
+	return host
+}
+
+// addrPort returns the port of addr, as net.SplitHostPort(addr.String()) would,
+// or "0" if it has none. A *net.UDPAddr or *net.TCPAddr is read directly.
+func addrPort(addr net.Addr) string {
+	switch a := addr.(type) {
+	case *net.UDPAddr:
+		if a != nil {
+			return strconv.Itoa(a.Port)
+		}
+	case *net.TCPAddr:
+		if a != nil {
+			return strconv.Itoa(a.Port)
+		}
+	}
+
+	_, port, err := net.SplitHostPort(addr.String())
+	if err != nil {
+		return "0"
+	}
+	return port
+}
+
 // IP gets the (remote) IP address of the client making the request.
 func (r *Request) IP() string {
 	if r.ip != "" {
 		return r.ip
 	}
 
-	ip, _, err := net.SplitHostPort(r.W.RemoteAddr().String())
-	if err != nil {
-		r.ip = r.W.RemoteAddr().String()
-		return r.ip
-	}
-
-	r.ip = ip
+	r.ip = addrHost(r.W.RemoteAddr())
 	return r.ip
 }
 
@@ -62,13 +125,7 @@ func (r *Request) LocalIP() string {
 		return r.localIP
 	}
 
-	ip, _, err := net.SplitHostPort(r.W.LocalAddr().String())
-	if err != nil {
-		r.localIP = r.W.LocalAddr().String()
-		return r.localIP
-	}
-
-	r.localIP = ip
+	r.localIP = addrHost(r.W.LocalAddr())
 	return r.localIP
 }
 
@@ -78,13 +135,7 @@ func (r *Request) Port() string {
 		return r.port
 	}
 
-	_, port, err := net.SplitHostPort(r.W.RemoteAddr().String())
-	if err != nil {
-		r.port = "0"
-		return r.port
-	}
-
-	r.port = port
+	r.port = addrPort(r.W.RemoteAddr())
 	return r.port
 }
 
@@ -94,13 +145,7 @@ func (r *Request) LocalPort() string {
 		return r.localPort
 	}
 
-	_, port, err := net.SplitHostPort(r.W.LocalAddr().String())
-	if err != nil {
-		r.localPort = "0"
-		return r.localPort
-	}
-
-	r.localPort = port
+	r.localPort = addrPort(r.W.LocalAddr())
 	return r.localPort
 }
 
