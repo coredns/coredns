@@ -680,3 +680,42 @@ func TestIsDuplicate(t *testing.T) {
 		t.Fatal("expected duplicate on second insert (addr)")
 	}
 }
+
+func TestTXTWithExternalCNAMELookupTruncated(t *testing.T) {
+	for _, truncated := range []bool{false, true} {
+		t.Run(fmt.Sprintf("truncated=%t", truncated), func(t *testing.T) {
+			b := &mockBackend{
+				mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+					return []msg.Service{{Host: "target.example.net.", TTL: 60}}, nil
+				},
+				mockLookup: func(_ctx context.Context, _state request.Request, name string, typ uint16) (*dns.Msg, error) {
+					if name != "target.example.net." || typ != dns.TypeTXT {
+						t.Fatalf("unexpected lookup %s %d", name, typ)
+					}
+					return &dns.Msg{
+						MsgHdr: dns.MsgHdr{Truncated: truncated},
+						Answer: []dns.RR{test.TXT("target.example.net. 60 IN TXT partial")},
+					}, nil
+				},
+			}
+			r := new(dns.Msg)
+			r.SetQuestion("alias.example.org.", dns.TypeTXT)
+			records, tc, err := TXT(context.Background(), b, "example.org.", request.Request{Req: r, W: &test.ResponseWriter{}}, nil, Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc != truncated {
+				t.Errorf("truncated=%t, want %t", tc, truncated)
+			}
+			if len(records) != 2 {
+				t.Fatalf("got %d records, want CNAME and TXT", len(records))
+			}
+			if c, ok := records[0].(*dns.CNAME); !ok || c.Target != "target.example.net." {
+				t.Errorf("unexpected CNAME %v", records[0])
+			}
+			if txt, ok := records[1].(*dns.TXT); !ok || len(txt.Txt) != 1 || txt.Txt[0] != "partial" {
+				t.Errorf("unexpected TXT %v", records[1])
+			}
+		})
+	}
+}
