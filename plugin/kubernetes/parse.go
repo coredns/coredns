@@ -64,7 +64,8 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	if base == "" || base == Svc || base == Pod {
 		return r, nil
 	}
-	segs := dns.SplitDomainName(base)
+	var arr [maxLabels]string
+	segs := splitDomainName(base, &arr)
 
 	last := len(segs) - 1
 	if last < 0 {
@@ -126,6 +127,32 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	}
 
 	return r, nil
+}
+
+// maxLabels is the number of labels splitDomainName returns without allocating. It fits
+// every name parseRequest answers, up to a zone-scoped name with a single-label zone.
+const maxLabels = 6
+
+// splitDomainName is dns.SplitDomainName, but slices the labels of name into arr instead
+// of allocating, as long as they fit. Splitting on '.' is only correct when every dot
+// separates two non-empty labels, so a name with an escape or an empty label is left to
+// dns.SplitDomainName. Kubernetes object names contain neither.
+func splitDomainName(name string, arr *[maxLabels]string) []string {
+	if strings.IndexByte(name, '\\') >= 0 {
+		return dns.SplitDomainName(name)
+	}
+	segs := arr[:0]
+	for s := name; ; {
+		i := strings.IndexByte(s, '.')
+		if i == 0 || s == "" { // empty label
+			return dns.SplitDomainName(name)
+		}
+		if i < 0 {
+			return append(segs, s)
+		}
+		segs = append(segs, s[:i])
+		s = s[i+1:]
+	}
 }
 
 // stripUnderscore removes a prefixed underscore from s.
