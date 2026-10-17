@@ -20,6 +20,16 @@ plugin, you must specify the `fallthrough` option.
 
 This plugin can only be used once per Server Block.
 
+### Zone transfers
+
+The *hosts* plugin does not support zone transfers. Its records are not exported through the
+[*transfer*](../transfer) plugin. Combining *hosts* with *file* for the same zone can therefore
+produce different answers on a primary and its secondaries: ordinary queries to the primary can
+be answered from the hosts file, but an AXFR request only transfers the zone data provided by *file*.
+
+If secondaries need these records, include them in the authoritative zone file served by *file*,
+rather than relying on *hosts* to add them to the transferred zone.
+
 ## The hosts file
 
 Commonly the entries are of the form `IP_address canonical_hostname [aliases...]` as explained by
