@@ -179,13 +179,20 @@ functions defined below.
 .IP \(bu 4
 \fB\fCproto() string\fR: protocol used (tcp or udp)
 .IP \(bu 4
-\fB\fCserver_ip() string\fR: server's IP address; for IPv6 addresses these are enclosed in brackets: \fB\fC[::1]\fR
+\fB\fCserver_ip() string\fR: server's destination IP address; IPv6 addresses have no brackets: \fB\fC::1\fR
 .IP \(bu 4
 \fB\fCserver_port() string\fR : server's port
 .IP \(bu 4
 \fB\fCsize() int\fR: request size in bytes
 .IP \(bu 4
 \fB\fCtype() string\fR: type of the request (A, AAAA, TXT, ...)
+
+
+.PP
+For wildcard UDP listeners, \fB\fCserver_ip()\fR uses the destination address of the individual packet
+when the operating system supplies packet information. If that information is unavailable, including
+with custom packet listeners that do not expose it, the listening address is used instead.
+With \fIproxyproto\fP, this is the transport packet's destination, not the destination claimed in the PROXY header.
 
 
 .SS "UTILITY FUNCTIONS"

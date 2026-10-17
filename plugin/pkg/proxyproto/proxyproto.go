@@ -200,6 +200,15 @@ func (a *Addr) Unwrap() net.Addr {
 	return a.r
 }
 
+// LocalAddr returns the transport packet's destination when the underlying
+// address carries one. It is independent of the PROXY header's destination.
+func (a *Addr) LocalAddr() net.Addr {
+	if packet, ok := a.u.(interface{ LocalAddr() net.Addr }); ok {
+		return packet.LocalAddr()
+	}
+	return nil
+}
+
 // tlvsFor returns the header's raw TLVs when TLV capture is enabled, else nil.
 func (c *PacketConn) tlvsFor(header *proxyproto.Header) []byte {
 	if !c.CaptureTLVs {
