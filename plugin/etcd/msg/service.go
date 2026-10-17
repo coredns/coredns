@@ -101,37 +101,38 @@ func Group(sx []Service) []Service {
 		return sx
 	}
 
-	// Shortest key with group attribute sets the group for this set.
-	group := sx[0].Group
+	// Find the shortest keys before choosing their group. Backend ordering
+	// need not place those keys before their more deeply nested peers.
 	slashes := strings.Count(sx[0].Key, "/")
 	length := make([]int, len(sx))
 	for i, s := range sx {
 		x := strings.Count(s.Key, "/")
 		length[i] = x
-		if x < slashes {
-			if s.Group == "" {
-				break
-			}
-			slashes = x
-			group = s.Group
-		}
+		slashes = min(slashes, x)
 	}
 
+	group := ""
+	for i, s := range sx {
+		if length[i] != slashes || s.Group == "" {
+			continue
+		}
+		if group == "" {
+			group = s.Group
+		} else if s.Group != group {
+			// Disagreement on the same level.
+			return sx
+		}
+	}
 	if group == "" {
 		return sx
 	}
 
 	ret := []Service{} // with slice-tricks in sx we can prolly save this allocation (TODO)
 
-	for i, s := range sx {
+	for _, s := range sx {
 		if s.Group == "" {
 			ret = append(ret, s)
 			continue
-		}
-
-		// Disagreement on the same level
-		if length[i] == slashes && s.Group != group {
-			return sx
 		}
 
 		if s.Group == group {

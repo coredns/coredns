@@ -1,6 +1,7 @@
 package msg
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -141,5 +142,74 @@ func TestGroup(t *testing.T) {
 	)
 	if len(sx) != 1 {
 		t.Fatalf("Failure to group seventh set: %v", sx)
+	}
+}
+
+// Group selection must depend on key depth, rather than the order returned by the backend.
+func TestGroupShortestKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		services []Service
+		want     []Service
+	}{
+		{
+			name: "shortest key without a group",
+			services: []Service{
+				{Host: "192.0.2.1", Group: "blue", Key: "/skydns/org/example/a/deep"},
+				{Host: "192.0.2.2", Key: "/skydns/org/example/b"},
+				{Host: "192.0.2.3", Group: "red", Key: "/skydns/org/example/c/deep"},
+			},
+		},
+		{
+			name: "shortest grouped key with an ungrouped peer",
+			services: []Service{
+				{Host: "192.0.2.1", Key: "/skydns/org/example/a"},
+				{Host: "192.0.2.2", Group: "blue", Key: "/skydns/org/example/b"},
+				{Host: "192.0.2.3", Group: "red", Key: "/skydns/org/example/c/deep"},
+			},
+			want: []Service{
+				{Host: "192.0.2.1", Key: "/skydns/org/example/a"},
+				{Host: "192.0.2.2", Group: "blue", Key: "/skydns/org/example/b"},
+			},
+		},
+		{
+			name: "deeper disagreement does not override shortest group",
+			services: []Service{
+				{Host: "192.0.2.1", Group: "red", Key: "/skydns/org/example/a/deep"},
+				{Host: "192.0.2.2", Group: "green", Key: "/skydns/org/example/b/deep"},
+				{Host: "192.0.2.3", Group: "blue", Key: "/skydns/org/example/c"},
+			},
+			want: []Service{{Host: "192.0.2.3", Group: "blue", Key: "/skydns/org/example/c"}},
+		},
+		{
+			name: "shortest groups disagree",
+			services: []Service{
+				{Host: "192.0.2.1", Group: "blue", Key: "/skydns/org/example/a"},
+				{Host: "192.0.2.2", Group: "red", Key: "/skydns/org/example/b"},
+				{Host: "192.0.2.3", Group: "green", Key: "/skydns/org/example/c/deep"},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			want := tc.want
+			if want == nil {
+				want = tc.services
+			}
+			permutations := [][]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}
+			for _, order := range permutations {
+				input := []Service{tc.services[order[0]], tc.services[order[1]], tc.services[order[2]]}
+				got := Group(input)
+				if len(got) != len(want) {
+					t.Errorf("order %v: got %v, want %v", order, got, want)
+					continue
+				}
+				for _, s := range want {
+					if !slices.Contains(got, s) {
+						t.Errorf("order %v: missing service %v in %v", order, s, got)
+					}
+				}
+			}
+		})
 	}
 }
