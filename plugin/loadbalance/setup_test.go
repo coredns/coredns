@@ -1,10 +1,19 @@
 package loadbalance
 
 import (
+	"context"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
+
+	"github.com/miekg/dns"
 )
 
 // weighted round robin specific test data
@@ -36,6 +45,15 @@ func TestSetup(t *testing.T) {
                                                 reload 0s
                                               } `, false, "weighted", "", 2},
 		// negative
+		{`loadbalance round_robin {
+                                                   reload 10s
+                                                 } `, true, "", "unknown property", -1},
+		{`loadbalance weighted wfile {
+                                                   reload
+                                                 } `, true, "", "reload duration value is missing", -1},
+		{`loadbalance weighted wfile {
+                                                   prefer invalid
+                                                 } `, true, "", "invalid CIDR", -1},
 		{`loadbalance fleeb`, true, "", "unknown policy", -1},
 		{`loadbalance round_robin a`, true, "", "unknown property", -1},
 		{`loadbalance weighted`, true, "", "missing weight file argument", -1},
@@ -96,5 +114,59 @@ func TestSetup(t *testing.T) {
 					i, testWeighted[i].expectedWeightReload, lb.weighted.reload, test.input)
 			}
 		}
+	}
+}
+
+func TestParseWeightedPrefer(t *testing.T) {
+	for _, options := range []string{
+		"prefer 192.0.2.0/24 2001:db8::/32\nreload 10s",
+		"reload 10s\nprefer 192.0.2.0/24 2001:db8::/32",
+	} {
+		t.Run(options, func(t *testing.T) {
+			c := caddy.NewTestController("dns", "loadbalance weighted weights {\n"+options+"\n}")
+			lb, err := parse(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if lb.weighted == nil || lb.weighted.fileName != "weights" || lb.weighted.reload != 10*time.Second {
+				t.Fatalf("unexpected weighted configuration: %+v", lb.weighted)
+			}
+			var got []string
+			for _, subnet := range lb.preferSubnets {
+				got = append(got, subnet.String())
+			}
+			want := []string{"192.0.2.0/24", "2001:db8::/32"}
+			if !slices.Equal(got, want) {
+				t.Fatalf("preferred subnets = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestSetupWeightedPrefer(t *testing.T) {
+	c := caddy.NewTestController("dns", `loadbalance weighted weights {
+		prefer 192.0.2.0/24
+		reload 0s
+	}`)
+	if err := setup(c); err != nil {
+		t.Fatal(err)
+	}
+	next := plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg).SetReply(r)
+		m.Answer = []dns.RR{
+			test.A("example.org. 300 IN A 198.51.100.1"),
+			test.A("example.org. 300 IN A 192.0.2.1"),
+		}
+		return dns.RcodeSuccess, w.WriteMsg(m)
+	})
+	handler := dnsserver.GetConfig(c).Plugin[0](next)
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := handler.ServeDNS(t.Context(), w, r); err != nil {
+		t.Fatal(err)
+	}
+	if len(w.Msg.Answer) != 2 || w.Msg.Answer[0].(*dns.A).A.String() != "192.0.2.1" {
+		t.Fatalf("preferred address is not first in answer: %v", w.Msg.Answer)
 	}
 }

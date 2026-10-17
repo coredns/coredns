@@ -24,7 +24,7 @@ type lbFuncs struct {
 	shuffleFunc    func(*dns.Msg) *dns.Msg
 	onStartUpFunc  func() error
 	onShutdownFunc func() error
-	weighted       *weightedRR // used in unit tests only
+	weighted       *weightedRR
 	preferSubnets  []*net.IPNet
 }
 
@@ -83,27 +83,7 @@ func parse(c *caddy.Controller) (*lbFuncs, error) {
 				if !filepath.IsAbs(weightFileName) && config.Root != "" {
 					weightFileName = filepath.Join(config.Root, weightFileName)
 				}
-				reload := 30 * time.Second
-				for c.NextBlock() {
-					switch c.Val() {
-					case "reload":
-						t := c.RemainingArgs()
-						if len(t) < 1 {
-							return nil, c.Err("reload duration value is missing")
-						}
-						if len(t) > 1 {
-							return nil, c.Err("unexpected argument")
-						}
-						var err error
-						reload, err = time.ParseDuration(t[0])
-						if err != nil {
-							return nil, c.Errf("invalid reload duration '%s'", t[0])
-						}
-					default:
-						return nil, c.Errf("unknown property '%s'", c.Val())
-					}
-				}
-				*lb = *createWeightedFuncs(weightFileName, reload)
+				*lb = *createWeightedFuncs(weightFileName, 30*time.Second)
 			default:
 				return nil, fmt.Errorf("unknown policy: %s", args[0])
 			}
@@ -111,6 +91,22 @@ func parse(c *caddy.Controller) (*lbFuncs, error) {
 
 		for c.NextBlock() {
 			switch c.Val() {
+			case "reload":
+				if lb.weighted == nil {
+					return nil, c.Errf("unknown property '%s'", c.Val())
+				}
+				t := c.RemainingArgs()
+				if len(t) < 1 {
+					return nil, c.Err("reload duration value is missing")
+				}
+				if len(t) > 1 {
+					return nil, c.Err("unexpected argument")
+				}
+				reload, err := time.ParseDuration(t[0])
+				if err != nil {
+					return nil, c.Errf("invalid reload duration '%s'", t[0])
+				}
+				lb.weighted.reload = reload
 			case "prefer":
 				cidrs := c.RemainingArgs()
 				for _, cidr := range cidrs {
