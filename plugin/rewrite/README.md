@@ -77,6 +77,9 @@ The match type, e.g., `exact`, `substring`, etc., triggers rewrite:
 * **regex**: when the name in the question section of a request matches a regular expression.
   Regex patterns must not exceed 10000 characters.
 
+For `prefix` and `substring`, the match and replacement strings are not automatically
+qualified with a trailing dot. Add a dot explicitly when a label boundary is intended.
+
 If the match type is omitted, the `exact` match type is assumed. If OPTIONS are
 given, the type must be specified.
 
