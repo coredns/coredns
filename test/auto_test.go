@@ -73,6 +73,60 @@ func TestAuto(t *testing.T) {
 	}
 }
 
+func TestAutoMixedCaseOrigin(t *testing.T) {
+	t.Parallel()
+
+	for _, filename := range []string{"db.example.org", "db.Example.ORG"} {
+		t.Run(filename, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, filename), []byte(zoneContent), 0644); err != nil {
+				t.Fatal(err)
+			}
+			corefile := `org:0 {
+				auto {
+					directory ` + dir + `
+					reload 0
+				}
+			}`
+			i, udp, tcp, err := CoreDNSServerAndPorts(corefile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer i.Stop()
+
+			for _, network := range []string{"udp", "tcp"} {
+				addr := udp
+				if network == "tcp" {
+					addr = tcp
+				}
+				client := &dns.Client{Net: network}
+				for _, tc := range []struct {
+					name  string
+					qtype uint16
+					count int
+				}{
+					{"example.org.", dns.TypeSOA, 1},
+					{"example.org.", dns.TypeNS, 2},
+					{"www.example.org.", dns.TypeA, 1},
+					{"WWW.Example.ORG.", dns.TypeA, 1},
+				} {
+					m := new(dns.Msg)
+					m.SetQuestion(tc.name, tc.qtype)
+					resp, _, err := client.Exchange(m, addr)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if resp.Rcode != dns.RcodeSuccess || !resp.Authoritative || len(resp.Answer) != tc.count {
+						t.Errorf("%s %s %s: expected authoritative NOERROR with %d answers, got %s",
+							network, tc.name, dns.TypeToString[tc.qtype], tc.count, resp)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestAutoNonExistentZone(t *testing.T) {
 	t.Parallel()
 	tmpdir := t.TempDir()
