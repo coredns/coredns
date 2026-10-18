@@ -14,8 +14,8 @@ This plugin can only be used once per gRPC listener block.
 
 ```txt
 grpc_server {
-    max_streams POSITIVE_INTEGER
-    max_connections POSITIVE_INTEGER
+    max_streams NON_NEGATIVE_INTEGER
+    max_connections NON_NEGATIVE_INTEGER
 }
 ```
 
