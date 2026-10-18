@@ -22,11 +22,11 @@ quic {
 
 * `max_streams` limits the number of concurrent QUIC streams per connection. This helps prevent DoS attacks where an attacker could open many streams on a single connection, exhausting server resources. The default value is 256 if not specified.
 * `max_connections` limits the number of concurrent QUIC connections accepted by the server. The default value is 200 if not specified. Connections above the configured limit are rejected. Set to 0 to disable the CoreDNS connection limit.
-* `worker_pool_size` defines the size of the worker pool for processing QUIC streams across all connections. The default value is 512 if not specified. This limits the total number of concurrent streams that can be processed across all connections.
+* `worker_pool_size` defines the size of the worker pool for processing QUIC streams across all connections. The default value is 1024 if not specified. This limits the total number of concurrent streams that can be processed across all connections.
 
 ## Examples
 
-Enable DNS-over-QUIC with default settings (256 concurrent streams per connection, 200 concurrent connections, 512 worker pool size):
+Enable DNS-over-QUIC with default settings (256 concurrent streams per connection, 200 concurrent connections, 1024 worker pool size):
 
 ```
 quic://.:8853 {
