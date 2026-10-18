@@ -58,7 +58,7 @@ require (
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/prometheus/exporter-toolkit v0.20.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 )
 
 require (
