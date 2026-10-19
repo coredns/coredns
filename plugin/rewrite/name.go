@@ -336,8 +336,16 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 	var err error
 	var answers ResponseRules
 	auto := false
-	if len(args) > 3 {
-		auto, answers, err = parseAnswerRules(matchType, args[3:])
+	answerStart := 3
+	withMetadata := len(args) > 3 && args[3] == "metadata"
+	if withMetadata {
+		if matchType != RegexMatch {
+			return nil, fmt.Errorf("metadata is only supported for regex name rules")
+		}
+		answerStart++
+	}
+	if len(args) > answerStart {
+		auto, answers, err = parseAnswerRules(matchType, args[answerStart:])
 		if err != nil {
 			return nil, err
 		}
@@ -356,6 +364,9 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 	case SubstringMatch:
 		return newSubstringNameRule(nextAction, auto, rewriteQuestionFrom, rewriteQuestionTo, answers), nil
 	case RegexMatch:
+		if withMetadata {
+			return newMetadataNameRule(nextAction, auto, rewriteQuestionFrom, rewriteQuestionTo, answers)
+		}
 		rewriteQuestionFromPattern, err := isValidRegexPattern(rewriteQuestionFrom, rewriteQuestionTo)
 		if err != nil {
 			return nil, err

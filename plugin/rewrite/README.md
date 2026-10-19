@@ -46,6 +46,9 @@ e.g., to rewrite ANY queries to HINFO, use `rewrite type ANY HINFO`.
 
   See below in the **Response Rewrites** section for further details.
 
+  Regex name rules also support `metadata` before the answer options to expand
+  request metadata in **TO**, as described in **Metadata in request names** below.
+
 If you specify multiple rules and an incoming query matches multiple rules, the rewrite
 will behave as follows:
 
@@ -110,6 +113,32 @@ The following example rewrites the `schmoogle.com` suffix to `google.com`.
 ~~~
 rewrite name suffix .schmoogle.com. .google.com.
 ~~~
+
+### Metadata in request names
+
+Regex name rules can opt into request metadata substitution by adding `metadata`
+immediately after **TO**, before any `answer` options:
+
+~~~
+metadata
+rewrite name regex ^([^.]+)\.example\.$ {1}.{kubernetes/client-namespace}.svc.cluster.local. metadata answer auto
+~~~
+
+With the *kubernetes* plugin configured to provide client metadata (using
+`pods verified`), this maps `web.example.` from namespace `team-a` to
+`web.team-a.svc.cluster.local.`. `answer auto` maps response names back to
+`web.example.`.
+
+* `{0}` inserts the entire match and `{1}`, `{2}`, etc. insert capture groups.
+* `{plugin/label}` inserts the value of that metadata label. Label names are case
+  sensitive; substituted DNS names are normalized to lower case.
+* If a referenced label is absent or empty, the rule is skipped, including in
+  `stop` mode. Later rules or plugins can handle the original name.
+* Substituted values are literal text, not further placeholders. An invalid
+  resulting DNS name returns SERVFAIL, as with other name rewrites.
+
+This option applies only to the request's **TO** value. Existing rules without
+`metadata` and explicit response rewrite patterns retain their current behavior.
 
 ### Response Rewrites
 
