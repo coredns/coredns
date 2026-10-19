@@ -17,10 +17,10 @@ By default the apex of the zone will look like the following (assuming the zone 
 ~~~ dns
 example.org.	5 IN	SOA ns1.dns.example.org. hostmaster.example.org. (
 				12345      ; serial
-				14400      ; refresh (4 hours)
-				3600       ; retry (1 hour)
-				604800     ; expire (1 week)
-				5          ; minimum (4 hours)
+				7200       ; refresh (2 hours)
+				1800       ; retry (30 minutes)
+				86400      ; expire (1 day)
+				5          ; minimum (5 seconds)
 				)
 example.org		5 IN	NS ns1.dns.example.org.
 
