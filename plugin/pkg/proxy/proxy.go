@@ -15,9 +15,10 @@ import (
 
 // Proxy defines an upstream host.
 type Proxy struct {
-	fails     uint32
-	addr      string
-	proxyName string
+	fails         uint32
+	initiallyDown atomic.Bool
+	addr          string
+	proxyName     string
 
 	transport *Transport
 	doq       *doqTransport
@@ -136,14 +137,28 @@ func (p *Proxy) Healthcheck() {
 	})
 }
 
-// Down returns true if this proxy is down, i.e. has *more* fails than maxfails.
+// StartFailed marks the proxy down until its first successful health check and
+// starts probing immediately. Start must be called first to set the probe interval.
+func (p *Proxy) StartFailed() {
+	p.initiallyDown.Store(true)
+	p.Healthcheck()
+}
+
+// Down reports whether the proxy is awaiting its first successful startup check
+// or has more failures than maxfails. A zero maxfails disables both checks.
 func (p *Proxy) Down(maxfails uint32) bool {
 	if maxfails == 0 {
 		return false
 	}
 
 	fails := atomic.LoadUint32(&p.fails)
-	return fails > maxfails
+	return p.initiallyDown.Load() || fails > maxfails
+}
+
+// resetFails makes the proxy available after a successful health check.
+func (p *Proxy) resetFails() {
+	atomic.StoreUint32(&p.fails, 0)
+	p.initiallyDown.Store(false)
 }
 
 // Stop stops health checking and closes the DoQ transport, when configured.

@@ -40,9 +40,10 @@ const (
 type Forward struct {
 	concurrent int64 // atomic counters need to be first in struct for proper alignment
 
-	proxies    []*proxyPkg.Proxy
-	p          Policy
-	hcInterval time.Duration
+	proxies     []*proxyPkg.Proxy
+	p           Policy
+	hcInterval  time.Duration
+	startFailed bool
 
 	from    string
 	ignored []string

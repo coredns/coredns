@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/doh"
@@ -130,7 +129,7 @@ func (h *doqHc) Check(p *Proxy) error {
 		return err
 	}
 
-	atomic.StoreUint32(&p.fails, 0)
+	p.resetFails()
 	return nil
 }
 
@@ -219,7 +218,7 @@ func (h *dnsHc) Check(p *Proxy) error {
 		return err
 	}
 
-	atomic.StoreUint32(&p.fails, 0)
+	p.resetFails()
 	return nil
 }
 
@@ -293,7 +292,7 @@ func (h *dohHc) Check(p *Proxy) error {
 		return err
 	}
 
-	atomic.StoreUint32(&p.fails, 0)
+	p.resetFails()
 	return nil
 }
 
