@@ -48,17 +48,17 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 				state1.Zone = zone
 				nextRecords, tc, err := A(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
 
-				if err == nil {
-					// Not only have we found something we should add the CNAME and the IP addresses.
-					if len(nextRecords) > 0 {
+				if !b.IsNameError(err) || opt.Fallthrough == nil || !opt.Fallthrough(state1.Name()) {
+					if err == nil && len(nextRecords) > 0 {
 						records = append(records, newRecord)
 						records = append(records, nextRecords...)
 					}
+					if tc {
+						truncated = true
+					}
+					continue
 				}
-				if tc {
-					truncated = true
-				}
-				continue
+				// A missing target may be served by a later plugin in the chain.
 			}
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
@@ -122,17 +122,17 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 				state1.Zone = zone
 				nextRecords, tc, err := AAAA(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
 
-				if err == nil {
-					// Not only have we found something we should add the CNAME and the IP addresses.
-					if len(nextRecords) > 0 {
+				if !b.IsNameError(err) || opt.Fallthrough == nil || !opt.Fallthrough(state1.Name()) {
+					if err == nil && len(nextRecords) > 0 {
 						records = append(records, newRecord)
 						records = append(records, nextRecords...)
 					}
+					if tc {
+						truncated = true
+					}
+					continue
 				}
-				if tc {
-					truncated = true
-				}
-				continue
+				// A missing target may be served by a later plugin in the chain.
 			}
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
