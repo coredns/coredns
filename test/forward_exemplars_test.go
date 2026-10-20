@@ -17,6 +17,16 @@ import (
 )
 
 func TestForwardQueryExemplars(t *testing.T) {
+	// Serve the proxy's process-wide metrics without adding request-size samples
+	// to the metrics plugin's counters, which other integration tests inspect.
+	collector := metrics.New("127.0.0.1:0")
+	previousAddr := metrics.ListenAddr
+	if err := collector.OnStartup(); err != nil {
+		t.Fatal(err)
+	}
+	metricsURL := "http://" + metrics.ListenAddr + "/metrics"
+	metrics.ListenAddr = previousAddr
+	t.Cleanup(func() { _ = collector.OnFinalShutdown() })
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("enabled=%v", enabled), func(t *testing.T) {
 			upstream := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -28,25 +38,16 @@ func TestForwardQueryExemplars(t *testing.T) {
 				t.Fatal(err)
 			}
 			upstreamAddr := net.JoinHostPort("127.0.0.1", port)
-			// The metrics plugin deduplicates endpoints by their configured address.
-			// Give each instance a separate address, including across repeated runs.
-			ln, err := net.Listen("tcp", "127.0.0.1:0")
-			if err != nil {
-				t.Fatal(err)
-			}
-			metricsAddr := ln.Addr().String()
-			ln.Close()
 			option := ""
 			if enabled {
 				option = "query_exemplars CLUSTER.local 1 A AAAA"
 			}
 			corefile := fmt.Sprintf(`.:0 {
 	bind 127.0.0.1
-	prometheus %s
 	forward . %s {
 		%s
 	}
-}`, metricsAddr, upstreamAddr, option)
+}`, upstreamAddr, option)
 			inst, udp, tcp, err := CoreDNSServerAndPorts(corefile)
 			if err != nil {
 				t.Fatal(err)
@@ -55,7 +56,6 @@ func TestForwardQueryExemplars(t *testing.T) {
 				_ = inst.Stop()
 				inst.ShutdownCallbacks()
 			})
-			metricsURL := "http://" + metrics.ListenAddr + "/metrics"
 			cases := []struct {
 				proto, name string
 				qtype       uint16
