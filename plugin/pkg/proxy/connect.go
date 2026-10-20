@@ -333,7 +333,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
-	requestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
+	p.observeRequestDuration(state, rc, time.Since(start).Seconds())
 
 	return ret, localAddr, proto, nil
 }

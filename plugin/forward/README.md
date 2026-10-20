@@ -63,6 +63,7 @@ forward FROM TO... {
     failover RCODE_1 [RCODE_2] [RCODE_3...]
     source_address IP
     resolver IP[:PORT] [IP[:PORT]...]
+    query_exemplars ZONE EVERY [TYPES...]
 }
 ~~~
 
@@ -137,6 +138,12 @@ The maximum TLS version, TLS 1.2 cipher suites, and key exchange mechanisms use 
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
 * `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
 * `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints at startup. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy.
+* `query_exemplars` **ZONE EVERY [TYPES...]** attaches query details to sampled request-duration
+  observations. **ZONE** matches the zone itself and its subdomains, ignoring case; `.` matches all names.
+  **EVERY** is a positive integer: every Nth matching upstream response is sampled, across all upstreams
+  in this `forward` stanza. **TYPES** optionally restricts sampling to DNS type names such as `A AAAA`;
+  omit it to sample all types. This option may appear once per stanza and is disabled by default.
+  See **Query exemplars** for the format, retention, and collection requirements.
 
 The client certificate, key, and CA configuration is global for one `forward` stanza. For DoT and DoQ,
 use the `%servername` endpoint form when upstreams in the same stanza require different TLS server names.
@@ -185,6 +192,45 @@ The following metrics have recently been deprecated:
   * Can be replaced with `coredns_proxy_request_duration_seconds_count{proxy_name="forward", to, rcode}`
 * `coredns_forward_request_duration_seconds{to, rcode}`
   * Can be replaced with `coredns_proxy_request_duration_seconds{proxy_name="forward", to, rcode}`
+
+### Query exemplars
+
+With `query_exemplars`, the existing `coredns_proxy_request_duration_seconds` histogram can carry
+`query_name` and `query_type` as [exemplar](https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage)
+labels. The ordinary series labels remain `proxy_name`, `to`, and `rcode`. An exemplar describes a
+sampled upstream response and its duration; it does not create a time series for each queried name.
+The query name is lowercased and fully qualified, as sent by the plugin chain to *forward*.
+Responses with any RCODE are eligible; attempts that fail without a response do not have a duration
+observation. Retries and failover can produce more than one observation per incoming query.
+
+The Prometheus client retains at most one exemplar per classic histogram bucket and ten exemplars
+per native histogram, per existing label combination. New samples replace retained samples; scraping
+does not consume them. Sampling restarts on configuration reload, but already recorded exemplars can
+remain in the process-wide histogram after the option is disabled. These are debugging samples,
+not a complete query log or labels available for per-name PromQL aggregation. Use `log` with
+`metadata` and `{name} {type} {/forward/upstream}` when complete query details are needed.
+
+Exemplar label names and values are limited to 128 Unicode code points in total. If a query name
+does not fit, its ordinary duration is still recorded but its exemplar is omitted; names are never
+truncated. Enabling this option exposes sampled DNS names to metrics consumers.
+
+For example, sample every 100th A or AAAA response for a name in `cluster.local`:
+
+~~~ corefile
+. {
+    prometheus localhost:9153
+    forward . 192.0.2.53 {
+        query_exemplars cluster.local 100 A AAAA
+    }
+}
+~~~
+
+Collect exemplars with an OpenMetrics-capable scraper (the legacy Prometheus text format omits them).
+For Prometheus, enable `--enable-feature=exemplar-storage` and configure the scrape job to negotiate
+OpenMetrics, for example `scrape_protocols: [OpenMetricsText1.0.0, PrometheusText0.0.4]`.
+Query collected samples through Prometheus's `/api/v1/query_exemplars` API, selecting
+`coredns_proxy_request_duration_seconds_bucket{proxy_name="forward"}` and a time range. No tracing backend
+is required. Set `EVERY` to 1 for targeted investigation, or increase it to reduce sampling overhead.
 
 ## Examples
 

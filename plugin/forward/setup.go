@@ -255,6 +255,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		f.proxies[i].SetMaxAge(f.maxAge)
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
 		f.proxies[i].SetReadTimeout(f.readTimeout)
+		f.proxies[i].SetQueryExemplars(f.queryExemplars)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
 		// DoT and DoQ health checkers already use their configured transport.
 		if f.opts.ForceTCP && transports[i] != transport.TLS && transports[i] != transport.QUIC {
@@ -273,6 +274,30 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 func parseBlock(c *caddy.Controller, f *Forward) error {
 	config := dnsserver.GetConfig(c)
 	switch c.Val() {
+	case "query_exemplars":
+		if f.queryExemplars != nil {
+			return c.Err("query_exemplars already specified")
+		}
+		args := c.RemainingArgs()
+		if len(args) < 2 {
+			return c.ArgErr()
+		}
+		every, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return c.Errf("invalid query_exemplars sampling interval: %s", args[1])
+		}
+		types := make([]uint16, 0, len(args)-2)
+		for _, name := range args[2:] {
+			qtype, ok := dns.StringToType[strings.ToUpper(name)]
+			if !ok {
+				return c.Errf("invalid query_exemplars query type: %s", name)
+			}
+			types = append(types, qtype)
+		}
+		f.queryExemplars, err = proxy.NewQueryExemplars(args[0], every, types)
+		if err != nil {
+			return c.Errf("query_exemplars: %s", err)
+		}
 	case "except":
 		ignore := c.RemainingArgs()
 		if len(ignore) == 0 {

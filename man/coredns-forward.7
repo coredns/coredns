@@ -79,6 +79,7 @@ forward FROM TO... {
     failover RCODE\_1 [RCODE\_2] [RCODE\_3...]
     source\_address IP
     resolver IP[:PORT] [IP[:PORT]...]
+    query\_exemplars ZONE EVERY [TYPES...]
 }
 
 .fi
@@ -203,6 +204,14 @@ As an upper bound for \fBMAX\fP, consider that each concurrent query will use ab
 .IP \(bu 4
 \fB\fCresolver\fR \fBIP[:PORT] [IP[:PORT]...]\fP specifies one or more DNS resolver addresses used to resolve hostname-based \fBTO\fP endpoints at startup. If not specified, the system resolver (\fB\fC/etc/resolv.conf\fR) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or \fB\fCIP:port\fR. Multiple addresses can be specified for redundancy.
 
+.IP \(bu 4
+\fB\fCquery_exemplars\fR \fBZONE EVERY [TYPES...]\fP attaches query details to sampled request\-duration
+observations. \fBZONE\fP matches the zone itself and its subdomains, ignoring case; \fB\fC.\fR matches all names.
+\fBEVERY\fP is a positive integer: every Nth matching upstream response is sampled, across all upstreams
+in this \fB\fCforward\fR stanza. \fBTYPES\fP optionally restricts sampling to DNS type names such as \fB\fCA AAAA\fR;
+omit it to sample all types. This option may appear once per stanza and is disabled by default.
+See \fBQuery exemplars\fP for the format, retention, and collection requirements.
+
 
 .PP
 The client certificate, key, and CA configuration is global for one \fB\fCforward\fR stanza. For DoT and DoQ,
@@ -268,6 +277,55 @@ The following metrics have recently been deprecated:
   * Can be replaced with \fB\fCcoredns_proxy_request_duration_seconds_count{proxy_name="forward", to, rcode}\fR
 * \fB\fCcoredns_forward_request_duration_seconds{to, rcode}\fR
   * Can be replaced with \fB\fCcoredns_proxy_request_duration_seconds{proxy_name="forward", to, rcode}\fR
+
+.SS "QUERY EXEMPLARS"
+.PP
+With \fB\fCquery_exemplars\fR, the existing \fB\fCcoredns_proxy_request_duration_seconds\fR histogram can carry
+\fB\fCquery_name\fR and \fB\fCquery_type\fR as exemplar
+\[la]https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage\[ra]
+labels. The ordinary series labels remain \fB\fCproxy_name\fR, \fB\fCto\fR, and \fB\fCrcode\fR. An exemplar describes a
+sampled upstream response and its duration; it does not create a time series for each queried name.
+The query name is lowercased and fully qualified, as sent by the plugin chain to \fIforward\fP.
+Responses with any RCODE are eligible; attempts that fail without a response do not have a duration
+observation. Retries and failover can produce more than one observation per incoming query.
+
+.PP
+The Prometheus client retains at most one exemplar per classic histogram bucket and ten exemplars
+per native histogram, per existing label combination. New samples replace retained samples; scraping
+does not consume them. Sampling restarts on configuration reload, but already recorded exemplars can
+remain in the process\-wide histogram after the option is disabled. These are debugging samples,
+not a complete query log or labels available for per\-name PromQL aggregation. Use \fB\fClog\fR with
+\fB\fCmetadata\fR and \fB\fC{name} {type} {/forward/upstream}\fR when complete query details are needed.
+
+.PP
+Exemplar label names and values are limited to 128 Unicode code points in total. If a query name
+does not fit, its ordinary duration is still recorded but its exemplar is omitted; names are never
+truncated. Enabling this option exposes sampled DNS names to metrics consumers.
+
+.PP
+For example, sample every 100th A or AAAA response for a name in \fB\fCcluster.local\fR:
+
+.PP
+.RS
+
+.nf
+\&. {
+    prometheus localhost:9153
+    forward . 192.0.2.53 {
+        query\_exemplars cluster.local 100 A AAAA
+    }
+}
+
+.fi
+.RE
+
+.PP
+Collect exemplars with an OpenMetrics\-capable scraper (the legacy Prometheus text format omits them).
+For Prometheus, enable \fB\fC--enable-feature=exemplar-storage\fR and configure the scrape job to negotiate
+OpenMetrics, for example \fB\fCscrape_protocols: [OpenMetricsText1.0.0, PrometheusText0.0.4]\fR.
+Query collected samples through Prometheus's \fB\fC/api/v1/query_exemplars\fR API, selecting
+\fB\fCcoredns_proxy_request_duration_seconds_bucket{proxy_name="forward"}\fR and a time range. No tracing backend
+is required. Set \fB\fCEVERY\fR to 1 for targeted investigation, or increase it to reduce sampling overhead.
 
 .SH "EXAMPLES"
 .PP

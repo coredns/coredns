@@ -138,7 +138,7 @@ func (m *Metrics) OnStartup() error {
 	m.lnSetup = true
 
 	m.mux = http.NewServeMux()
-	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
+	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{EnableOpenMetrics: true}))
 
 	// creating some helper variables to avoid data races on m.srv and m.ln
 	server := &http.Server{
