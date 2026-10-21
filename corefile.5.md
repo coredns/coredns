@@ -31,7 +31,7 @@ match on the query name will receive the query.
 
 **PLUGIN** defines the plugin(s) we want to load into this server. This is optional as well, but a
 server with no plugins will just return SERVFAIL for all queries. Each plugin can have a number of
-properties than can have arguments, see the documentation for each plugin.
+properties that can have arguments, see the documentation for each plugin.
 
 The Corefile is line oriented: the arguments of a plugin, or of one of its properties, run until the
 end of the line. Put each plugin, each property and each closing `}` on a line of its own. A `}` that
