@@ -76,7 +76,8 @@ type Forward struct {
 	// the maximum allowed (maxConcurrent)
 	ErrLimitExceeded error
 
-	tapPlugins []*dnstap.Dnstap // when dnstap plugins are loaded, we use to this to send messages out.
+	tapPlugins       []*dnstap.Dnstap // when dnstap plugins are loaded, we use to this to send messages out.
+	qtypesForMetrics []uint16
 
 	Next plugin.Handler
 }
