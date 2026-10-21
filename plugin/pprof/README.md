@@ -30,8 +30,9 @@ pprof [ADDRESS] {
 }
 ~~~
 
-* `block` option enables block profiling, **RATE** defaults to 1. **RATE** must be a positive value.
-  See [Diagnostics, chapter profiling](https://golang.org/doc/diagnostics.html) and
+* `block` option enables block profiling, **RATE** defaults to 1. **RATE** is an integer that is
+  passed to `runtime.SetBlockProfileRate`, so `0` or a negative value is accepted and turns block
+  profiling off. See [Diagnostics, chapter profiling](https://golang.org/doc/diagnostics.html) and
   [runtime.SetBlockProfileRate](https://golang.org/pkg/runtime/#SetBlockProfileRate) for what block
   profiling entails.
 
