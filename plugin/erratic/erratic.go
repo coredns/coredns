@@ -38,7 +38,7 @@ func (e *Erratic) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if e.delay > 0 && queryNr%e.delay == 0 {
 		delay = true
 	}
-	if e.truncate > 0 && queryNr&e.truncate == 0 {
+	if e.truncate > 0 && queryNr%e.truncate == 0 {
 		trunc = true
 	}
 
