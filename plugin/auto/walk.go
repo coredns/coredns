@@ -5,9 +5,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
-
-	"github.com/miekg/dns"
 )
 
 // Walk will recursively walk of the file under l.directory and adds the one that match l.re.
@@ -103,7 +102,7 @@ func (a Auto) Walk() error {
 }
 
 // matches re to filename, if it is a match, the subexpression will be used to expand
-// template to an origin. When match is true that origin is returned. Origin is fully qualified.
+// template to an origin. When match is true that origin is returned. Origin is fully qualified and lowercased.
 func matches(re *regexp.Regexp, filename, template string) (match bool, origin string) {
 	base := filepath.Base(filename)
 
@@ -117,7 +116,7 @@ func matches(re *regexp.Regexp, filename, template string) (match bool, origin s
 		return false, ""
 	}
 
-	origin = dns.Fqdn(string(by))
+	origin = plugin.Name(by).Normalize()
 
 	return true, origin
 }
