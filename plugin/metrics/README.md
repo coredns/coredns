@@ -9,11 +9,6 @@
 With *prometheus* you export metrics from CoreDNS and any plugin that has them.
 The default location for the metrics is `localhost:9153`. The metrics path is fixed to `/metrics`.
 
-The endpoint negotiates OpenMetrics when requested in the HTTP `Accept` header. This includes
-exemplars supplied by plugins, such as *forward*'s `query_exemplars`. Clients requesting the legacy
-Prometheus text format, or sending no `Accept` header, continue to receive that format without
-exemplars. The metric names and ordinary series labels are unchanged.
-
 In addition to the default Go metrics exported by the [Prometheus Go client](https://prometheus.io/docs/guides/go-application/),
 the following metrics are exported:
 

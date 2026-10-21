@@ -12,12 +12,6 @@ With \fIprometheus\fP you export metrics from CoreDNS and any plugin that has th
 The default location for the metrics is \fB\fClocalhost:9153\fR. The metrics path is fixed to \fB\fC/metrics\fR.
 
 .PP
-The endpoint negotiates OpenMetrics when requested in the HTTP \fB\fCAccept\fR header. This includes
-exemplars supplied by plugins, such as \fIforward\fP's \fB\fCquery_exemplars\fR. Clients requesting the legacy
-Prometheus text format, or sending no \fB\fCAccept\fR header, continue to receive that format without
-exemplars. The metric names and ordinary series labels are unchanged.
-
-.PP
 In addition to the default Go metrics exported by the Prometheus Go client
 \[la]https://prometheus.io/docs/guides/go-application/\[ra],
 the following metrics are exported:

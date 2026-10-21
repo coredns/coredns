@@ -79,7 +79,7 @@ forward FROM TO... {
     failover RCODE\_1 [RCODE\_2] [RCODE\_3...]
     source\_address IP
     resolver IP[:PORT] [IP[:PORT]...]
-    query\_exemplars ZONE EVERY [TYPES...]
+    qtype\_for\_metrics TYPES...
 }
 
 .fi
@@ -205,12 +205,11 @@ As an upper bound for \fBMAX\fP, consider that each concurrent query will use ab
 \fB\fCresolver\fR \fBIP[:PORT] [IP[:PORT]...]\fP specifies one or more DNS resolver addresses used to resolve hostname-based \fBTO\fP endpoints at startup. If not specified, the system resolver (\fB\fC/etc/resolv.conf\fR) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or \fB\fCIP:port\fR. Multiple addresses can be specified for redundancy.
 
 .IP \(bu 4
-\fB\fCquery_exemplars\fR \fBZONE EVERY [TYPES...]\fP attaches query details to sampled request\-duration
-observations. \fBZONE\fP matches the zone itself and its subdomains, ignoring case; \fB\fC.\fR matches all names.
-\fBEVERY\fP is a positive integer: every Nth matching upstream response is sampled, across all upstreams
-in this \fB\fCforward\fR stanza. \fBTYPES\fP optionally restricts sampling to DNS type names such as \fB\fCA AAAA\fR;
-omit it to sample all types. This option may appear once per stanza and is disabled by default.
-See \fBQuery exemplars\fP for the format, retention, and collection requirements.
+\fB\fCqtype_for_metrics\fR \fBTYPES...\fP adds \fB\fCquery_name\fR and \fB\fCquery_type\fR labels to request\-duration
+observations for the listed DNS query types. At least one type is required; names such as \fB\fCA AAAA\fR
+are case\-insensitive, and \fB\fCTYPE65400\fR notation supports private or unknown types. \fB\fCANY\fR selects
+questions of type ANY, not all query types. This option may appear once per stanza and is disabled
+by default. See \fBQuery labels\fP for cardinality, retention, and aggregation.
 
 
 .PP
@@ -278,32 +277,33 @@ The following metrics have recently been deprecated:
 * \fB\fCcoredns_forward_request_duration_seconds{to, rcode}\fR
   * Can be replaced with \fB\fCcoredns_proxy_request_duration_seconds{proxy_name="forward", to, rcode}\fR
 
-.SS "QUERY EXEMPLARS"
+.SS "QUERY LABELS"
 .PP
-With \fB\fCquery_exemplars\fR, the existing \fB\fCcoredns_proxy_request_duration_seconds\fR histogram can carry
-\fB\fCquery_name\fR and \fB\fCquery_type\fR as exemplar
-\[la]https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage\[ra]
-labels. The ordinary series labels remain \fB\fCproxy_name\fR, \fB\fCto\fR, and \fB\fCrcode\fR. An exemplar describes a
-sampled upstream response and its duration; it does not create a time series for each queried name.
-The query name is lowercased and fully qualified, as sent by the plugin chain to \fIforward\fP.
-Responses with any RCODE are eligible; attempts that fail without a response do not have a duration
-observation. Retries and failover can produce more than one observation per incoming query.
+With \fB\fCqtype_for_metrics\fR, every matching upstream response is recorded in the existing
+\fB\fCcoredns_proxy_request_duration_seconds\fR histogram with the additional ordinary labels
+\fB\fCquery_name\fR and \fB\fCquery_type\fR. These labels are available to PromQL and alert rules. The query name
+is lowercased and represented as a fully qualified DNS name, with escaping as needed. Long names
+are retained in full. There is no sampling or name truncation.
 
 .PP
-The Prometheus client retains at most one exemplar per classic histogram bucket and ten exemplars
-per native histogram, per existing label combination. New samples replace retained samples; scraping
-does not consume them. Sampling restarts on configuration reload, but already recorded exemplars can
-remain in the process\-wide histogram after the option is disabled. These are debugging samples,
-not a complete query log or labels available for per\-name PromQL aggregation. Use \fB\fClog\fR with
-\fB\fCmetadata\fR and \fB\fC{name} {type} {/forward/upstream}\fR when complete query details are needed.
+Each upstream response is observed exactly once. Unselected query types and forwarders without
+this option retain the original \fB\fCproxy_name\fR, \fB\fCto\fR, and \fB\fCrcode\fR labels. Both label sets can coexist
+under the same metric name; summing over the query labels preserves the aggregate counts, sums,
+and buckets. Retries and failover can produce multiple observations, one for each upstream response.
+As with the ordinary histogram, attempts that fail without a response have no duration observation.
 
 .PP
-Exemplar label names and values are limited to 128 Unicode code points in total. If a query name
-does not fit, its ordinary duration is still recorded but its exemplar is omitted; names are never
-truncated. Enabling this option exposes sampled DNS names to metrics consumers.
+\fBCardinality and retention:\fP each distinct combination of query name, type, upstream and response
+code creates another histogram. Filtering query types does not bound the number of names. Memory
+usage and scrape size grow with these combinations, so restrict this option to a narrow forwarding
+zone and traffic you control. Enabling it for arbitrary public queries can exhaust CoreDNS or
+Prometheus resources. Query names are exposed to metrics consumers. Reloading or disabling the
+option does not delete previously accumulated series; restart CoreDNS to clear its retained series.
+Prometheus retains already scraped data according to its own retention policy.
 
 .PP
-For example, sample every 100th A or AAAA response for a name in \fB\fCcluster.local\fR:
+For example, record A and AAAA queries sent upstream for \fB\fCcluster.local\fR and its subdomains, while
+keeping ordinary metrics for other forwarded names:
 
 .PP
 .RS
@@ -311,21 +311,52 @@ For example, sample every 100th A or AAAA response for a name in \fB\fCcluster.l
 .nf
 \&. {
     prometheus localhost:9153
-    forward . 192.0.2.53 {
-        query\_exemplars cluster.local 100 A AAAA
+    forward cluster.local 192.0.2.53 {
+        qtype\_for\_metrics A AAAA
     }
+    forward . 192.0.2.53
 }
 
 .fi
 .RE
 
 .PP
-Collect exemplars with an OpenMetrics\-capable scraper (the legacy Prometheus text format omits them).
-For Prometheus, enable \fB\fC--enable-feature=exemplar-storage\fR and configure the scrape job to negotiate
-OpenMetrics, for example \fB\fCscrape_protocols: [OpenMetricsText1.0.0, PrometheusText0.0.4]\fR.
-Query collected samples through Prometheus's \fB\fC/api/v1/query_exemplars\fR API, selecting
-\fB\fCcoredns_proxy_request_duration_seconds_bucket{proxy_name="forward"}\fR and a time range. No tracing backend
-is required. Set \fB\fCEVERY\fR to 1 for targeted investigation, or increase it to reduce sampling overhead.
+The ordinary Prometheus scrape format is sufficient; no exemplar storage or tracing backend is
+required. To inspect cumulative counts by query name, type and upstream:
+
+.PP
+.RS
+
+.nf
+sum by (query\_name, query\_type, to) (
+    coredns\_proxy\_request\_duration\_seconds\_count{proxy\_name="forward", query\_name!=""}
+)
+
+.fi
+.RE
+
+.PP
+To calculate the 99th percentile duration by query name and type from classic histogram buckets:
+
+.PP
+.RS
+
+.nf
+histogram\_quantile(0.99,
+    sum by (le, query\_name, query\_type) (
+        rate(coredns\_proxy\_request\_duration\_seconds\_bucket{proxy\_name="forward", query\_name!=""}[5m])
+    )
+)
+
+.fi
+.RE
+
+.PP
+For the scoped configuration above, a nonzero
+\fB\fCcoredns_proxy_request_duration_seconds_count{proxy_name="forward", query_name!=""}\fR
+can also identify unexpected internal forwarding in an alert rule, retaining the query labels on
+the alert. The count is cumulative since that series was created; it is not a count for a recent
+time window.
 
 .SH "EXAMPLES"
 .PP
