@@ -86,7 +86,7 @@ func TestErraticTruncateThree(t *testing.T) {
 
 	ctx := context.TODO()
 
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		req := new(dns.Msg)
 		req.SetQuestion("example.org.", dns.TypeA)
 
