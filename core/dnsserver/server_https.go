@@ -1,3 +1,5 @@
+//go:build !nohttps
+
 package dnsserver
 
 import (
@@ -24,6 +26,8 @@ import (
 	"github.com/pires/go-proxyproto"
 	"golang.org/x/net/netutil"
 )
+
+func init() { Register(transport.HTTPS, NewServerHTTPS, transport.HTTPSPort) }
 
 const (
 	// DefaultHTTPSMaxConnections is the default maximum number of concurrent connections.
