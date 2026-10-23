@@ -13,12 +13,15 @@ func cnamer(m *dns.Msg, original string) {
 		if strings.EqualFold(original, a.Header().Name) {
 			continue
 		}
-		m.Answer = append(m.Answer, nil)
-		copy(m.Answer[1:], m.Answer)
-		m.Answer[0] = &dns.CNAME{
+		// Build a new slice: m.Answer may be owned by the next plugin (plugin/file answers
+		// straight out of the zone tree), so it must not be modified in place.
+		answer := make([]dns.RR, len(m.Answer)+1)
+		answer[0] = &dns.CNAME{
 			Hdr:    dns.RR_Header{Name: original, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: a.Header().Ttl},
 			Target: a.Header().Name,
 		}
+		copy(answer[1:], m.Answer)
+		m.Answer = answer
 		break
 	}
 	m.Question[0].Name = original
