@@ -259,11 +259,12 @@ add the closing dot: `10.0.0.0/24.` as this also stops the conversion.
 This even works for CIDR (See RFC 1518 and 1519) addressing, i.e. `10.0.0.0/25`, CoreDNS will then
 check if the `in-addr` request falls in the correct range.
 
-Listening on TLS (DoT) and for gRPC? Use:
+To listen for DoT and gRPC with TLS, configure a certificate and private key with the *tls* plugin:
 
 ~~~ corefile
 tls://example.org grpc://example.org {
     whoami
+    tls mycert mykey
 }
 ~~~
 
