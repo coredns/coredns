@@ -1,6 +1,10 @@
 package tree
 
-import "github.com/miekg/dns"
+import (
+	"github.com/coredns/coredns/plugin"
+
+	"github.com/miekg/dns"
+)
 
 // Elem is an element in the tree.
 type Elem struct {
@@ -100,4 +104,4 @@ func (e *Elem) Delete(rr dns.RR) {
 }
 
 // Less is a tree helper function that calls less.
-func Less(a *Elem, name string) int { return less(name, a.Name()) }
+func Less(a *Elem, name string) int { return plugin.Name(name).Compare(a.Name()) }
