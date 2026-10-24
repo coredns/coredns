@@ -25,6 +25,7 @@ erratic {
     drop [AMOUNT]
     truncate [AMOUNT]
     delay [AMOUNT [DURATION]]
+    large
 }
 
 .fi
@@ -37,6 +38,10 @@ erratic {
 .IP \(bu 4
 \fB\fCdelay\fR: delay 1 per \fBAMOUNT\fP of queries for \fBDURATION\fP, the default for \fBAMOUNT\fP is 2 and
 the default for \fBDURATION\fP is 100ms.
+.IP \(bu 4
+\fB\fClarge\fR: answer every A query with 30 copies of the same record, which pushes the reply past 512
+octets so compression and TCP fallback can be tested. It only affects \fB\fCA\fR; \fB\fCAAAA\fR answers are
+unchanged.
 
 
 .PP

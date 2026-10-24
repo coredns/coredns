@@ -114,3 +114,32 @@ func TestErratic(t *testing.T) {
 		t.Errorf("Expected A response, got %d type", rec.Msg.Answer[0].Header().Rrtype)
 	}
 }
+
+func TestErraticLarge(t *testing.T) {
+	e := &Erratic{large: true}
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := e.ServeDNS(context.TODO(), rec, req); err != nil {
+		t.Fatalf("A: %v", err)
+	}
+	if got := len(rec.Msg.Answer); got != 30 {
+		t.Fatalf("A answers = %d, want 30", got)
+	}
+	packed, err := rec.Msg.Pack()
+	if err != nil {
+		t.Fatalf("pack: %v", err)
+	}
+	t.Logf("A response packed size = %d octets", len(packed))
+
+	req6 := new(dns.Msg)
+	req6.SetQuestion("example.org.", dns.TypeAAAA)
+	rec6 := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := e.ServeDNS(context.TODO(), rec6, req6); err != nil {
+		t.Fatalf("AAAA: %v", err)
+	}
+	if got := len(rec6.Msg.Answer); got != 1 {
+		t.Fatalf("AAAA answers = %d, want 1", got)
+	}
+}
