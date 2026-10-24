@@ -172,10 +172,10 @@ func (m *Metrics) OnStartup() error {
 	startUpErr := make(chan error, 1)
 
 	go func() {
-		// Try to start the server and report result if there an error.
+		// Try to start the server and report result if there is an error.
 		// web.Serve() never returns nil, it always returns a non-nil error and
-		// it doesn't retun anything if server starts successfully.
-		// startupListener handles capturing succesful startup.
+		// it doesn't return anything if server starts successfully.
+		// startupListener handles capturing successful startup.
 		err := m.serveTLS(m.ln, server, webConfig, logger)
 		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start HTTPS metrics server: %v", err)
