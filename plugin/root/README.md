@@ -7,13 +7,21 @@
 ## Description
 
 The default root is the current working directory of CoreDNS. The *root* plugin allows you to change
-this. A relative root path is relative to the current working directory. 
-**NOTE: The *root* directory is NOT currently supported by all plugins.** 
-Currently the following plugins respect the *root* plugin configuration:
+this. A relative root path is relative to the current working directory.
+**NOTE: The *root* directory is NOT currently supported by all plugins.**
+The following plugins resolve relative paths against the *root* directory:
 
-* *file*
-* *tls*
+* *auto*
 * *dnssec*
+* *dynupdate*
+* *etcd*
+* *file*
+* *forward*
+* *grpc*
+* *hosts*
+* *loadbalance*
+* *sign*
+* *tls*
 
 This plugin can only be used once per Server Block. 
 
@@ -48,9 +56,5 @@ tls://example.com:853 {
 
 ## Bugs
 
-**NOTE: The *root* directory is NOT currently supported by all plugins.** 
-Currently the following plugins respect the *root* plugin configuration:
-
-* *file*
-* *tls*
-* *dnssec*
+**NOTE: The *root* directory is NOT currently supported by all plugins.**
+See the list above for the plugins that resolve relative paths against it.
