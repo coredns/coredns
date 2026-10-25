@@ -66,6 +66,36 @@ func (n Name) Matches(child string) bool {
 // Bytes outside a-zA-Z range with distinct upper and lower cases MUST be in \DDD form.
 func (n Name) Normalize() string { return strings.ToLower(dns.Fqdn(string(n))) }
 
+// CanonicalEscape brings escape sequences in line with presentation format as decoded from wire.
+//
+// Use on domain names supplied by user to properly compare and match against wire data.
+//
+//	Name(`café.example`).CanonicalEscape() == `caf\195\169.example`
+//	Name(`ex\a\m\ple.`).CanonicalEscape() == `example.`
+func (n Name) CanonicalEscape() (n1 string) {
+	n1 = string(n)
+	if n1 == "" {
+		return n1
+	}
+	fqdn := dns.IsFqdn(n1)
+	if !fqdn {
+		n1 = n1 + "."
+	}
+	buf := make([]byte, len(n1)+1) // packing folds all escapes
+	off, err := dns.PackDomainName(n1, buf, 0, nil, false)
+	if err != nil {
+		return string(n)
+	}
+	out, _, err := dns.UnpackDomainName(buf[:off], 0)
+	if err != nil {
+		return string(n)
+	}
+	if !fqdn {
+		out = out[:len(out)-1]
+	}
+	return out
+}
+
 // Compare compares domain names regardless of normalization.
 //
 // Follows DNSSEC canonical ordering (RFC 4034, Section 6.1):

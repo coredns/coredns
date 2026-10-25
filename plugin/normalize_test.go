@@ -345,6 +345,23 @@ func TestNameCompareRelation_EdgeCases(t *testing.T) {
 	}
 }
 
+func TestNameCanonicalEscape(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{`has\046dot.campus.edu.`, `has\.dot.campus.edu.`},
+		{`has\.dot.campus.edu.`, `has\.dot.campus.edu.`},
+		{`plain.campus.edu.`, `plain.campus.edu.`},
+		{`a\009b.campus.edu.`, `a\009b.campus.edu.`}, // tab stays \DDD (unprintable)
+		{`café.example`, `caf\195\169.example`},
+	}
+	for _, tc := range cases {
+		if got := Name(tc.in).CanonicalEscape(); got != tc.want {
+			t.Errorf("canonicalEscape(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
 func BenchmarkNameCompare(b *testing.B) {
 	less := func(a, b string) int {
 		return Name(a).Compare(b)
