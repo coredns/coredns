@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file/rrutil"
 	"github.com/coredns/coredns/plugin/file/tree"
 	"github.com/coredns/coredns/plugin/metadata"
@@ -119,7 +120,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			dname := dnamerrs[0]
 			if cname := synthesizeCNAME(state.Name(), dname.(*dns.DNAME)); cname != nil {
 				// A DNAME substitution that does not change the name can only loop.
-				if dns.CanonicalName(cname.Hdr.Name) == dns.CanonicalName(cname.Target) {
+				if plugin.Name(cname.Hdr.Name).Compare(cname.Target) == 0 {
 					return nil, nil, nil, ServerFailure
 				}
 
@@ -386,7 +387,7 @@ Redo:
 	cname := elem.Type(dns.TypeCNAME)
 	if len(cname) > 0 {
 		// A CNAME that points to its own owner name can only loop.
-		if dns.CanonicalName(cname[0].Header().Name) == dns.CanonicalName(cname[0].(*dns.CNAME).Target) {
+		if plugin.Name(cname[0].Header().Name).Compare(cname[0].(*dns.CNAME).Target) == 0 {
 			return nil, nil, nil, ServerFailure
 		}
 

@@ -193,15 +193,7 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 	seenSOA := false
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
 		if s, ok := rr.(*dns.SOA); ok {
-			// canonicalEscape normalizes the escape representation of name. RFC 1035
-			// §5.1 lets the same byte be written as \DDD (decimal) or \c (literal
-			// character), and miekg/dns's zone parser preserves whichever form
-			// appeared in the input. Wire format has no such freedom, so packing
-			// then unpacking yields the canonical text representation that incoming
-			// queries use. Without this, an owner name written as has\046dot.example.
-			// in a zone file is stored under that literal string and never matches a
-			// query for has\.dot.example., which is how the wire form unpacks.
-			if dns.CanonicalName(plugin.Name(s.Hdr.Name).CanonicalEscape()) != dns.CanonicalName(plugin.Name(z.origin).CanonicalEscape()) {
+			if plugin.Name(s.Hdr.Name).Compare(z.origin) != 0 {
 				return nil, fmt.Errorf("file %q has SOA owner %s that does not match origin %s", fileName, s.Hdr.Name, z.origin)
 			}
 			if !seenSOA {
