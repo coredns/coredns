@@ -80,6 +80,38 @@ nomad service.nomad {
 			shouldErr:   false,
 			expectedTTL: uint32(defaultTTL),
 		},
+		{
+			name: "valid_config_region_and_namespace",
+			config: `
+nomad service.nomad {
+    address http://127.0.0.1:4646
+    token test-token
+    region us-west
+    namespace production
+}`,
+			shouldErr:   false,
+			expectedTTL: uint32(defaultTTL),
+		},
+		{
+			name: "invalid_region_missing_arg",
+			config: `
+nomad service.nomad {
+    address http://127.0.0.1:4646
+    token test-token
+    region
+}`,
+			shouldErr: true,
+		},
+		{
+			name: "invalid_namespace_missing_arg",
+			config: `
+nomad service.nomad {
+    address http://127.0.0.1:4646
+    token test-token
+    namespace
+}`,
+			shouldErr: true,
+		},
 	}
 
 	for _, tt := range tests {
