@@ -41,32 +41,40 @@ func (r *Request) NewWithQuestion(name string, typ uint16) Request {
 	return req1
 }
 
+// addrParts returns the IP, zone and port held by a *net.UDPAddr or
+// *net.TCPAddr, so they can be used without rendering the address and splitting
+// it again. ok is false for any other or nil address, and for a zone containing
+// '[' or ']', which net.SplitHostPort rejects; callers then split addr.String().
+func addrParts(addr net.Addr) (ip net.IP, zone string, port int, ok bool) {
+	switch a := addr.(type) {
+	case *net.UDPAddr:
+		if a != nil {
+			return a.IP, a.Zone, a.Port, !strings.ContainsAny(a.Zone, "[]")
+		}
+	case *net.TCPAddr:
+		if a != nil {
+			return a.IP, a.Zone, a.Port, !strings.ContainsAny(a.Zone, "[]")
+		}
+	}
+	return nil, "", 0, false
+}
+
 // addrHost returns the host part of addr, as net.SplitHostPort(addr.String())
 // would, or all of addr.String() if it has no port.
 //
-// A *net.UDPAddr or *net.TCPAddr already holds the host, so it is taken directly
-// instead of rendering the address and splitting it again. The result is what
-// String puts in the host part: an address without an IP gives "" rather than
-// ip.String()'s "<nil>", and the zone is kept, so fe80::1%eth0 and fe80::1%eth1
-// stay distinct for everything that matches on IP, such as acl and metrics.
+// The result is what String puts in the host part: an address without an IP
+// gives "" rather than ip.String()'s "<nil>", and the zone is kept, so
+// fe80::1%eth0 and fe80::1%eth1 stay distinct for everything that matches on
+// IP, such as acl and metrics.
 func addrHost(addr net.Addr) string {
-	var (
-		ip   net.IP
-		zone string
-	)
-	switch a := addr.(type) {
-	case *net.UDPAddr:
-		if a == nil {
-			return addrHostSlow(addr)
+	ip, zone, _, ok := addrParts(addr)
+	if !ok {
+		s := addr.String()
+		host, _, err := net.SplitHostPort(s)
+		if err != nil {
+			return s
 		}
-		ip, zone = a.IP, a.Zone
-	case *net.TCPAddr:
-		if a == nil {
-			return addrHostSlow(addr)
-		}
-		ip, zone = a.IP, a.Zone
-	default:
-		return addrHostSlow(addr)
+		return host
 	}
 
 	host := ""
@@ -79,27 +87,11 @@ func addrHost(addr net.Addr) string {
 	return host
 }
 
-func addrHostSlow(addr net.Addr) string {
-	s := addr.String()
-	host, _, err := net.SplitHostPort(s)
-	if err != nil {
-		return s
-	}
-	return host
-}
-
 // addrPort returns the port of addr, as net.SplitHostPort(addr.String()) would,
-// or "0" if it has none. A *net.UDPAddr or *net.TCPAddr is read directly.
+// or "0" if it has none.
 func addrPort(addr net.Addr) string {
-	switch a := addr.(type) {
-	case *net.UDPAddr:
-		if a != nil {
-			return strconv.Itoa(a.Port)
-		}
-	case *net.TCPAddr:
-		if a != nil {
-			return strconv.Itoa(a.Port)
-		}
+	if _, _, port, ok := addrParts(addr); ok {
+		return strconv.Itoa(port)
 	}
 
 	_, port, err := net.SplitHostPort(addr.String())

@@ -510,10 +510,10 @@ func BenchmarkRequestPort(b *testing.B) {
 }
 
 // addrResponseWriter serves a fixed pair of addresses so IP, LocalIP, Port and
-// LocalPort can be exercised against address shapes the test package does not
-// build, such as a zoned link-local address.
+// LocalPort can be exercised against address shapes test.ResponseWriter does
+// not build, such as a nil, Unix or custom address, on either side.
 type addrResponseWriter struct {
-	dns.ResponseWriter
+	test.ResponseWriter
 	remote, local net.Addr
 }
 
@@ -544,6 +544,9 @@ func TestRequestIPPortMatchSplitHostPort(t *testing.T) {
 		&net.UDPAddr{Port: 53},
 		&net.TCPAddr{Port: 53},
 		&net.UDPAddr{Port: 53, Zone: "eth0"},
+		&net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: 53, Zone: "eth]0"},
+		&net.TCPAddr{IP: net.ParseIP("fe80::1"), Port: 53, Zone: "eth[0"},
+		&net.UDPAddr{IP: net.ParseIP("10.240.0.1"), Port: 53, Zone: "eth]0"},
 		&net.UDPAddr{IP: net.IP{1, 2, 3}, Port: 53},
 		(*net.UDPAddr)(nil),
 		(*net.TCPAddr)(nil),
@@ -551,7 +554,12 @@ func TestRequestIPPortMatchSplitHostPort(t *testing.T) {
 		customAddr("192.0.2.1:8053"),
 		customAddr("[2001:db8::1]:443"),
 		customAddr("no-port"),
+		wrappedAddr{inner: &net.TCPAddr{IP: net.ParseIP("192.0.2.1"), Port: 1234}},
 	}
+
+	// other is set on the opposite side, so that reading the remote address
+	// where the local one is wanted, or the reverse, is caught.
+	other := &net.UDPAddr{IP: net.ParseIP("192.0.2.53"), Port: 5353}
 
 	for _, addr := range addrs {
 		wantHost, wantPort, err := net.SplitHostPort(addr.String())
@@ -559,17 +567,19 @@ func TestRequestIPPortMatchSplitHostPort(t *testing.T) {
 			wantHost, wantPort = addr.String(), "0"
 		}
 
-		st := Request{W: &addrResponseWriter{remote: addr, local: addr}, Req: new(dns.Msg)}
-		if got := st.IP(); got != wantHost {
+		remote := Request{W: &addrResponseWriter{remote: addr, local: other}, Req: new(dns.Msg)}
+		if got := remote.IP(); got != wantHost {
 			t.Errorf("%#v: IP() = %q, expected %q", addr, got, wantHost)
 		}
-		if got := st.LocalIP(); got != wantHost {
-			t.Errorf("%#v: LocalIP() = %q, expected %q", addr, got, wantHost)
-		}
-		if got := st.Port(); got != wantPort {
+		if got := remote.Port(); got != wantPort {
 			t.Errorf("%#v: Port() = %q, expected %q", addr, got, wantPort)
 		}
-		if got := st.LocalPort(); got != wantPort {
+
+		local := Request{W: &addrResponseWriter{remote: other, local: addr}, Req: new(dns.Msg)}
+		if got := local.LocalIP(); got != wantHost {
+			t.Errorf("%#v: LocalIP() = %q, expected %q", addr, got, wantHost)
+		}
+		if got := local.LocalPort(); got != wantPort {
 			t.Errorf("%#v: LocalPort() = %q, expected %q", addr, got, wantPort)
 		}
 	}
