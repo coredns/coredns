@@ -56,6 +56,19 @@ func reverse(slice []string) string {
 // b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2
 // is reversed to 2001:db8::567:89ab
 func reverse6(slice []string) string {
+	// A reverse IPv6 name carries exactly 32 single-hex-digit labels. Anything
+	// else must be rejected: the grouping below reads len(slice)/4 groups, so a
+	// longer name silently loses its tail labels, and a shorter or multi-character
+	// label shifts the nibbles into a group that net.ParseIP still accepts. Both
+	// answer with the address of a different host.
+	if len(slice) != 32 {
+		return ""
+	}
+	for _, nibble := range slice {
+		if len(nibble) != 1 || !isHexDigit(nibble[0]) {
+			return ""
+		}
+	}
 	for i := range len(slice) / 2 {
 		j := len(slice) - i - 1
 		slice[i], slice[j] = slice[j], slice[i]
@@ -69,6 +82,10 @@ func reverse6(slice []string) string {
 		return ""
 	}
 	return ip.String()
+}
+
+func isHexDigit(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
 
 const (
