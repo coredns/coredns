@@ -308,7 +308,7 @@ func newEtcdPlugin() *Etcd {
 
 	endpoints := []string{"http://localhost:2379"}
 	tlsc, _ := tls.NewTLSConfigFromArgs()
-	client, _ := newEtcdClient(endpoints, tlsc, "", "")
+	client, _ := newEtcdClient(endpoints, tlsc, "", "", 0, 0)
 
 	return &Etcd{
 		Upstream:   upstream.New(),

@@ -5,6 +5,7 @@ package etcd
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
 )
@@ -90,6 +91,62 @@ func TestSetupEtcd(t *testing.T) {
 			max-lease-ttl 7200
 		}
 			`, false, "skydns", []string{"http://localhost:2379"}, "", "", "",
+		},
+		// with custom sync_interval
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			sync_interval 1m
+		}
+			`, false, "skydns", []string{"http://localhost:2379"}, "", "", "",
+		},
+		// with custom dial_timeout
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			dial_timeout 5s
+		}
+			`, false, "skydns", []string{"http://localhost:2379"}, "", "", "",
+		},
+		// with plain-number sync_interval (treated as seconds)
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			sync_interval 30
+		}
+			`, false, "skydns", []string{"http://localhost:2379"}, "", "", "",
+		},
+		// with invalid sync_interval
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			sync_interval notaduration
+		}
+			`, true, "", []string{""}, "invalid sync_interval value", "", "",
+		},
+		// with zero sync_interval (rejected -- omit the directive to disable auto-sync)
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			sync_interval 0
+		}
+			`, true, "", []string{""}, "invalid sync_interval value", "", "",
+		},
+		// with invalid dial_timeout
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			dial_timeout -5s
+		}
+			`, true, "", []string{""}, "invalid dial_timeout value", "", "",
+		},
+		// with missing sync_interval argument
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			sync_interval
+		}
+			`, true, "", []string{""}, "Wrong argument count", "", "",
 		},
 	}
 
@@ -246,6 +303,47 @@ func TestParseTTL(t *testing.T) {
 				}
 				if result != tt.expected {
 					t.Errorf("parseTTL(%q) = %d, expected %d", tt.input, result, tt.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestParseNonZeroDuration(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected time.Duration
+		hasError bool
+		desc     string
+	}{
+		{"30", 30 * time.Second, false, "plain number should be treated as seconds"},
+		{"30s", 30 * time.Second, false, "explicit seconds"},
+		{"1m", time.Minute, false, "1 minute"},
+		{"1h", time.Hour, false, "1 hour"},
+		{"2h30m", 2*time.Hour + 30*time.Minute, false, "2 hours 30 minutes"},
+
+		{"0", 0, true, "zero should be rejected"},
+		{"0s", 0, true, "zero seconds should be rejected"},
+		{"-30s", 0, true, "negative duration should be rejected"},
+		{"", 0, true, "empty string should error"},
+		{"abc", 0, true, "invalid format should error"},
+		{"1y", 0, true, "unsupported unit should error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			result, err := parseNonZeroDuration(tt.input)
+
+			if tt.hasError {
+				if err == nil {
+					t.Errorf("parseNonZeroDuration(%q) expected error but got none", tt.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("parseNonZeroDuration(%q) unexpected error: %v", tt.input, err)
+				}
+				if result != tt.expected {
+					t.Errorf("parseNonZeroDuration(%q) = %v, expected %v", tt.input, result, tt.expected)
 				}
 			}
 		})
