@@ -485,3 +485,50 @@ type ErrWriter struct {
 
 // TsigStatus always returns an error.
 func (t *ErrWriter) TsigStatus() error { return t.err }
+
+func TestServeDNSResponseTSIGVerification(t *testing.T) {
+	const (
+		keyName = "test.key."
+		secret  = "c2VjcmV0MTIzNDU2Nzg5MDEyMzQ1Ng=="
+	)
+
+	tsig := TSIGServer{
+		Zones:      []string{"."},
+		allTypes:   true,
+		allOpcodes: true,
+		secrets:    map[string]string{keyName: secret},
+		Next:       testHandler(),
+	}
+
+	req := new(dns.Msg)
+	req.SetQuestion("test.example.", dns.TypeA)
+	req.SetTsig(keyName, dns.HmacSHA256, 300, time.Now().Unix())
+
+	reqWire, reqMAC, err := dns.TsigGenerate(req, secret, "", false)
+	if err != nil {
+		t.Fatalf("dns.TsigGenerate() error = %v", err)
+	}
+
+	parsedReq := new(dns.Msg)
+	if err := parsedReq.Unpack(reqWire); err != nil {
+		t.Fatalf("dns.Msg.Unpack() error = %v", err)
+	}
+
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := tsig.ServeDNS(context.Background(), w, parsedReq); err != nil {
+		t.Fatalf("ServeDNS error = %v", err)
+	}
+
+	if w.Msg == nil {
+		t.Fatal("expected non-nil response message")
+	}
+
+	respWire, err := w.Msg.Pack()
+	if err != nil {
+		t.Fatalf("dns.Msg.Pack() error = %v", err)
+	}
+
+	if err := dns.TsigVerify(respWire, secret, reqMAC, false); err != nil {
+		t.Fatalf("dns.TsigVerify() error = %v, want nil", err)
+	}
+}

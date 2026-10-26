@@ -61,7 +61,11 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	r.Extra = r.Extra[:len(r.Extra)-1]
 
 	// Wrap the response writer so the response will be TSIG signed.
-	w = &restoreTsigWriter{w, r, tsigRR}
+	secret := t.secrets[plugin.Name(tsigRR.Hdr.Name).Normalize()]
+	if secret == "" {
+		secret = t.secrets[tsigRR.Hdr.Name]
+	}
+	w = &restoreTsigWriter{w, r, tsigRR, secret}
 
 	if tsigStatus := w.TsigStatus(); tsigStatus != nil {
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
@@ -112,6 +116,7 @@ type restoreTsigWriter struct {
 	dns.ResponseWriter
 	req     *dns.Msg  // original request excluding TSIG
 	reqTSIG *dns.TSIG // original TSIG
+	secret  string    // shared secret for reqTSIG's key, used to sign the response
 }
 
 // WriteMsg adds a TSIG RR to the response
@@ -127,8 +132,6 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
 		repTSIG.OrigId = m.Id
 		repTSIG.Error = r.reqTSIG.Error
-		repTSIG.MAC = r.reqTSIG.MAC
-		repTSIG.MACSize = r.reqTSIG.MACSize
 		if repTSIG.Error == dns.RcodeBadTime {
 			// per RFC 8945 5.2.3. client time goes into TimeSigned, server time in OtherData, OtherLen = 6 ...
 			repTSIG.TimeSigned = r.reqTSIG.TimeSigned
@@ -138,6 +141,32 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 			// truncate to 48 least significant bits (network order 6 rightmost bytes)
 			repTSIG.OtherData = hex.EncodeToString(b[2:])
 			repTSIG.OtherLen = 6
+		}
+		// RFC 8945 Section 5.2.2: the response MAC is HMAC(key, request-MAC || response).
+		// Previously the request MAC was copied verbatim; compute it properly now.
+		// Fall back to copying the request MAC when we cannot sign (unknown key or TSIG error paths).
+		canSign := r.secret != "" && repTSIG.Error != dns.RcodeBadKey && repTSIG.Error != dns.RcodeBadSig
+		if canSign {
+			// Set timer fields before signing so the wire we write matches what was signed
+			// (TsigGenerate fills zero values from the clock).
+			if repTSIG.TimeSigned == 0 {
+				repTSIG.TimeSigned = uint64(time.Now().Unix()) // #nosec G115 -- Unix time fits in uint64
+			}
+			if repTSIG.Fudge == 0 {
+				repTSIG.Fudge = 300 // standard RFC default
+			}
+			// TsigGenerate requires the TSIG stub as the last extra RR; it strips the
+			// stub from m.Extra and returns the signed wire, which we discard here.
+			m.Extra = append(m.Extra, repTSIG)
+			if _, mac, err := dns.TsigGenerate(m, r.secret, r.reqTSIG.MAC, false); err != nil {
+				return err
+			} else {
+				repTSIG.MAC = mac
+				repTSIG.MACSize = uint16(len(mac) / 2) // Size is half the hex-encoded MAC length
+			}
+		} else {
+			repTSIG.MAC = r.reqTSIG.MAC
+			repTSIG.MACSize = r.reqTSIG.MACSize
 		}
 		m.Extra = append(m.Extra, repTSIG)
 	}
