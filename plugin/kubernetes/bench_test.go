@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -60,7 +61,7 @@ func makeBenchEndpoints() []*object.Endpoints {
 		name string
 		port int32
 	}{{"http", 80}, {"https", 443}, {"metrics", 9153}} {
-		ports = append(ports, object.EndpointPort{Port: p.port, Protocol: "tcp", Name: p.name})
+		ports = append(ports, object.EndpointPort{Port: p.port, Protocol: "TCP", Name: p.name})
 	}
 
 	eps := make([]*object.Endpoints, 0, benchSlices)
@@ -154,6 +155,11 @@ func TestBenchFixtureSanity(t *testing.T) {
 		}
 		if len(svcs) != tc.want {
 			t.Errorf("%s: got %d services, want %d", tc.name, len(svcs), tc.want)
+		}
+		for _, s := range svcs {
+			if host := endpointHostname(object.EndpointAddress{IP: s.Host}, false); !strings.HasSuffix(s.Key, "/"+host) {
+				t.Errorf("%s: key %q does not end in the hostname %q of %s", tc.name, s.Key, host, s.Host)
+			}
 		}
 	}
 }

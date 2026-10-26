@@ -553,9 +553,9 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 							if topoZone != "" && ep.Zones[addr.IP] != topoZone {
 								continue
 							}
-							// The hostname is derived at most once per address, and
-							// only once something needs it: matching the requested
-							// endpoint, or keying a port that matched.
+							// Derive the hostname lazily, once per address rather than
+							// once per port: only matching the requested endpoint or
+							// keying a port that matched needs it.
 							var epHost string
 							if r.endpoint != "" {
 								epHost = endpointHostname(addr, k.endpointNameMode)
