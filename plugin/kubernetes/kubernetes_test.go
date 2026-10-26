@@ -531,6 +531,9 @@ func TestZonePath(t *testing.T) {
 	// Configured zones are served from the precomputed table, and must be
 	// identical to what msg.Path would have returned.
 	for _, z := range k.Zones {
+		if _, ok := k.zonePaths[z]; !ok {
+			t.Errorf("zone %q missing from precomputed table", z)
+		}
 		if got, want := k.zonePath(z), msg.Path(z, coredns); got != want {
 			t.Errorf("zonePath(%q) = %q, want %q", z, got, want)
 		}

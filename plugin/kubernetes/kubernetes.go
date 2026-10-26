@@ -50,12 +50,12 @@ type Kubernetes struct {
 	opts             dnsControlOpts
 	primaryZoneIndex int
 	localIPs         []net.IP
-	autoPathSearch   []string      // Local search path from /etc/resolv.conf. Needed for autopath.
-	startupTimeout   time.Duration // startupTimeout set timeout of startup
-	apiQPS           float32       // Maximum queries per second from the client to the API server
-	apiBurst         int           // Maximum burst for throttle
-	apiMaxInflight   int           // Maximum number of concurrent requests in flight to the API server
-	zonePaths        map[string]string
+	autoPathSearch   []string          // Local search path from /etc/resolv.conf. Needed for autopath.
+	startupTimeout   time.Duration     // startupTimeout set timeout of startup
+	apiQPS           float32           // Maximum queries per second from the client to the API server
+	apiBurst         int               // Maximum burst for throttle
+	apiMaxInflight   int               // Maximum number of concurrent requests in flight to the API server
+	zonePaths        map[string]string // msg.Path of each zone in Zones, built by initZonePaths; read-only after setup
 }
 
 // Upstreamer is used to resolve CNAME or other external targets
