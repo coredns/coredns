@@ -38,6 +38,8 @@ etcd [ZONES...] {
     credentials USERNAME PASSWORD
     tls CERT KEY CACERT
     no_apex_fallback
+    sync_interval DURATION
+    dial_timeout DURATION
 }
 ~~~
 
@@ -66,6 +68,12 @@ key exchange mechanisms use the Go `crypto/tls` defaults.
 
 * `min-lease-ttl` the minimum TTL for DNS records based on etcd lease duration. Accepts flexible time formats like '30', '30s', '5m', '1h', '2h30m'. Default: 30 seconds.
 * `max-lease-ttl` the maximum TTL for DNS records based on etcd lease duration. Accepts flexible time formats like '30', '30s', '5m', '1h', '2h30m'. Default: 24 hours.
+* `sync_interval` how often the client refreshes its endpoint list from the etcd cluster
+  membership. Accepts the same flexible duration formats as `min-lease-ttl`/`max-lease-ttl`. If not
+  provided, auto-sync is disabled, matching etcd client's own default.
+* `dial_timeout` the maximum amount of time the client will wait while establishing a connection to
+  an etcd endpoint. Accepts the same flexible duration formats as `min-lease-ttl`/`max-lease-ttl`.
+  If not provided, the etcd client's own default is used.
 
 ## Special Behaviour
 
