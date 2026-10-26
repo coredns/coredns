@@ -107,9 +107,9 @@ type Server struct {
 	stopOnce sync.Once
 	stopErr  error
 
-	// baseCtx is the immutable root context for requests served by the plain
-	// DNS and DoT listeners. It carries Key{} and LoopKey{} and is built once in
-	// NewServer to avoid two context.WithValue allocations per query.
+	// baseCtx is the root request context for the DNS and DoT listeners,
+	// carrying Key{} and LoopKey{}. It is built once in NewServer and shared by
+	// all requests, so it must never be mutated.
 	baseCtx context.Context
 }
 
@@ -210,8 +210,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		log.D.Clear()
 	}
 
-	s.baseCtx = context.WithValue(context.Background(), Key{}, s)
-	s.baseCtx = context.WithValue(s.baseCtx, LoopKey{}, 0)
+	s.baseCtx = context.WithValue(context.WithValue(context.Background(), Key{}, s), LoopKey{}, 0)
 
 	return s, nil
 }
