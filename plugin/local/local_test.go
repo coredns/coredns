@@ -27,10 +27,15 @@ var testcases = []struct {
 	{"localhost.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("localhost. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 	{"a.localhost.", dns.TypeA, dns.RcodeSuccess, test.A("a.localhost. IN A 127.0.0.1"), nil},
 	{"a.localhost.", dns.TypeAAAA, dns.RcodeSuccess, test.AAAA("a.localhost. IN AAAA ::1"), nil},
-	{"a.localhost.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("a.localhost. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"a.localhost.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("localhost. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"b.a.localHOst.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("localHOst. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"localhost.example.net.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("localhost.example.net. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 	{"1.0.0.127.in-addr.arpa.", dns.TypePTR, dns.RcodeSuccess, test.PTR("1.0.0.127.in-addr.arpa. IN PTR localhost."), nil},
 	{"1.0.0.127.in-addr.arpa.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 	{"2.0.0.127.in-addr.arpa.", dns.TypePTR, dns.RcodeNameError, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"0.0.127.in-addr.arpa.", dns.TypePTR, dns.RcodeSuccess, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"0.127.in-addr.arpa.", dns.TypeNS, dns.RcodeSuccess, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"1.0.127.in-addr.arpa.", dns.TypePTR, dns.RcodeNameError, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 }
 
 func TestLocal(t *testing.T) {
