@@ -145,6 +145,9 @@ jobs:
           kea-dhcp-ddns -v
           # Keep the distribution AppArmor profile and use its allowed paths.
           sudo systemctl stop kea-dhcp-ddns-server
+          # The package may restrict /etc/kea to its service user/group. Allow
+          # traversal to the test directory, which remains private with mode 0700.
+          sudo chmod o+x /etc/kea
           sudo install -d -m 0700 -o "$(id -u)" -g "$(id -g)" /etc/kea/coredns-tests
           sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /run/kea
           sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" /dev/null /run/kea/logger_lockfile
