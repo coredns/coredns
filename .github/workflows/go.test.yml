@@ -32,31 +32,32 @@ jobs:
           race=()
           if [ "$CGO_ENABLED" = 1 ]; then race=(-race); fi
           go test "${race[@]}" -c -o "$RUNNER_TEMP/capabilities/reuseport.test" ./plugin/pkg/reuseport
-      - name: Test permitted capabilities and thread isolation
+      - name: Test permitted capabilities and CoreDNS behavior
         run: |
-          capability_test_dir=$(mktemp -d)
-          trap 'rm -f "$capability_test_dir/reuseport.test"; rmdir "$capability_test_dir"' EXIT
-          chmod 755 "$capability_test_dir"
-          install -m 755 "$RUNNER_TEMP/capabilities/reuseport.test" "$capability_test_dir/reuseport.test"
-          sudo setcap cap_net_bind_service=p "$capability_test_dir/reuseport.test"
-          sudo unshare --net sh -ec '
+          findmnt -T /tmp -o TARGET,OPTIONS
+          caps=$(sed -n 's/^RUN setcap \(.*\) \/coredns/\1/p' Dockerfile)
+          sudo unshare --mount --net sh -ec '
+            # File capabilities must be honored regardless of the runner mount options.
+            # Both the mount and network changes are confined to this namespace.
+            mount --make-rprivate /
+            mount -t tmpfs -o mode=1777 tmpfs /tmp
+            install -m 755 "$1/reuseport.test" /tmp/reuseport.test
+            setcap cap_net_bind_service=p /tmp/reuseport.test
+            getcap /tmp/reuseport.test
             ip link set lo up
             sysctl -qw net.ipv4.ip_unprivileged_port_start=1024
-            exec setpriv --reuid=65532 --regid=65532 --clear-groups \
+            setpriv --reuid=65532 --regid=65532 --clear-groups \
               --bounding-set=-all,+net_bind_service --inh-caps=-all --ambient-caps=-all \
-              env COREDNS_TEST_BIND_CAPABILITY=1 "$1" -test.v -test.run TestListenWith
-          ' sh "$capability_test_dir/reuseport.test"
-      - name: Test CoreDNS with restricted capabilities
-        run: |
-          caps=$(sed -n 's/^RUN setcap \(.*\) \/coredns/\1/p' Dockerfile)
-          sudo unshare --net python3 .github/test-capabilities.py \
-            --binary "$RUNNER_TEMP/capabilities/coredns" --caps "$caps" --label 'cgo=${{ matrix.cgo }}'
-      - name: Test container startup with all capabilities dropped
+              env COREDNS_TEST_BIND_CAPABILITY=1 /tmp/reuseport.test -test.v -test.run TestListenWith
+            python3 "$2" --binary "$1/coredns" --caps "$3" --label "$4"
+          ' sh "$RUNNER_TEMP/capabilities" "$PWD/.github/test-capabilities.py" "$caps" 'cgo=${{ matrix.cgo }}'
+      - name: Test container startup and DNS queries
         if: matrix.cgo == '0'
         run: |
           docker build -f Dockerfile -t coredns-capabilities "$RUNNER_TEMP/capabilities"
           docker run --rm --cap-drop=ALL coredns-capabilities -version
           docker run --rm --cap-drop=ALL coredns-capabilities -plugins
+          python3 .github/test-capabilities.py --image coredns-capabilities --label docker
 
   test:
     name: Test

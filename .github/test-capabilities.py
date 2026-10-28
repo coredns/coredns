@@ -127,10 +127,14 @@ def run_case(binary, directory, name, bounding, threshold, port=None, host="127.
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--binary", required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--binary")
+    target.add_argument("--image")
     parser.add_argument("--caps", default="")
     parser.add_argument("--label", required=True)
     args = parser.parse_args()
+    if args.image:
+        return test_image(args.image, args.label)
     assert os.geteuid() == 0, "run under sudo unshare --net"
     subprocess.run(["ip", "link", "set", "lo", "up"], check=True)
     with tempfile.TemporaryDirectory(prefix="coredns-capability-") as temp:
@@ -164,6 +168,57 @@ def main():
         results = [run_case(binary, directory, **case) for case in cases]
         print(json.dumps(dict(label=args.label, passed=sum(results), total=len(results))), flush=True)
         return 0 if all(results) else 1
+
+
+def test_image(image, label):
+    results = []
+    for name, port, threshold, permit, success in [
+        ("permitted-low-port", 53, 1024, True, True),
+        ("dropped-high-port", 1053, 1024, False, True),
+        ("dropped-relaxed-low-port", 53, 0, False, True),
+        ("dropped-denied-low-port", 53, 1024, False, False),
+    ]:
+        with tempfile.TemporaryDirectory(prefix="coredns-container-") as temp:
+            corefile = Path(temp) / "Corefile"
+            corefile.write_text(f".:{port} {{\n template IN A {{\n  answer \"{{{{ .Name }}}} 60 IN A 192.0.2.1\"\n }}\n}}\n")
+            corefile.chmod(0o644)
+            cmd = ["docker", "run", "-d", "--cap-drop=ALL",
+                   "--sysctl", f"net.ipv4.ip_unprivileged_port_start={threshold}",
+                   "-v", f"{corefile}:/Corefile:ro",
+                   "-p", f"127.0.0.1::{port}/tcp", "-p", f"127.0.0.1::{port}/udp"]
+            if permit:
+                cmd.append("--cap-add=NET_BIND_SERVICE")
+            cmd.extend([image, "-conf", "/Corefile"])
+            container = subprocess.check_output(cmd, text=True).strip()
+            observed = False
+            try:
+                ports = {}
+                for transport in ("tcp", "udp"):
+                    endpoint = subprocess.check_output(["docker", "port", container, f"{port}/{transport}"], text=True).strip()
+                    if endpoint:
+                        ports[transport] = int(endpoint.rsplit(":", 1)[1])
+                deadline = time.monotonic() + 10
+                while len(ports) == 2 and time.monotonic() < deadline:
+                    state = json.loads(subprocess.check_output(["docker", "inspect", container], text=True))[0]["State"]
+                    if not state["Running"]:
+                        break
+                    try:
+                        query("127.0.0.1", ports["udp"], False)
+                        query("127.0.0.1", ports["tcp"], True)
+                        observed = True
+                        break
+                    except (OSError, AssertionError):
+                        time.sleep(0.05)
+                log = subprocess.check_output(["docker", "logs", container], stderr=subprocess.STDOUT, text=True)
+                passed = observed == success
+                if not success:
+                    passed = passed and "bind: permission denied" in log.lower()
+                results.append(passed)
+                print(json.dumps(dict(case=name, expected_success=success, observed_success=observed, passed=passed, log=log.strip())), flush=True)
+            finally:
+                subprocess.run(["docker", "rm", "-f", container], check=True, stdout=subprocess.DEVNULL)
+    print(json.dumps(dict(label=label, passed=sum(results), total=len(results))), flush=True)
+    return 0 if all(results) else 1
 
 
 if __name__ == "__main__":
