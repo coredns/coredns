@@ -149,6 +149,8 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 		}
 		etc.Client = client
 		etc.endpoints = endpoints
+		etc.syncInterval = syncInterval
+		etc.dialTimeout = dialTimeout
 
 		return &etc, nil
 	}

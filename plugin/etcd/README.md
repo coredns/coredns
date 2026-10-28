@@ -71,9 +71,13 @@ key exchange mechanisms use the Go `crypto/tls` defaults.
 * `sync_interval` how often the client refreshes its endpoint list from the etcd cluster
   membership. Accepts the same flexible duration formats as `min-lease-ttl`/`max-lease-ttl`. If not
   provided, auto-sync is disabled, matching etcd client's own default.
-* `dial_timeout` the maximum amount of time the client will wait while establishing a connection to
-  an etcd endpoint. Accepts the same flexible duration formats as `min-lease-ttl`/`max-lease-ttl`.
-  If not provided, the etcd client's own default is used.
+* `dial_timeout` the maximum amount of time the client will wait for operations that need a
+  completed connection, such as authenticating with `credentials`. With the pinned etcd client
+  (clientv3 v3.7.2), the client connection itself is established non-blocking (`grpc.NewClient`),
+  so this setting does *not* bound how long the initial connection to an etcd endpoint takes; a
+  slow or unreachable endpoint will not fail fast because of this value. Accepts the same flexible
+  duration formats as `min-lease-ttl`/`max-lease-ttl`. If not provided, the affected operations have
+  no timeout (block indefinitely), matching the etcd client's own default.
 
 ## Special Behaviour
 
