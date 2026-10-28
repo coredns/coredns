@@ -137,6 +137,7 @@ func parse(c *caddy.Controller, n *Nomad) error {
 		}
 		if len(namespace) > 0 {
 			cfg.Namespace = namespace
+			n.namespace = namespace
 		}
 		client, err := nomad.NewClient(cfg)
 		if err != nil {
