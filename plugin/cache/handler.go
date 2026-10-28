@@ -37,7 +37,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	// A DO=1 acquisition can also answer DO=0 clients. A DO=0 entry cannot
 	// answer DO=1: that miss upgrades the shared slot without forcing DO on
-	// ordinary misses.
+	// ordinary misses. Failures are shared the other way, see item.servesDO.
 
 	i := c.getIfNotStale(now, state, server)
 	if i == nil {
