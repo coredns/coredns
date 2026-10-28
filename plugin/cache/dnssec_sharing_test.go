@@ -151,6 +151,7 @@ func TestDOExplicitTypesAndImmutableSections(t *testing.T) {
 			before := m.Copy()
 			now := time.Now()
 			i := newItem(m, now, 300*time.Second)
+			i.do = true
 			out := i.toMsg(q, now.Add(10*time.Second), false, false)
 			explicit := map[uint16]string{
 				dns.TypeRRSIG:  "probe.example. 290 IN RRSIG A 8 2 300 20300101000000 20200101000000 1 example. AQ==",
@@ -160,16 +161,21 @@ func TestDOExplicitTypesAndImmutableSections(t *testing.T) {
 				dns.TypeDNSKEY: "probe.example. 290 IN DNSKEY 0 0 0",
 			}
 			want := []string{"probe.example. 290 IN A 192.0.2.1"}
+			// RFC 4035 section 3.2.1: an explicitly requested type is kept in
+			// every section. ANY asks for every RRset at QNAME, not for the
+			// authenticating records in the other sections.
+			other := want
 			if qt == dns.TypeANY {
 				for _, typ := range []uint16{dns.TypeRRSIG, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeDS, dns.TypeDNSKEY} {
 					want = append(want, explicit[typ])
 				}
 			} else if qt != dns.TypeA {
 				want = append(want, explicit[qt])
+				other = want
 			}
 			sharingAssertRecords(t, "explicit answer", out.Answer, want)
-			sharingAssertRecords(t, "authority", out.Ns, []string{"probe.example. 290 IN A 192.0.2.1"})
-			sharingAssertRecords(t, "additional", out.Extra, []string{"probe.example. 290 IN A 192.0.2.1"})
+			sharingAssertRecords(t, "authority", out.Ns, other)
+			sharingAssertRecords(t, "additional", out.Extra, other)
 			out.Answer[0].Header().Ttl = 1
 			if !reflect.DeepEqual(m, before) {
 				t.Fatal("shared records changed")
@@ -178,7 +184,77 @@ func TestDOExplicitTypesAndImmutableSections(t *testing.T) {
 			if len(signed.Answer) != len(records) || signed.Answer[0].Header().Ttl != 300 {
 				t.Fatal("signed data destroyed")
 			}
+			// An acquisition without DO is already what upstream returns to
+			// such a client and is served as received.
+			i.do = false
+			unsigned := i.toMsg(q, now, false, false)
+			if len(unsigned.Answer) != len(records) || len(unsigned.Ns) != len(records) || len(unsigned.Extra) != len(records) {
+				t.Fatalf("unsigned acquisition filtered: %s", unsigned)
+			}
 		})
+	}
+}
+
+// A response acquired without DO is what the client would get from upstream
+// without the cache, so it is served as received on the miss and on hits,
+// even when the upstream included DNSSEC records.
+func TestDOUnsignedAcquisitionServedAsReceived(t *testing.T) {
+	c := New()
+	c.now = func() time.Time { return time.Unix(1800000000, 0) }
+	calls := 0
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, q *dns.Msg) (int, error) {
+		calls++
+		m := sharingResponse(q, "positive", true)
+		m.Ns = []dns.RR{test.NSEC("probe.example. 300 IN NSEC z.example. A RRSIG NSEC")}
+		return 0, w.WriteMsg(m)
+	})
+	for range 2 {
+		got := sharingServe(t, c, sharingQuery(false))
+		sharingAssertRecords(t, "answer", got.Answer, []string{
+			"probe.example. 300 IN A 192.0.2.1",
+			"probe.example. 300 IN RRSIG A 8 2 300 20300101000000 20200101000000 1 example. AQ==",
+		})
+		sharingAssertRecords(t, "authority", got.Ns, []string{"probe.example. 300 IN NSEC z.example. A RRSIG NSEC"})
+	}
+	if calls != 1 {
+		t.Fatalf("calls=%d want1", calls)
+	}
+	// A DO client still upgrades the entry rather than use the unsigned one.
+	sharingServe(t, c, sharingQuery(true))
+	if calls != 2 {
+		t.Fatalf("DO query used the unsigned acquisition: calls=%d", calls)
+	}
+}
+
+// A refresh that keeps DO for a client without DO writes its response through
+// with the same rule as a cache hit: the requested type survives everywhere.
+func TestDOWriteThroughKeepsExplicitTypes(t *testing.T) {
+	c := New()
+	acquired := sharingQuery(true)
+	acquired.Question[0].Qtype = dns.TypeDS
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	w := &ResponseWriter{ResponseWriter: rec, Cache: c, state: request.Request{Req: acquired, W: rec}}
+	m := new(dns.Msg)
+	m.SetReply(acquired)
+	m.Answer = []dns.RR{
+		test.DS("probe.example. 300 IN DS 60485 8 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A"),
+		test.RRSIG("probe.example. 300 IN RRSIG DS 8 2 300 20300101000000 20200101000000 1 example. AQ=="),
+	}
+	m.Ns = []dns.RR{
+		test.NS("example. 300 IN NS ns.example."),
+		test.DS("child.probe.example. 300 IN DS 1 8 2 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"),
+		test.RRSIG("example. 300 IN RRSIG NS 8 1 300 20300101000000 20200101000000 1 example. AQ=="),
+	}
+	if err := w.WriteMsg(m); err != nil {
+		t.Fatal(err)
+	}
+	sharingAssertRecords(t, "answer", rec.Msg.Answer, []string{"probe.example. 300 IN DS 60485 8 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A"})
+	sharingAssertRecords(t, "authority", rec.Msg.Ns, []string{
+		"example. 300 IN NS ns.example.",
+		"child.probe.example. 300 IN DS 1 8 2 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+	})
+	if w.lastItem == nil || !w.lastItem.do || len(w.lastItem.Answer) != 2 || len(w.lastItem.Ns) != 3 {
+		t.Fatal("cached DO acquisition lost records")
 	}
 }
 
@@ -410,6 +486,45 @@ func (w *sharingWireWriter) WriteMsg(m *dns.Msg) error {
 	return w.ResponseWriter.WriteMsg(m)
 }
 
+// sharingWireServer serves c on a loopback UDP or TCP socket for the test.
+func sharingWireServer(t *testing.T, network string, c *Cache) string {
+	t.Helper()
+	server := &dns.Server{Handler: dns.HandlerFunc(func(w dns.ResponseWriter, q *dns.Msg) {
+		cw := &sharingWireWriter{ResponseWriter: w, state: request.Request{Req: q, W: w}}
+		c.ServeDNS(context.Background(), cw, q)
+	})}
+	var addr string
+	if network == "udp" {
+		pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.PacketConn = pc
+		addr = pc.LocalAddr().String()
+	} else {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		server.Listener = ln
+		addr = ln.Addr().String()
+	}
+	ready := make(chan struct{})
+	server.NotifyStartedFunc = func() { close(ready) }
+	done := make(chan error, 1)
+	go func() { done <- server.ActivateAndServe() }()
+	<-ready
+	t.Cleanup(func() {
+		if err := server.Shutdown(); err != nil {
+			t.Error(err)
+		}
+		if err := <-done; err != nil {
+			t.Error(err)
+		}
+	})
+	return addr
+}
+
 func TestDOSharingWire(t *testing.T) {
 	for _, network := range []string{"udp", "tcp"} {
 		t.Run(network, func(t *testing.T) {
@@ -425,39 +540,7 @@ func TestDOSharingWire(t *testing.T) {
 						m.Extra = []dns.RR{test.A("ns.example. 300 IN A 192.0.2.53"), test.DNSKEY("example. 300 IN DNSKEY 256 3 8 AQ==")}
 						return 0, w.WriteMsg(m)
 					})
-					server := &dns.Server{Handler: dns.HandlerFunc(func(w dns.ResponseWriter, q *dns.Msg) {
-						cw := &sharingWireWriter{ResponseWriter: w, state: request.Request{Req: q, W: w}}
-						c.ServeDNS(context.Background(), cw, q)
-					})}
-					var addr string
-					if network == "udp" {
-						pc, err := net.ListenPacket("udp", "127.0.0.1:0")
-						if err != nil {
-							t.Fatal(err)
-						}
-						server.PacketConn = pc
-						addr = pc.LocalAddr().String()
-					} else {
-						ln, err := net.Listen("tcp", "127.0.0.1:0")
-						if err != nil {
-							t.Fatal(err)
-						}
-						server.Listener = ln
-						addr = ln.Addr().String()
-					}
-					ready := make(chan struct{})
-					server.NotifyStartedFunc = func() { close(ready) }
-					done := make(chan error, 1)
-					go func() { done <- server.ActivateAndServe() }()
-					<-ready
-					t.Cleanup(func() {
-						if err := server.Shutdown(); err != nil {
-							t.Error(err)
-						}
-						if err := <-done; err != nil {
-							t.Error(err)
-						}
-					})
+					addr := sharingWireServer(t, network, c)
 					client := &dns.Client{Net: network, Timeout: time.Second}
 					for step, do := range []bool{true, false, true, false} {
 						seconds.Store(int64(step))
@@ -494,6 +577,106 @@ func TestDOSharingWire(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func sharingRRs(t *testing.T, texts ...string) []dns.RR {
+	t.Helper()
+	rrs := make([]dns.RR, len(texts))
+	for n, text := range texts {
+		rr, err := dns.NewRR(text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rrs[n] = rr
+	}
+	return rrs
+}
+
+// A client without DO that asks for a DNSSEC type gets those records from a
+// DO acquisition in every section (RFC 4035 section 3.2.1), without the
+// authenticating records it did not ask for.
+func TestDOExplicitTypesWire(t *testing.T) {
+	const (
+		sig       = " 8 2 300 20300101000000 20200101000000 1 example. AQ=="
+		ns        = "example. 300 IN NS ns.example."
+		nsSig     = "example. 300 IN RRSIG NS 8 1 300 20300101000000 20200101000000 1 example. AQ=="
+		proof     = "a.example. 300 IN NSEC probe.example. A RRSIG NSEC"
+		childDS   = "child.probe.example. 300 IN DS 1 8 2 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+		glue      = "ns.example. 300 IN A 192.0.2.53"
+		glueSig   = "ns.example. 300 IN RRSIG A" + sig
+		probeASig = "probe.example. 300 IN RRSIG A" + sig
+	)
+	for _, tc := range []struct {
+		qtype uint16
+		// answer is the signed answer; the unsigned views follow from the
+		// question alone and are spelled out instead of derived.
+		answer                     []string
+		unsignedAnswer, unsignedNs []string
+		unsignedExtra              []string
+	}{
+		{dns.TypeDNSKEY,
+			[]string{"probe.example. 300 IN DNSKEY 257 3 8 AQ==", "probe.example. 300 IN RRSIG DNSKEY" + sig},
+			[]string{"probe.example. 300 IN DNSKEY 257 3 8 AQ=="}, []string{ns}, []string{glue}},
+		{dns.TypeDS,
+			[]string{"probe.example. 300 IN DS 60485 8 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A", "probe.example. 300 IN RRSIG DS" + sig},
+			[]string{"probe.example. 300 IN DS 60485 8 2 D4B7D520E7BB5F0F67674A0CCEB1E3E0614B93C4F9E99B8383F6A1E4469DA50A"}, []string{ns, childDS}, []string{glue}},
+		{dns.TypeNSEC,
+			[]string{"probe.example. 300 IN NSEC z.example. A RRSIG NSEC", "probe.example. 300 IN RRSIG NSEC" + sig},
+			[]string{"probe.example. 300 IN NSEC z.example. A RRSIG NSEC"}, []string{ns, proof}, []string{glue}},
+		{dns.TypeNSEC3PARAM,
+			[]string{"probe.example. 300 IN NSEC3PARAM 1 0 0 -", "probe.example. 300 IN RRSIG NSEC3PARAM" + sig},
+			[]string{"probe.example. 300 IN NSEC3PARAM 1 0 0 -"}, []string{ns}, []string{glue}},
+		{dns.TypeRRSIG,
+			[]string{probeASig, "probe.example. 300 IN RRSIG NSEC" + sig},
+			[]string{probeASig, "probe.example. 300 IN RRSIG NSEC" + sig}, []string{ns, nsSig}, []string{glue, glueSig}},
+	} {
+		for _, network := range []string{"udp", "tcp"} {
+			t.Run(dns.TypeToString[tc.qtype]+"/"+network, func(t *testing.T) {
+				authority := []string{ns, nsSig, proof, childDS}
+				additional := []string{glue, glueSig}
+				c := New()
+				c.now = func() time.Time { return time.Unix(1800000000, 0) }
+				var calls atomic.Int32
+				c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, q *dns.Msg) (int, error) {
+					calls.Add(1)
+					if !requestDO(q) {
+						t.Error("unsigned query reached upstream")
+					}
+					m := new(dns.Msg)
+					m.SetReply(q)
+					m.RecursionAvailable = true
+					m.Answer = sharingRRs(t, tc.answer...)
+					m.Ns = sharingRRs(t, authority...)
+					m.Extra = sharingRRs(t, additional...)
+					return 0, w.WriteMsg(m)
+				})
+				addr := sharingWireServer(t, network, c)
+				client := &dns.Client{Net: network, Timeout: time.Second}
+				for _, do := range []bool{true, false} {
+					q := sharingQuery(do)
+					q.Question[0].Qtype = tc.qtype
+					got, _, err := client.Exchange(q, addr)
+					if err != nil {
+						t.Fatal(err)
+					}
+					opt := got.IsEdns0()
+					if got.Rcode != dns.RcodeSuccess || got.Truncated || opt == nil || opt.Do() != do {
+						t.Fatalf("wire response %s", got)
+					}
+					wantAnswer, wantNs, wantExtra := tc.answer, authority, additional
+					if !do {
+						wantAnswer, wantNs, wantExtra = tc.unsignedAnswer, tc.unsignedNs, tc.unsignedExtra
+					}
+					sharingAssertRecords(t, "answer", got.Answer, wantAnswer)
+					sharingAssertRecords(t, "authority", got.Ns, wantNs)
+					sharingAssertRecords(t, "additional", got.Extra[:len(got.Extra)-1], wantExtra)
+				}
+				if calls.Load() != 1 {
+					t.Fatalf("calls=%d want1", calls.Load())
+				}
+			})
+		}
 	}
 }
 
