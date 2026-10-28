@@ -347,6 +347,11 @@ unprivileged ports (or commands such as `-version`). Binding a privileged port a
 nonroot user still requires the capability or a network namespace that allows that
 port through `net.ipv4.ip_unprivileged_port_start`; CoreDNS does not change that sysctl.
 
+Custom plugins that open privileged listeners directly can wrap the listener creation
+with `plugin/pkg/capability.WithNetBindService`, as the built-in listeners do. This is
+needed when relying on the image's permitted file capability rather than a capability
+already made effective by the deployment.
+
 ## Deprecation Policy
 
 When there is a backwards incompatible change in CoreDNS the following process is followed:

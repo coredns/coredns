@@ -7,6 +7,7 @@ import (
 	"net"
 	"syscall"
 
+	"github.com/coredns/coredns/plugin/pkg/capability"
 	"github.com/coredns/coredns/plugin/pkg/log"
 
 	"golang.org/x/sys/unix"
@@ -31,7 +32,7 @@ func control(_network, _address string, c syscall.RawConn) error {
 // If SO_REUSEPORT is available it will be set on the socket.
 func Listen(network, addr string) (net.Listener, error) {
 	lc := net.ListenConfig{Control: control}
-	return listenWithBindCapability(func() (net.Listener, error) {
+	return capability.WithNetBindService(func() (net.Listener, error) {
 		return lc.Listen(context.Background(), network, addr)
 	})
 }
@@ -40,7 +41,7 @@ func Listen(network, addr string) (net.Listener, error) {
 // If SO_REUSEPORT is available it will be set on the socket.
 func ListenPacket(network, addr string) (net.PacketConn, error) {
 	lc := net.ListenConfig{Control: control}
-	return listenWithBindCapability(func() (net.PacketConn, error) {
+	return capability.WithNetBindService(func() (net.PacketConn, error) {
 		return lc.ListenPacket(context.Background(), network, addr)
 	})
 }

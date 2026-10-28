@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/capability"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -29,9 +31,9 @@ func threadCapabilities(t *testing.T) [2]unix.CapUserData {
 // only CAP_NET_BIND_SERVICE permitted, not effective, and privileged ports
 // enabled. Ordinary test runs need no privileges and skip this integration case.
 func TestListenWithPermittedBindCapability(t *testing.T) {
-	const capability = uint32(1 << unix.CAP_NET_BIND_SERVICE)
+	const bindCapability = uint32(1 << unix.CAP_NET_BIND_SERVICE)
 	before := threadCapabilities(t)
-	if before[0].Permitted&capability == 0 || before[0].Effective&capability != 0 {
+	if before[0].Permitted&bindCapability == 0 || before[0].Effective&bindCapability != 0 {
 		if os.Getenv("COREDNS_TEST_BIND_CAPABILITY") == "1" {
 			t.Fatalf("expected permitted-only CAP_NET_BIND_SERVICE, got %+v", before)
 		}
@@ -114,7 +116,7 @@ func TestListenWithPermittedBindCapability(t *testing.T) {
 	var retryTID int
 	sentinel := errors.New("retry failed")
 	calls := 0
-	_, err = listenWithBindCapability(func() (int, error) {
+	_, err = capability.WithNetBindService(func() (int, error) {
 		calls++
 		if calls == 1 {
 			return 0, syscall.EACCES
@@ -141,7 +143,7 @@ func TestListenWithPermittedBindCapability(t *testing.T) {
 func TestListenWithBindCapabilityErrors(t *testing.T) {
 	for _, want := range []error{nil, syscall.EADDRINUSE, syscall.EINVAL} {
 		calls := 0
-		got, err := listenWithBindCapability(func() (int, error) {
+		got, err := capability.WithNetBindService(func() (int, error) {
 			calls++
 			return 42, want
 		})

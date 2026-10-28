@@ -1,4 +1,4 @@
-package reuseport
+package capability
 
 import (
 	"errors"
@@ -8,11 +8,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// listenWithBindCapability first tries listening without changing privileges.
+// WithNetBindService first tries listening without changing privileges.
 // If permission is denied, it retries with CAP_NET_BIND_SERVICE when that
 // capability is permitted but not effective. This also respects the network
 // namespace's privileged port range without reading or changing its sysctl.
-func listenWithBindCapability[T any](listen func() (T, error)) (T, error) {
+func WithNetBindService[T any](listen func() (T, error)) (T, error) {
 	listener, err := listen()
 	if !errors.Is(err, syscall.EACCES) {
 		return listener, err

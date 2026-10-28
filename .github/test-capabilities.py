@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import socket
+import ssl
 import struct
 import subprocess
 import tempfile
@@ -45,7 +46,8 @@ def query(host, port, tcp):
 
 
 def run_case(binary, directory, name, bounding, threshold, port=None, host="127.0.0.1", flag=None, success=True,
-             no_new_privs=False, clear_permitted=False, uid=65532, reload_port=None, health_port=None):
+             no_new_privs=False, clear_permitted=False, uid=65532, reload_port=None, health_port=None,
+             dnstap_port=None, dnstap_tls=False):
     subprocess.run(["sysctl", "-qw", f"net.ipv4.ip_unprivileged_port_start={threshold}"], check=True)
     cmd = ["setpriv", f"--reuid={uid}", f"--regid={uid}", "--clear-groups",
            f"--bounding-set={bounding}", "--inh-caps=-all", "--ambient-caps=-all"]
@@ -64,6 +66,16 @@ def run_case(binary, directory, name, bounding, threshold, port=None, host="127.
         extra = " reload 2s 0s\n" if reload_port else ""
         if health_port:
             extra += f" health {host}:{health_port}\n"
+        if dnstap_port:
+            if dnstap_tls:
+                cert, key = directory / "cert.pem", directory / "key.pem"
+                subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+                                "-keyout", str(key), "-out", str(cert), "-subj", "/CN=localhost", "-days", "1"],
+                               check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                key.chmod(0o644)
+                extra += f" dnstap listen tls://{host}:{dnstap_port} {{\n  tls {cert} {key}\n }}\n"
+            else:
+                extra += f" dnstap listen tcp://{host}:{dnstap_port}\n"
         corefile.write_text(f".:{port} {{\n bind {host}\n{extra} template IN A {{\n  answer \"{{{{ .Name }}}} 60 IN A 192.0.2.1\"\n }}\n}}\n")
         corefile.chmod(0o644)
         cmd.extend(["-conf", str(corefile)])
@@ -94,6 +106,15 @@ def run_case(binary, directory, name, bounding, threshold, port=None, host="127.
                             observed = response.status == 200 and response.read() == b"OK"
                         finally:
                             connection.close()
+                    if observed and dnstap_port:
+                        with socket.create_connection((host, dnstap_port), timeout=2) as connection:
+                            if dnstap_tls:
+                                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                                # The test creates a throwaway, self-signed certificate.
+                                context.check_hostname = False
+                                context.verify_mode = ssl.CERT_NONE
+                                with context.wrap_socket(connection, server_hostname="localhost"):
+                                    pass
                     if observed and reload_port:
                         corefile.write_text(corefile.read_text().replace(f".:{port} {{", f".:{reload_port} {{"))
                         observed = False
@@ -116,6 +137,7 @@ def run_case(binary, directory, name, bounding, threshold, port=None, host="127.
                         process.wait()
         except OSError as exc:
             error = str(exc)
+            observed = False
     text = output.read_text()
     passed = observed == success
     if not success:
@@ -164,6 +186,8 @@ def main():
             dict(name="root-low-port", bounding="-all,+net_bind_service", threshold=1024, port=53, uid=0),
             dict(name="reload-low-port", bounding="-all,+net_bind_service", threshold=1024, port=53, reload_port=54),
             dict(name="health-low-port", bounding="-all,+net_bind_service", threshold=1024, port=1053, health_port=81),
+            dict(name="dnstap-low-port", bounding="-all,+net_bind_service", threshold=1024, port=1053, dnstap_port=82),
+            dict(name="dnstap-tls-low-port", bounding="-all,+net_bind_service", threshold=1024, port=1053, dnstap_port=83, dnstap_tls=True),
         ]
         results = [run_case(binary, directory, **case) for case in cases]
         print(json.dumps(dict(label=args.label, passed=sum(results), total=len(results))), flush=True)
