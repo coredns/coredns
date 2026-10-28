@@ -82,10 +82,13 @@ def run_case(binary, directory, name, bounding, threshold, port=None, host="127.
                         except (OSError, AssertionError):
                             time.sleep(0.05)
                     if observed and health_port:
-                        with http.client.HTTPConnection(host, health_port, timeout=2) as http:
-                            http.request("GET", "/health")
-                            response = http.getresponse()
+                        connection = http.client.HTTPConnection(host, health_port, timeout=2)
+                        try:
+                            connection.request("GET", "/health")
+                            response = connection.getresponse()
                             observed = response.status == 200 and response.read() == b"OK"
+                        finally:
+                            connection.close()
                     if observed and reload_port:
                         corefile.write_text(corefile.read_text().replace(f".:{port} {{", f".:{reload_port} {{"))
                         observed = False
