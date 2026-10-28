@@ -194,7 +194,8 @@ def test_image(image, label):
             try:
                 ports = {}
                 for transport in ("tcp", "udp"):
-                    endpoint = subprocess.check_output(["docker", "port", container, f"{port}/{transport}"], text=True).strip()
+                    published = subprocess.run(["docker", "port", container, f"{port}/{transport}"], capture_output=True, text=True)
+                    endpoint = published.stdout.strip()
                     if endpoint:
                         ports[transport] = int(endpoint.rsplit(":", 1)[1])
                 deadline = time.monotonic() + 10
