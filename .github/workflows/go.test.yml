@@ -11,6 +11,7 @@ jobs:
   test-capabilities:
     name: Test Linux capabilities (cgo=${{ matrix.cgo }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -33,14 +34,18 @@ jobs:
           go test "${race[@]}" -c -o "$RUNNER_TEMP/capabilities/reuseport.test" ./plugin/pkg/reuseport
       - name: Test permitted capabilities and thread isolation
         run: |
-          sudo setcap cap_net_bind_service=p "$RUNNER_TEMP/capabilities/reuseport.test"
+          capability_test_dir=$(mktemp -d)
+          trap 'rm -f "$capability_test_dir/reuseport.test"; rmdir "$capability_test_dir"' EXIT
+          chmod 755 "$capability_test_dir"
+          install -m 755 "$RUNNER_TEMP/capabilities/reuseport.test" "$capability_test_dir/reuseport.test"
+          sudo setcap cap_net_bind_service=p "$capability_test_dir/reuseport.test"
           sudo unshare --net sh -ec '
             ip link set lo up
             sysctl -qw net.ipv4.ip_unprivileged_port_start=1024
             exec setpriv --reuid=65532 --regid=65532 --clear-groups \
               --bounding-set=-all,+net_bind_service --inh-caps=-all --ambient-caps=-all \
               env COREDNS_TEST_BIND_CAPABILITY=1 "$1" -test.v -test.run TestListenWith
-          ' sh "$RUNNER_TEMP/capabilities/reuseport.test"
+          ' sh "$capability_test_dir/reuseport.test"
       - name: Test CoreDNS with restricted capabilities
         run: |
           caps=$(sed -n 's/^RUN setcap \(.*\) \/coredns/\1/p' Dockerfile)
