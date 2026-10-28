@@ -45,12 +45,17 @@ def query(host, port, tcp):
 
 
 def run_case(binary, directory, name, bounding, threshold, port=None, host="127.0.0.1", flag=None, success=True,
-             no_new_privs=False, uid=65532, reload_port=None, health_port=None):
+             no_new_privs=False, clear_permitted=False, uid=65532, reload_port=None, health_port=None):
     subprocess.run(["sysctl", "-qw", f"net.ipv4.ip_unprivileged_port_start={threshold}"], check=True)
     cmd = ["setpriv", f"--reuid={uid}", f"--regid={uid}", "--clear-groups",
            f"--bounding-set={bounding}", "--inh-caps=-all", "--ambient-caps=-all"]
     if no_new_privs:
         cmd.append("--no-new-privs")
+    if clear_permitted:
+        # setpriv can retain permitted capabilities across its UID change. An
+        # ordinary exec first clears them, so no_new_privs must then prevent the
+        # file capability from adding them back. Log the shell's actual state.
+        cmd.extend(["/bin/sh", "-c", 'while IFS= read -r line; do case "$line" in Cap*|NoNewPrivs:*) printf "%s\\n" "$line";; esac; done < /proc/self/status; exec "$@"', "sh"])
     cmd.append(str(binary))
     corefile = directory / f"{name}.Corefile"
     if flag:
@@ -150,7 +155,8 @@ def main():
             dict(name="custom-privileged-range", bounding="-all,+net_bind_service", threshold=2048, port=1053),
             dict(name="no-new-privs-high-port", bounding="-all", threshold=1024, port=1053, no_new_privs=True),
             dict(name="no-new-privs-relaxed-low-port", bounding="-all", threshold=0, port=53, no_new_privs=True),
-            dict(name="no-new-privs-denied-control", bounding="-all,+net_bind_service", threshold=1024, port=53, no_new_privs=True, success=False),
+            dict(name="no-new-privs-permitted-low-port", bounding="-all,+net_bind_service", threshold=1024, port=53, no_new_privs=True),
+            dict(name="no-new-privs-denied-control", bounding="-all,+net_bind_service", threshold=1024, port=53, no_new_privs=True, clear_permitted=True, success=False),
             dict(name="root-low-port", bounding="-all,+net_bind_service", threshold=1024, port=53, uid=0),
             dict(name="reload-low-port", bounding="-all,+net_bind_service", threshold=1024, port=53, reload_port=54),
             dict(name="health-low-port", bounding="-all,+net_bind_service", threshold=1024, port=1053, health_port=81),
