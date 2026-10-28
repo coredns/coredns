@@ -137,10 +137,26 @@ func (i *item) ttl(now time.Time) int {
 }
 
 func (i *item) matches(state request.Request) bool {
-	if !i.do && requestDO(state.Req) {
-		return false
+	return i.servesDO(requestDO(state.Req)) && i.matchesQuestion(state)
+}
+
+// servesDO reports whether i can answer a client with the given DO bit. Data
+// acquired with DO also answers clients without DO, after filtering, but not
+// the reverse. Failures go the other way: one acquired with DO can be specific
+// to DNSSEC, such as a validation failure or a larger signed response, so it
+// does not answer clients without DO; one acquired without DO also answers DO
+// clients, which only ask for more.
+func (i *item) servesDO(do bool) bool {
+	if i.failure() {
+		return do || !i.do
 	}
-	return i.matchesQuestion(state)
+	return i.do || !do
+}
+
+// failure reports whether i is a SERVFAIL or NOTIMP response, which the cache
+// keeps for the servfail duration.
+func (i *item) failure() bool {
+	return i.Rcode == dns.RcodeServerFailure || i.Rcode == dns.RcodeNotImplemented
 }
 
 func (i *item) matchesQuestion(state request.Request) bool {

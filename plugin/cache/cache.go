@@ -494,7 +494,8 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 
 	// A DO=0 request may have missed before a concurrent DO=1 request
 	// filled the cache. Do not let its late response discard fresh DNSSEC
-	// data, even if the responses fall into different cache classes.
+	// data, even if the responses fall into different cache classes. A DO=1
+	// failure does not answer this request, so it does not block it.
 	acquiredDO := requestDO(w.state.Req)
 	if !acquiredDO {
 		for _, cache := range []*cache.Cache[*item]{w.pcache, w.ncache} {
@@ -535,7 +536,10 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		// prefer_positive policy, only remove the denial when this response
 		// actually answers the question.
 		if (!w.preferPositive && w.prefetch) || (w.preferPositive && i.answering) {
-			w.ncache.Remove(key)
+			// A DO=0 answer cannot serve DO clients: keep their failure.
+			if previous, ok := w.ncache.Get(key); !ok || acquiredDO || !previous.do || !previous.failure() {
+				w.ncache.Remove(key)
+			}
 		}
 		// An upgrade may have changed from a denial to a positive response.
 		// The older DO=0 denial must not shadow it for unsigned clients.
@@ -549,6 +553,13 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		if plugin.Zones(w.nexcept).Contains(m.Question[0].Name) {
 			// zone is in exception list, do not cache
 			return
+		}
+		// A DO=1 failure does not answer DO=0 clients, so it must not
+		// displace a fresh DO=0 entry that does.
+		if acquiredDO && mt == response.ServerError {
+			if previous, ok := w.ncache.Get(key); ok && !previous.do && previous.matchesQuestion(w.state) && previous.ttl(w.now()) > 0 {
+				return
+			}
 		}
 		i := newItem(m, w.now(), duration)
 		i.do = acquiredDO

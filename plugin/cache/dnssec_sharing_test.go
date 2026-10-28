@@ -99,6 +99,14 @@ func TestDOSharingResponseKinds(t *testing.T) {
 						order = []bool{false, true, false, true}
 						want = 2
 					}
+					if kind == "servfail" {
+						// Failures are shared the other way: a DO=1 failure
+						// does not answer DO=0, a DO=0 failure answers DO=1.
+						want = 2
+						if upgrade {
+							want = 1
+						}
+					}
 					for _, do := range order {
 						q := sharingQuery(do)
 						q.AuthenticatedData = !do
@@ -528,7 +536,8 @@ func sharingWireServer(t *testing.T, network string, c *Cache) string {
 func TestDOSharingWire(t *testing.T) {
 	for _, network := range []string{"udp", "tcp"} {
 		t.Run(network, func(t *testing.T) {
-			for _, kind := range []string{"positive", "cname", "dname", "nxdomain", "nodata", "cname-nodata", "servfail", "delegation"} {
+			// A DO=1 failure is not shared; see TestDOSignedFailureWire.
+			for _, kind := range []string{"positive", "cname", "dname", "nxdomain", "nodata", "cname-nodata", "delegation"} {
 				t.Run(kind, func(t *testing.T) {
 					c := New()
 					var seconds atomic.Int64
@@ -551,7 +560,7 @@ func TestDOSharingWire(t *testing.T) {
 							t.Fatal(err)
 						}
 						ttl := uint32(300 - step)
-						if kind == "servfail" || kind == "delegation" {
+						if kind == "delegation" {
 							ttl = uint32(5 - step)
 						}
 						sharingAssertResponse(t, got, kind, do, ttl)
