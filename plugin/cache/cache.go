@@ -472,10 +472,9 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 		// But retain AD bit if requester set the AD bit in the request, per RFC6840 5.7-5.8
 		res.AuthenticatedData = false
 	}
-	if !w.do {
-		res.Answer = filterDNSSEC(res.Answer, w.state.QType())
-		res.Ns = filterDNSSEC(res.Ns, 0)
-		res.Extra = filterDNSSEC(res.Extra, 0)
+	if !w.do && requestDO(w.state.Req) {
+		// A refresh kept the entry's DO for a client without it.
+		stripDNSSEC(res, w.state.QType())
 	}
 	w.lastResponse = res.Copy()
 

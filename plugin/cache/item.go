@@ -124,10 +124,8 @@ func (i *item) toMsgWithTTL(m *dns.Msg, ttl uint32, do bool, ad bool) *dns.Msg {
 	m1.Answer = filterRRSlice(i.Answer, ttl, true)
 	m1.Ns = filterRRSlice(i.Ns, ttl, true)
 	m1.Extra = filterRRSlice(i.Extra, ttl, true)
-	if !do {
-		m1.Answer = filterDNSSEC(m1.Answer, i.QType)
-		m1.Ns = filterDNSSEC(m1.Ns, 0)
-		m1.Extra = filterDNSSEC(m1.Extra, 0)
+	if !do && i.do {
+		stripDNSSEC(m1, i.QType)
 	}
 
 	return m1
