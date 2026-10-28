@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -678,5 +679,382 @@ func TestIsDuplicate(t *testing.T) {
 	}
 	if !isDuplicate(m, "name.", "1.2.3.4", 0) {
 		t.Fatal("expected duplicate on second insert (addr)")
+	}
+}
+
+// TestCNAMETargetsChasedOnce checks that a backend returning the same CNAME
+// target many times (one per endpoint address, say) causes a single chase of
+// that target, both for targets outside the zone (one upstream lookup) and
+// for targets inside the zone (one recursive backend lookup).
+func TestCNAMETargetsChasedOnce(t *testing.T) {
+	const fanout = 50
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA, dns.TypeTXT} {
+		lookups := 0
+		backendCalls := map[string]int{}
+		b := &mockBackend{
+			mockServices: func(_ context.Context, state request.Request, _ bool, _ Options) ([]msg.Service, error) {
+				backendCalls[state.Name()]++
+				switch state.Name() {
+				case "a.example.org.":
+					svcs := make([]msg.Service, 0, 2*fanout)
+					for range fanout {
+						svcs = append(svcs, msg.Service{Host: "b.example.org", Key: "/skydns/org/example/a"})
+						svcs = append(svcs, msg.Service{Host: "ext.example.com", Key: "/skydns/org/example/a"})
+					}
+					return svcs, nil
+				case "b.example.org.":
+					if qtype == dns.TypeTXT {
+						return []msg.Service{{Text: "hello", Key: "/skydns/org/example/b"}}, nil
+					}
+					return []msg.Service{{Host: "10.0.0.1", Key: "/skydns/org/example/b"}, {Host: "2001:db8::1", Key: "/skydns/org/example/b"}}, nil
+				}
+				return nil, errors.New("not found")
+			},
+			mockLookup: func(_ context.Context, _ request.Request, name string, _ uint16) (*dns.Msg, error) {
+				lookups++
+				m := new(dns.Msg)
+				m.SetQuestion(name, qtype)
+				return m, nil
+			},
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion("a.example.org.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+
+		var records []dns.RR
+		var err error
+		switch qtype {
+		case dns.TypeA:
+			records, _, err = A(context.TODO(), b, "example.org.", state, nil, Options{})
+		case dns.TypeAAAA:
+			records, _, err = AAAA(context.TODO(), b, "example.org.", state, nil, Options{})
+		case dns.TypeTXT:
+			records, _, err = TXT(context.TODO(), b, "example.org.", state, nil, Options{})
+		}
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", dns.TypeToString[qtype], err)
+		}
+		if lookups != 1 {
+			t.Errorf("%s: expected 1 upstream lookup for the repeated external target, got %d", dns.TypeToString[qtype], lookups)
+		}
+		if backendCalls["b.example.org."] != 1 {
+			t.Errorf("%s: expected 1 backend lookup for the repeated internal target, got %d", dns.TypeToString[qtype], backendCalls["b.example.org."])
+		}
+		cnames := 0
+		for _, rr := range records {
+			if rr.Header().Rrtype == dns.TypeCNAME {
+				cnames++
+			}
+		}
+		// One CNAME to b (followed by its data) and one to ext (whose upstream answer is empty here).
+		if cnames != 2 {
+			t.Errorf("%s: expected 2 CNAME records in the answer, got %d: %v", dns.TypeToString[qtype], cnames, records)
+		}
+	}
+}
+
+func TestCNAMETargetsChasedOnceAcrossRecursion(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA, dns.TypeTXT} {
+		backendCalls := map[string]int{}
+		b := &mockBackend{
+			mockServices: func(_ context.Context, state request.Request, _ bool, _ Options) ([]msg.Service, error) {
+				backendCalls[state.Name()]++
+				switch state.Name() {
+				case "a.example.org.":
+					return []msg.Service{{Host: "b.example.org"}, {Host: "c.example.org"}}, nil
+				case "b.example.org.", "c.example.org.":
+					return []msg.Service{{Host: "d.example.org"}}, nil
+				case "d.example.org.":
+					switch qtype {
+					case dns.TypeA:
+						return []msg.Service{{Host: "10.0.0.1"}}, nil
+					case dns.TypeAAAA:
+						return []msg.Service{{Host: "2001:db8::1"}}, nil
+					default:
+						return []msg.Service{{Text: "hello"}}, nil
+					}
+				}
+				return nil, errors.New("not found")
+			},
+			mockLookup: func(_ context.Context, _ request.Request, _ string, _ uint16) (*dns.Msg, error) {
+				return nil, errors.New("unexpected external lookup")
+			},
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion("a.example.org.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+
+		var err error
+		switch qtype {
+		case dns.TypeA:
+			_, _, err = A(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeAAAA:
+			_, _, err = AAAA(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeTXT:
+			_, _, err = TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		}
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", dns.TypeToString[qtype], err)
+		}
+		if backendCalls["d.example.org."] != 1 {
+			t.Errorf("%s: expected converged target to be chased once, got %d", dns.TypeToString[qtype], backendCalls["d.example.org."])
+		}
+	}
+}
+
+func TestCNAMETargetsAreScopedToBackendEntry(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA, dns.TypeTXT} {
+		cache := map[string]*dns.Msg{}
+		lookupCalls := map[string]int{}
+		b := &mockBackend{
+			mockServices: func(_ context.Context, state request.Request, _ bool, _ Options) ([]msg.Service, error) {
+				switch state.Name() {
+				case "a.example.org.":
+					return []msg.Service{{Host: "b.example.net"}, {Host: "c.example.net"}}, nil
+				case "b.example.net.", "c.example.net.":
+					return []msg.Service{{Host: "d.example.org"}}, nil
+				case "d.example.org.":
+					switch qtype {
+					case dns.TypeA:
+						return []msg.Service{{Host: "10.0.0.1"}}, nil
+					case dns.TypeAAAA:
+						return []msg.Service{{Host: "2001:db8::1"}}, nil
+					default:
+						return []msg.Service{{Text: "hello"}}, nil
+					}
+				}
+				return nil, errors.New("not found")
+			},
+		}
+		b.mockLookup = func(ctx context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+			lookupCalls[name]++
+			if cached := cache[name]; cached != nil {
+				return cached.Copy(), nil
+			}
+
+			zone := "example.org."
+			if dns.IsSubDomain("example.net.", name) {
+				zone = "example.net."
+			}
+			req := new(dns.Msg)
+			req.SetQuestion(name, typ)
+			state := request.Request{W: &test.ResponseWriter{}, Req: req, Zone: zone}
+			var records []dns.RR
+			var err error
+			switch typ {
+			case dns.TypeA:
+				records, _, err = A(ctx, b, zone, state, nil, Options{})
+			case dns.TypeAAAA:
+				records, _, err = AAAA(ctx, b, zone, state, nil, Options{})
+			case dns.TypeTXT:
+				records, _, err = TXT(ctx, b, zone, state, nil, Options{})
+			}
+			if err != nil {
+				return nil, err
+			}
+			resp := new(dns.Msg)
+			resp.SetReply(req)
+			resp.Answer = records
+			cache[name] = resp.Copy()
+			return resp, nil
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion("a.example.org.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+		var records []dns.RR
+		var err error
+		switch qtype {
+		case dns.TypeA:
+			records, _, err = A(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeAAAA:
+			records, _, err = AAAA(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeTXT:
+			records, _, err = TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		}
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", dns.TypeToString[qtype], err)
+		}
+		if len(records) != 6 {
+			t.Fatalf("%s: expected both diamond branches, got %d records: %v", dns.TypeToString[qtype], len(records), records)
+		}
+		if lookupCalls["d.example.org."] != 2 {
+			t.Fatalf("%s: expected each backend entry to chase d, got %d lookups", dns.TypeToString[qtype], lookupCalls["d.example.org."])
+		}
+		cached := cache["c.example.net."]
+		if cached == nil || len(cached.Answer) != 2 {
+			t.Fatalf("%s: expected a complete cached answer for c, got %v", dns.TypeToString[qtype], cached)
+		}
+		if cached.Answer[0].Header().Rrtype != dns.TypeCNAME || cached.Answer[1].Header().Rrtype != qtype {
+			t.Errorf("%s: unexpected cached answer for c: %v", dns.TypeToString[qtype], cached.Answer)
+		}
+	}
+}
+
+func TestCNAMECrossZoneLookupBudget(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA, dns.TypeTXT} {
+		lookups := 0
+		b := &mockBackend{
+			mockServices: func(_ context.Context, _ request.Request, _ bool, _ Options) ([]msg.Service, error) {
+				services := make([]msg.Service, maxCnameLookups+1)
+				for i := range services {
+					services[i].Host = fmt.Sprintf("target%d.example.net", i)
+				}
+				return services, nil
+			},
+			mockLookup: func(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+				lookups++
+				m := new(dns.Msg)
+				m.SetQuestion(name, typ)
+				return m, nil
+			},
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion("a.example.org.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+		var err error
+		switch qtype {
+		case dns.TypeA:
+			_, _, err = A(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeAAAA:
+			_, _, err = AAAA(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeTXT:
+			_, _, err = TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		}
+		if err != errMaxCnameLookups {
+			t.Fatalf("%s: expected lookup budget error, got %v", dns.TypeToString[qtype], err)
+		}
+		if lookups != maxCnameLookups {
+			t.Errorf("%s: expected %d lookups, got %d", dns.TypeToString[qtype], maxCnameLookups, lookups)
+		}
+	}
+}
+
+func TestCNAMECrossZoneNestedLookupBudget(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA, dns.TypeTXT} {
+		b := &mockBackend{
+			mockServices: func(_ context.Context, state request.Request, _ bool, _ Options) ([]msg.Service, error) {
+				if state.Name() == "a.example.org." {
+					return []msg.Service{{Host: "nested.example.net"}}, nil
+				}
+				services := make([]msg.Service, maxCnameLookups)
+				for i := range services {
+					services[i].Host = fmt.Sprintf("target%d.example.com", i)
+				}
+				return services, nil
+			},
+		}
+		b.mockLookup = func(ctx context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+			m := new(dns.Msg)
+			m.SetQuestion(name, typ)
+			if name != "nested.example.net." {
+				return m, nil
+			}
+
+			state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.net."}
+			var err error
+			switch typ {
+			case dns.TypeA:
+				_, _, err = A(ctx, b, "example.net.", state, nil, Options{})
+			case dns.TypeAAAA:
+				_, _, err = AAAA(ctx, b, "example.net.", state, nil, Options{})
+			case dns.TypeTXT:
+				_, _, err = TXT(ctx, b, "example.net.", state, nil, Options{})
+			}
+			if err == errMaxCnameLookups {
+				m.Rcode = dns.RcodeServerFailure
+				return m, nil
+			}
+			return m, err
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion("a.example.org.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+		var err error
+		switch qtype {
+		case dns.TypeA:
+			_, _, err = A(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeAAAA:
+			_, _, err = AAAA(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeTXT:
+			_, _, err = TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		}
+		if err != errMaxCnameLookups {
+			t.Fatalf("%s: expected nested lookup budget error, got %v", dns.TypeToString[qtype], err)
+		}
+	}
+}
+
+func TestCNAMECrossZoneLookupBudgetAcrossInZoneRecursion(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA, dns.TypeTXT} {
+		lookups := 0
+		b := &mockBackend{
+			mockServices: func(_ context.Context, state request.Request, _ bool, _ Options) ([]msg.Service, error) {
+				switch state.Name() {
+				case "a.example.org.":
+					return []msg.Service{{Host: "b.example.org"}, {Host: "c.example.org"}}, nil
+				case "b.example.org.", "c.example.org.":
+					start := 0
+					count := maxCnameLookups / 2
+					if state.Name() == "c.example.org." {
+						start = count
+						count++
+					}
+					services := make([]msg.Service, count)
+					for i := range services {
+						services[i].Host = fmt.Sprintf("target%d.example.net", start+i)
+					}
+					return services, nil
+				default:
+					return nil, errors.New("not found")
+				}
+			},
+			mockLookup: func(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+				lookups++
+				m := new(dns.Msg)
+				m.SetQuestion(name, typ)
+				return m, nil
+			},
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion("a.example.org.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+		var err error
+		switch qtype {
+		case dns.TypeA:
+			_, _, err = A(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeAAAA:
+			_, _, err = AAAA(context.Background(), b, "example.org.", state, nil, Options{})
+		case dns.TypeTXT:
+			_, _, err = TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		}
+		if err != errMaxCnameLookups {
+			t.Fatalf("%s: expected lookup budget error, got %v", dns.TypeToString[qtype], err)
+		}
+		if lookups != maxCnameLookups {
+			t.Errorf("%s: expected %d lookups, got %d", dns.TypeToString[qtype], maxCnameLookups, lookups)
+		}
+	}
+}
+
+func TestCNAMECrossZoneLookupBudgetConcurrent(t *testing.T) {
+	_, budget := cnameBudget(context.Background())
+	accepted := make(chan struct{}, maxCnameLookups*4)
+	var wg sync.WaitGroup
+	for range maxCnameLookups * 4 {
+		wg.Go(func() {
+			if budget.take() {
+				accepted <- struct{}{}
+			}
+		})
+	}
+	wg.Wait()
+	if got := len(accepted); got != maxCnameLookups {
+		t.Fatalf("expected %d accepted lookups, got %d", maxCnameLookups, got)
 	}
 }

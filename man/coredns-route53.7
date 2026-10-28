@@ -42,7 +42,7 @@ to be used when querying AWS (optional). If they are not provided, CoreDNS tries
 AWS credentials the same way as AWS CLI - environment variables, shared credential file (and optionally
 shared config file if \fB\fCAWS_SDK_LOAD_CONFIG\fR env is set), and lastly EC2 Instance Roles.
 Note the usage of \fB\fCaws_access_key\fR has been deprecated and may be removed in future versions. Instead,
-user can use other methods to pass crentials, e.g., with environmental variable \fB\fCAWS_ACCESS_KEY_ID\fR and
+user can use other methods to pass credentials, e.g., with environmental variable \fB\fCAWS_ACCESS_KEY_ID\fR and
 \fB\fCAWS_SECRET_ACCESS_KEY\fR, respectively.
 .IP \(bu 4
 \fB\fCaws_endpoint\fR can be used to control the endpoint to use when querying AWS (optional). \fBENDPOINT\fP is the
@@ -172,6 +172,6 @@ Route53 plugin uses AWS Go SDK
 \[la]https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html\[ra]
 for authentication, where there is a list of accepted configuration methods.
 Note the usage of \fB\fCaws_access_key\fR in Corefile has been deprecated and may be removed in future versions. Instead,
-user can use other methods to pass crentials, e.g., with environmental variable \fB\fCAWS_ACCESS_KEY_ID\fR and
+user can use other methods to pass credentials, e.g., with environmental variable \fB\fCAWS_ACCESS_KEY_ID\fR and
 \fB\fCAWS_SECRET_ACCESS_KEY\fR, respectively.
 

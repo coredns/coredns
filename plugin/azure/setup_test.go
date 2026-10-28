@@ -37,6 +37,24 @@ func TestSetup(t *testing.T) {
     foo
 }`, true, nil},
 		{`azure resource_set:zone {
+    refresh 3m
+}`, false, nil},
+		{`azure resource_set:zone {
+    refresh 30
+}`, false, nil},
+		{`azure resource_set:zone {
+    refresh
+}`, true, nil},
+		{`azure resource_set:zone {
+    refresh abc
+}`, true, nil},
+		{`azure resource_set:zone {
+    refresh 0
+}`, true, nil},
+		{`azure resource_set:zone {
+    refresh -5m
+}`, true, nil},
+		{`azure resource_set:zone {
     tenant tenant_id
     client client_id
     secret client_secret
@@ -75,7 +93,7 @@ func TestSetup(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.body)
-		_, _, accessMap, _, err := parse(c)
+		_, _, accessMap, _, _, err := parse(c)
 		if (err == nil) == test.expectedError {
 			t.Fatalf("Unexpected errors: %v in test: %d\n\t%s", err, i, test.body)
 		}

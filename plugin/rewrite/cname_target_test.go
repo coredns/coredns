@@ -269,7 +269,7 @@ func TestCNAMETargetRewrite_upstreamFailurePaths(t *testing.T) {
 			req.SetQuestion("bad.test.", dns.TypeA)
 			state := request.Request{Req: req}
 
-			rrState := &cnameTargetRuleWithReqState{rule: rule, state: state, ctx: context.Background()}
+			rrState := &cnameTargetRuleWithReqState{rule: &rule, state: state, ctx: context.Background()}
 
 			res := new(dns.Msg)
 			res.SetReply(req)
@@ -284,6 +284,30 @@ func TestCNAMETargetRewrite_upstreamFailurePaths(t *testing.T) {
 				t.Errorf("Expected answer to be %q, but got %q", "bad.target.", finalTarget)
 			}
 		})
+	}
+}
+
+// BenchmarkCNAMETargetRuleRewrite isolates cnameTargetRule.Rewrite - the call
+// that used to copy the whole shared rule struct by value into
+// cnameTargetRuleWithReqState on every matching request. It deliberately
+// excludes RewriteResponse/the upstream lookup, whose own allocations would
+// dwarf the struct copy and hide the difference this benchmark exists to show.
+func BenchmarkCNAMETargetRuleRewrite(b *testing.B) {
+	rule, err := newCNAMERule("stop", "exact", "def.example.com", "xyz.example.com")
+	if err != nil {
+		b.Fatal(err)
+	}
+	rule.(*cnameTargetRule).Upstream = &MockedUpstream{}
+
+	ctx := b.Context()
+	m := new(dns.Msg)
+	m.SetQuestion("abc.example.com.", dns.TypeA)
+	state := request.Request{Req: m}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		rules, _ := rule.Rewrite(ctx, state)
+		rulesSink = rules
 	}
 }
 

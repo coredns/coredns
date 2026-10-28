@@ -56,7 +56,8 @@ func newTestAzure(t *testing.T, private bool, handle azureAPIHandler) (*Azure, *
 	}
 	h, err := New(context.Background(), publicClient, privateClient,
 		map[string][]string{"rg": {"healthy.example", "missing.example"}},
-		map[string]string{"rghealthy.example": access, "rgmissing.example": access})
+		map[string]string{"rghealthy.example": access, "rgmissing.example": access},
+		time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

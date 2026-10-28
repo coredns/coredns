@@ -13,12 +13,26 @@ import (
 
 func (e *External) a(ctx context.Context, services []msg.Service, state request.Request) (records []dns.RR, truncated bool) {
 	dup := make(map[string]struct{})
+	qname := ""
 
 	for _, s := range services {
 		what, ip := s.HostType()
 
 		switch what {
 		case dns.TypeCNAME:
+			// One chase per distinct target: every lookup re-enters the plugin
+			// chain, and a headless Service can list the same name many times.
+			target := dns.CanonicalName(s.Host)
+			if qname == "" {
+				qname = dns.CanonicalName(state.Name())
+			}
+			if target == qname {
+				continue
+			}
+			if _, ok := dup[target]; ok {
+				continue
+			}
+			dup[target] = struct{}{}
 			rr := s.NewCNAME(state.QName(), s.Host)
 			records = append(records, rr)
 			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil && resp != nil {
@@ -45,12 +59,24 @@ func (e *External) a(ctx context.Context, services []msg.Service, state request.
 
 func (e *External) aaaa(ctx context.Context, services []msg.Service, state request.Request) (records []dns.RR, truncated bool) {
 	dup := make(map[string]struct{})
+	qname := ""
 
 	for _, s := range services {
 		what, ip := s.HostType()
 
 		switch what {
 		case dns.TypeCNAME:
+			target := dns.CanonicalName(s.Host)
+			if qname == "" {
+				qname = dns.CanonicalName(state.Name())
+			}
+			if target == qname {
+				continue
+			}
+			if _, ok := dup[target]; ok {
+				continue
+			}
+			dup[target] = struct{}{}
 			rr := s.NewCNAME(state.QName(), s.Host)
 			records = append(records, rr)
 			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeAAAA); err == nil && resp != nil {

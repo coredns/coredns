@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -134,7 +135,7 @@ func (c fakeGCPClient) listRRSets(_ctx context.Context, projectName, hostedZoneN
 func TestCloudDNS(t *testing.T) {
 	ctx := context.Background()
 
-	r, err := New(ctx, fakeGCPClient{}, map[string][]string{"bad.": {"bad-project:bad-zone"}}, &upstream.Upstream{})
+	r, err := New(ctx, fakeGCPClient{}, map[string][]string{"bad.": {"bad-project:bad-zone"}}, &upstream.Upstream{}, time.Minute)
 	if err != nil {
 		t.Fatalf("Failed to create Cloud DNS: %v", err)
 	}
@@ -142,7 +143,7 @@ func TestCloudDNS(t *testing.T) {
 		t.Fatalf("Expected errors for zone bad.")
 	}
 
-	r, err = New(ctx, fakeGCPClient{}, map[string][]string{"org.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"}, "gov.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"}}, &upstream.Upstream{})
+	r, err = New(ctx, fakeGCPClient{}, map[string][]string{"org.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"}, "gov.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"}}, &upstream.Upstream{}, time.Minute)
 	if err != nil {
 		t.Fatalf("Failed to create Cloud DNS: %v", err)
 	}
@@ -339,6 +340,7 @@ func TestCloudDNSConcurrentServeDNS(t *testing.T) {
 			"org.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"},
 		},
 		&upstream.Upstream{},
+		time.Minute,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create Cloud DNS: %v", err)
@@ -406,7 +408,8 @@ func TestCloudDNSConcurrentLookupNameCache(t *testing.T) {
 		map[string][]string{
 			"org.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"},
 		},
-		&upstream.Upstream{})
+		&upstream.Upstream{},
+		time.Minute)
 	if err != nil {
 		t.Fatalf("Failed to create Cloud DNS: %v", err)
 	}

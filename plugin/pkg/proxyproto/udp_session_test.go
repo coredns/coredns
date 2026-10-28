@@ -1,6 +1,7 @@
 package proxyproto
 
 import (
+	"bytes"
 	"io"
 	"net"
 	"testing"
@@ -131,6 +132,43 @@ func TestStoreSessionEvictsOldest(t *testing.T) {
 	}
 	if _, ok := pc.lookupSession(r3); !ok {
 		t.Fatal("expected r3 to be present")
+	}
+}
+
+func TestPacketConnLocalCommandUsesPeerAddress(t *testing.T) {
+	payload := []byte{1, 2, 3, 4}
+	packet := append([]byte{
+		0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x0d, 0x0a, 0x51,
+		0x55, 0x49, 0x54, 0x0a, // PPv2 signature
+		0x20,       // version 2, LOCAL command
+		0x12,       // UDPv4
+		0x00, 0x0c, // address length
+		192, 0, 2, 1,
+		192, 0, 2, 53,
+		0x30, 0x39,
+		0x00, 0x35,
+	}, payload...)
+	peer := udpAddr("198.51.100.1", 53000)
+	pc := &PacketConn{
+		PacketConn: &singlePacketConn{},
+		ConnPolicy: func(proxyproto.ConnPolicyOptions) (proxyproto.Policy, error) {
+			return proxyproto.USE, nil
+		},
+		UDPSessionTrackingTTL: time.Minute,
+	}
+
+	n, addr, err := pc.readFrom(packet, peer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if addr.String() != peer.String() {
+		t.Fatalf("LOCAL command changed peer address from %s to %s", peer, addr)
+	}
+	if !bytes.Equal(packet[:n], payload) {
+		t.Fatalf("payload = %v, want %v", packet[:n], payload)
+	}
+	if _, ok := pc.lookupSession(peer); ok {
+		t.Fatal("LOCAL command stored a spoofed UDP session")
 	}
 }
 

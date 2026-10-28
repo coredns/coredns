@@ -128,4 +128,4 @@ debugging these transports harder than it should be.
 
 ## See Also
 
-RFC 7858 and https://grpc.io.
+[RFC 7858](https://www.rfc-editor.org/info/rfc7858/) and https://grpc.io.

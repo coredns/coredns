@@ -84,6 +84,7 @@ type Server struct {
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
 	udpSessionTrackingMaxSessions int                       // LRU cap for UDP session tracking (0 = default)
+	proxyProtoTLVMetadata         bool                      // capture PPv2 TLVs and expose as metadata (opt-in)
 
 	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	m      sync.Mutex     // protects the servers
@@ -191,6 +192,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		if site.ProxyProtoUDPSessionTrackingMaxSessions > 0 {
 			s.udpSessionTrackingMaxSessions = site.ProxyProtoUDPSessionTrackingMaxSessions
 		}
+		if site.ProxyProtoTLVMetadata {
+			s.proxyProtoTLVMetadata = true
+		}
 		if site.UDPDecorateWriterFunc != nil {
 			s.udpDecorateWriterFunc = site.UDPDecorateWriterFunc
 		}
@@ -236,6 +240,7 @@ func (s *Server) Serve(l net.Listener) error {
 // ServePacket starts the server with an existing packetconn. It blocks until the server stops.
 // This implements caddy.UDPServer interface.
 func (s *Server) ServePacket(p net.PacketConn) error {
+	p = withUDPDestination(p)
 	// Use a custom writer decorator if one was configured.
 	var dw dns.DecorateWriter
 	if s.udpDecorateWriterFunc != nil {
@@ -245,7 +250,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
-		s.ServeDNS(ctx, w, r)
+		s.ServeDNS(ctx, withUDPLocalAddr(w), r)
 	}), TsigSecret: s.TsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw}
 	s.m.Unlock()
 
@@ -259,7 +264,11 @@ func (s *Server) Listen() (net.Listener, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		if s.proxyProtoTLVMetadata {
+			l = cproxyproto.NewTLVListener(l, s.connPolicy)
+		} else {
+			l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		}
 	}
 	return l, nil
 }
@@ -276,7 +285,7 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy, UDPSessionTrackingTTL: s.udpSessionTrackingTTL, UDPSessionTrackingMaxSessions: s.udpSessionTrackingMaxSessions}
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy, UDPSessionTrackingTTL: s.udpSessionTrackingTTL, UDPSessionTrackingMaxSessions: s.udpSessionTrackingMaxSessions, CaptureTLVs: s.proxyProtoTLVMetadata}
 	}
 	return p, nil
 }

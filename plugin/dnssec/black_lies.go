@@ -10,7 +10,7 @@ import (
 )
 
 // nsec returns an NSEC useful for NXDOMAIN responses.
-// See https://tools.ietf.org/html/draft-valsorda-dnsop-black-lies-00
+// See https://datatracker.ietf.org/doc/html/draft-valsorda-dnsop-black-lies-00
 // For example, a request for the non-existing name a.example.com would
 // cause the following NSEC record to be generated:
 //

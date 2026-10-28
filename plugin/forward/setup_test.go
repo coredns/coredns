@@ -960,8 +960,17 @@ func TestSetupDOHHealthcheckTLSConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := fs[0].
-		proxies[0].
+	p := fs[0].proxies[0]
+
+	if gothost := p.DoHHost(); gothost != "dns.example" {
+		t.Fatalf(
+			"Expected dohHost %q, got %q",
+			"dns.example",
+			gothost,
+		)
+	}
+
+	got := p.
 		GetHealthchecker().
 		GetTLSConfig()
 

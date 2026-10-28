@@ -10,10 +10,10 @@ The azure plugin is useful for serving zones from Microsoft Azure DNS. The *azur
 all the DNS records supported by Azure, viz. A, AAAA, CNAME, MX, NS, PTR, SOA, SRV, and TXT
 record types. NS record type is not supported by azure private DNS.
 
-Zone data is loaded asynchronously after startup and refreshed every minute.
-An unavailable zone or zone-listing error is logged without preventing CoreDNS from
-starting or other configured zones from being updated. Each zone listing,
-including retries and pagination, has a one-minute timeout.
+Zone data is loaded asynchronously after startup and refreshed every minute by default,
+configurable via `refresh`. An unavailable zone or zone-listing error is logged without
+preventing CoreDNS from starting or other configured zones from being updated. Each zone
+listing, including retries and pagination, has a one-minute timeout.
 Configuration and credential initialization errors still prevent startup.
 
 Until a zone has been successfully loaded, queries for it return SERVFAIL unless
@@ -34,6 +34,7 @@ azure RESOURCE_GROUP:ZONE... {
     environment ENVIRONMENT
     fallthrough [ZONES...]
     access private
+    refresh DURATION
 }
 ~~~
 
@@ -51,6 +52,12 @@ azure RESOURCE_GROUP:ZONE... {
     authoritative.
 
 *   `access`  specifies if the zone is `public` or `private`. Default is `public`.
+
+*   `refresh` can be used to control how long between record retrievals from Azure DNS. It
+    requires a duration string as a parameter to specify the duration between update cycles.
+    Each update cycle may result in many Azure API calls depending on how many domains use this
+    plugin and how many records are in each. Adjusting the update frequency may help reduce the
+    potential of API throttling by Azure. If not provided the default refresh is 1 minute.
 
 ## Examples
 

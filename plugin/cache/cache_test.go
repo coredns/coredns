@@ -648,6 +648,124 @@ func TestCacheServfailTTL0(t *testing.T) {
 	}
 }
 
+// TestCacheServfailOnTimeout verifies that a resolver which fails without
+// writing a response (e.g. forward on an upstream timeout) is cached as a
+// SERVFAIL bounded by the servfail TTL, so client retries are answered from
+// the cache instead of reaching the upstream again.
+func TestCacheServfailOnTimeout(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 5 * time.Second
+
+	backendQueries := 0
+	c.Next = plugin.HandlerFunc(func(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+		backendQueries++
+		return dns.RcodeServerFailure, fmt.Errorf("upstream timeout")
+	})
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// The first query is a miss and reaches the failing backend.
+	if ret, err := c.ServeDNS(ctx, &test.ResponseWriter{}, req); err == nil || ret != dns.RcodeServerFailure {
+		t.Fatalf("expected SERVFAIL from backend, got rcode %d and error %v", ret, err)
+	}
+	if backendQueries != 1 {
+		t.Fatalf("expected 1 backend query, got %d", backendQueries)
+	}
+
+	// The failure should now be cached.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if ret, err := c.ServeDNS(ctx, rec, req); err != nil || ret != dns.RcodeSuccess {
+		t.Fatalf("expected cached response, got rcode %d and error %v", ret, err)
+	}
+	if backendQueries != 1 {
+		t.Fatalf("expected the timeout to be cached, but the backend was queried again (%d times)", backendQueries)
+	}
+	if rec.Msg == nil || rec.Msg.Rcode != dns.RcodeServerFailure {
+		t.Fatalf("expected a cached SERVFAIL response, got %v", rec.Msg)
+	}
+}
+
+// TestCacheServfailOnTimeoutDisabled verifies that a zero servfail TTL keeps the
+// previous behaviour and leaves the failure uncached.
+func TestCacheServfailOnTimeoutDisabled(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 0
+
+	backendQueries := 0
+	c.Next = plugin.HandlerFunc(func(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+		backendQueries++
+		return dns.RcodeServerFailure, fmt.Errorf("upstream timeout")
+	})
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	if backendQueries != 2 {
+		t.Fatalf("expected the failure not to be cached, got %d backend queries", backendQueries)
+	}
+}
+
+// TestCacheServfailOnCanceledRequest verifies that a failure caused by a
+// canceled request context (e.g. a canceled DoH request) is not stored in the
+// shared SERVFAIL cache and therefore cannot make subsequent healthy requests
+// fail.
+func TestCacheServfailOnCanceledRequest(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 5 * time.Second
+
+	backendQueries := 0
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		backendQueries++
+		if backendQueries == 1 {
+			// Simulate forward returning SERVFAIL without writing a response
+			// because the request was canceled.
+			return dns.RcodeServerFailure, fmt.Errorf("request canceled")
+		}
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s 300 IN A 192.0.2.1", r.Question[0].Name))}
+		w.WriteMsg(m)
+		return dns.RcodeSuccess, nil
+	})
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	// A canceled request must not populate the shared failure cache.
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.ServeDNS(canceledCtx, &test.ResponseWriter{}, req); err == nil {
+		t.Fatal("expected an error from the canceled request")
+	}
+	if c.ncache.Len() != 0 {
+		t.Fatalf("canceled request must not be cached as a failure, got %d entries", c.ncache.Len())
+	}
+
+	// A subsequent healthy request must reach the backend and succeed.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if ret, err := c.ServeDNS(context.TODO(), rec, req); err != nil || ret != dns.RcodeSuccess {
+		t.Fatalf("expected healthy answer, got rcode %d and error %v", ret, err)
+	}
+	if backendQueries != 2 {
+		t.Fatalf("expected the live request to reach the backend, got %d backend queries", backendQueries)
+	}
+	if rec.Msg == nil || rec.Msg.Rcode != dns.RcodeSuccess || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected a healthy answer, got %v", rec.Msg)
+	}
+}
+
 func TestServeFromStaleCache(t *testing.T) {
 	c := New()
 	c.Next = ttlBackend(60)

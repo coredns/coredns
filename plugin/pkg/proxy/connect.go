@@ -118,7 +118,7 @@ func (t *Transport) dial(ctx context.Context, proto string, tlsDeadline time.Tim
 	}
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
-	dialer := &net.Dialer{Timeout: timeout}
+	dialer := &net.Dialer{Timeout: timeout, Control: recvErr}
 
 	if t.localAddress != nil {
 		if proto == "udp" {

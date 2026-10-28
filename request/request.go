@@ -110,12 +110,26 @@ func (r *Request) RemoteAddr() string { return r.W.RemoteAddr().String() }
 // LocalAddr returns the net.Addr of the server handling the current request.
 func (r *Request) LocalAddr() string { return r.W.LocalAddr().String() }
 
+// unwrapAddr returns the underlying net.Addr for addresses that wrap a real
+// transport address (implementing Unwrap() net.Addr), so transport/family
+// classification sees the concrete *net.TCPAddr or *net.UDPAddr. Plain
+// addresses are returned unchanged.
+func unwrapAddr(a net.Addr) net.Addr {
+	if u, ok := a.(interface{ Unwrap() net.Addr }); ok {
+		if inner := u.Unwrap(); inner != nil {
+			return inner
+		}
+	}
+	return a
+}
+
 // Proto gets the protocol used as the transport. This will be udp or tcp.
 func (r *Request) Proto() string {
-	if _, ok := r.W.RemoteAddr().(*net.UDPAddr); ok {
+	ra := unwrapAddr(r.W.RemoteAddr())
+	if _, ok := ra.(*net.UDPAddr); ok {
 		return "udp"
 	}
-	if _, ok := r.W.RemoteAddr().(*net.TCPAddr); ok {
+	if _, ok := ra.(*net.TCPAddr); ok {
 		return "tcp"
 	}
 	return "udp"
@@ -128,7 +142,7 @@ func (r *Request) Family() int {
 	}
 
 	var a net.IP
-	ip := r.W.RemoteAddr()
+	ip := unwrapAddr(r.W.RemoteAddr())
 	if i, ok := ip.(*net.UDPAddr); ok {
 		a = i.IP
 	}

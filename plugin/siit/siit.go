@@ -1,7 +1,7 @@
 // Package siit implements a plugin that performs AAAA to A translation.
 //
-// See: RFC 6052 (https://tools.ietf.org/html/rfc6052)
-// See: RFC 7757 (https://tools.ietf.org/html/rfc7757)
+// See: RFC 6052 (https://www.rfc-editor.org/info/rfc6052/)
+// See: RFC 7757 (https://www.rfc-editor.org/info/rfc7757/)
 package siit
 
 import (

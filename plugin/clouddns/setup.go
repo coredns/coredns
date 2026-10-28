@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -23,16 +25,10 @@ var log = clog.NewWithPlugin("clouddns")
 func init() { plugin.Register("clouddns", setup) }
 
 // exposed for testing
-var f = func(ctx context.Context, opt option.ClientOption) (gcpDNS, error) {
-	var err error
-	var client *gcp.Service
-	if opt != nil {
-		client, err = gcp.NewService(ctx, opt)
-	} else {
-		// if credentials file is not provided in the Corefile
-		// authenticate the client using env variables
-		client, err = gcp.NewService(ctx)
-	}
+var f = func(ctx context.Context, opts ...option.ClientOption) (gcpDNS, error) {
+	// if credentials file is not provided in the Corefile, authenticate the
+	// client using env variables; option.WithEndpoint, if any, still applies.
+	client, err := gcp.NewService(ctx, opts...)
 	return gcpClient{client}, err
 }
 
@@ -63,7 +59,8 @@ func setup(c *caddy.Controller) error {
 			keys[dnsName] = append(keys[dnsName], projectName+":"+hostedZone)
 		}
 
-		var opt option.ClientOption
+		var opts []option.ClientOption
+		refresh := time.Duration(1) * time.Minute // default update frequency to 1 minute
 		for c.NextBlock() {
 			switch c.Val() {
 			case "upstream":
@@ -76,22 +73,43 @@ func setup(c *caddy.Controller) error {
 				if err != nil {
 					return plugin.Error("clouddns", c.Errf("invalid credentials file %q: %v", c.Val(), err))
 				}
-				opt = option.WithAuthCredentialsFile(credType, c.Val())
+				opts = append(opts, option.WithAuthCredentialsFile(credType, c.Val()))
+			case "endpoint":
+				if !c.NextArg() {
+					return plugin.Error("clouddns", c.ArgErr())
+				}
+				opts = append(opts, option.WithEndpoint(c.Val()))
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
+			case "refresh":
+				if !c.NextArg() {
+					return plugin.Error("clouddns", c.ArgErr())
+				}
+				refreshStr := c.Val()
+				_, err := strconv.Atoi(refreshStr)
+				if err == nil {
+					refreshStr += "s"
+				}
+				refresh, err = time.ParseDuration(refreshStr)
+				if err != nil {
+					return plugin.Error("clouddns", c.Errf("unable to parse duration: %v", err))
+				}
+				if refresh <= 0 {
+					return plugin.Error("clouddns", c.Errf("refresh interval must be greater than 0: %q", refreshStr))
+				}
 			default:
 				return plugin.Error("clouddns", c.Errf("unknown property %q", c.Val()))
 			}
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
-		client, err := f(ctx, opt)
+		client, err := f(ctx, opts...)
 		if err != nil {
 			cancel()
 			return err
 		}
 
-		h, err := New(ctx, client, keys, up)
+		h, err := New(ctx, client, keys, up, refresh)
 		if err != nil {
 			cancel()
 			return plugin.Error("clouddns", c.Errf("failed to create plugin: %v", err))

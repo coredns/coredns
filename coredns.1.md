@@ -27,6 +27,9 @@ Available options:
 **-dns.port** **PORT** or **-p** **PORT**
 : override default port (53) to listen on.
 
+**-log-format** **FORMAT**
+: select the log format for the entire process, **text** (default) or **json**.
+
 **-pidfile** **FILE**
 : write PID to **FILE**.
 

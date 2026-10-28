@@ -75,6 +75,9 @@ func setup(c *caddy.Controller) error {
 func (f *Forward) OnStartup() (err error) {
 	for _, p := range f.proxies {
 		p.Start(f.hcInterval)
+		if f.startFailed {
+			p.StartFailed()
+		}
 	}
 	return nil
 }
@@ -157,6 +160,9 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 
 	if f.maxAge > 0 && f.maxAge < f.expire {
 		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
+	}
+	if f.startFailed && f.maxfails == 0 {
+		return f, fmt.Errorf("start_failed requires health checking; max_fails must be greater than zero")
 	}
 
 	// Reject HTTPS upstreams that include a path, the doh implementation default to /dns-query path.
@@ -242,7 +248,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 
 		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS || transports[i] == transport.QUIC {
+		if transports[i] == transport.TLS || transports[i] == transport.HTTPS || transports[i] == transport.QUIC {
+			f.proxies[i].SetDOHHost(f.tlsConfig.ServerName)
 			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
 				f.proxies[i].SetTLSConfig(tlsConfig)
 			} else {
@@ -289,6 +296,11 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return err
 		}
 		f.maxfails = uint32(n)
+	case "start_failed":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		f.startFailed = true
 	case "max_connect_attempts":
 		if !c.NextArg() {
 			return c.ArgErr()

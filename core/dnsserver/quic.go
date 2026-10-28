@@ -45,7 +45,7 @@ func (w *DoQWriter) WriteMsg(m *dns.Msg) error {
 // The server MUST send the response(s) on the same stream and MUST
 // indicate, after the last response, through the STREAM FIN
 // mechanism that no further data will be sent on that stream.
-// See https://www.rfc-editor.org/rfc/rfc9250#section-4.2-7
+// See https://www.rfc-editor.org/info/rfc9250/#section-4.2-7
 func (w *DoQWriter) Close() error {
 	if w.stream == nil {
 		return errors.New("stream is nil")

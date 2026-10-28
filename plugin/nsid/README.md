@@ -6,7 +6,7 @@
 
 ## Description
 
-This plugin implements [RFC 5001](https://tools.ietf.org/html/rfc5001) and adds an EDNS0 OPT
+This plugin implements [RFC 5001](https://www.rfc-editor.org/info/rfc5001/) and adds an EDNS0 OPT
 resource record to replies that uniquely identify the server. This is useful in anycast setups to
 see which server was responsible for generating the reply and for debugging.
 
@@ -54,4 +54,4 @@ And now a client with NSID support will see an OPT record with the NSID option:
 
 ## See Also
 
-[RFC 5001](https://tools.ietf.org/html/rfc5001)
+[RFC 5001](https://www.rfc-editor.org/info/rfc5001/)

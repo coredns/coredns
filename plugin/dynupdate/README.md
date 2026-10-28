@@ -248,6 +248,6 @@ updated zones, not a high-throughput DHCP service.
 See the *file*, *transfer*, and *tsig* plugins for authoritative data,
 AXFR/NOTIFY, and TSIG authentication configuration.
 
-* [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136) defines DNS UPDATE.
-* [RFC 1982](https://www.rfc-editor.org/rfc/rfc1982) defines DNS serial
+* [RFC 2136](https://www.rfc-editor.org/info/rfc2136/) defines DNS UPDATE.
+* [RFC 1982](https://www.rfc-editor.org/info/rfc1982/) defines DNS serial
   number arithmetic.

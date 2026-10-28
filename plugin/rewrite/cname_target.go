@@ -33,9 +33,11 @@ type cnameTargetRule struct {
 	Upstream        UpstreamInt    // Upstream for looking up external names during the resolution process.
 }
 
-// cnameTargetRuleWithReqState is cname target rewrite rule state
+// cnameTargetRuleWithReqState pairs a request's ctx/state with the rule that
+// matched it. rule is a pointer to the shared, Corefile-parsed rule (never
+// mutated after newCNAMERule builds it)
 type cnameTargetRuleWithReqState struct {
-	rule  cnameTargetRule
+	rule  *cnameTargetRule
 	state request.Request
 	ctx   context.Context
 }
@@ -179,7 +181,7 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 func (r *cnameTargetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	if r != nil && len(r.rewriteType) > 0 && len(r.paramFromTarget) > 0 && len(r.paramToTarget) > 0 {
 		return ResponseRules{&cnameTargetRuleWithReqState{
-			rule:  *r,
+			rule:  r,
 			state: state,
 			ctx:   ctx,
 		}}, RewriteDone

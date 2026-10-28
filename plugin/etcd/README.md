@@ -85,6 +85,15 @@ find entries like `/skydns/test/skydns/mx1`.
 
 This causes two lookups from CoreDNS to etcd in certain cases.
 
+Each etcd service entry is independent. Multiple entries with hostname-valued `host` fields below
+the same owner can therefore produce multiple CNAME records for that owner. Such an RRset is invalid
+DNS; use only one CNAME target per owner. Multiple hostname entries can still be used as SRV targets,
+but address and TXT queries for the same owner may interpret those entries as CNAMEs.
+
+CoreDNS performs at most 32 cross-zone CNAME lookups while answering one client query. Exceeding the
+limit returns SERVFAIL. If a nested lookup exhausts the limit, the *cache* plugin may cache SERVFAIL
+under that nested name for its configured `servfail` duration, which is five seconds by default.
+
 ### Backend load
 
 The *etcd* plugin does not watch or poll etcd when data changes. Record lookups are driven by

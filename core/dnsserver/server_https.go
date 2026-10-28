@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/doh"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
@@ -55,6 +56,10 @@ func (l *loggerAdapter) Write(p []byte) (n int, err error) {
 // HTTPRequestKey is the context key for the HTTP request when processing DNS-over-HTTPS.
 // Plugins can access the original HTTP request to retrieve headers, client IP, and metadata.
 type HTTPRequestKey struct{}
+
+// connContextKey is the context key under which the accepted net.Conn is stashed
+// via http.Server.ConnContext, so ServeHTTP can recover PPv2 TLVs from it.
+type connContextKey struct{}
 
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
@@ -129,6 +134,14 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	}
 	sh.httpsServer.Handler = sh
 
+	// When PPv2 TLV metadata is enabled, stash the accepted connection in the
+	// request context so ServeHTTP can recover the TLVs captured by the listener.
+	if s.proxyProtoTLVMetadata {
+		sh.httpsServer.ConnContext = func(ctx context.Context, c net.Conn) context.Context {
+			return context.WithValue(ctx, connContextKey{}, c)
+		}
+	}
+
 	return sh, nil
 }
 
@@ -163,7 +176,11 @@ func (s *ServerHTTPS) Listen() (net.Listener, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		if s.proxyProtoTLVMetadata {
+			l = cproxyproto.NewTLVListener(l, s.connPolicy)
+		} else {
+			l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+		}
 	}
 	return l, nil
 }
@@ -226,6 +243,14 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		laddr:   s.localAddr(r),
 		raddr:   &net.TCPAddr{IP: net.ParseIP(h), Port: port},
 		request: r,
+	}
+
+	// If the listener captured PPv2 TLVs, surface them via RemoteAddr so the
+	// proxyproto metadata provider exposes them, same as the other transports.
+	if conn, ok := r.Context().Value(connContextKey{}).(net.Conn); ok {
+		if a := cproxyproto.AddrFromConn(conn); a != nil {
+			dw.raddr = a
+		}
 	}
 
 	if tsig := msg.IsTsig(); tsig != nil {

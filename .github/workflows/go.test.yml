@@ -69,6 +69,9 @@ jobs:
       - name: Test manual-registration mode
         run: go test -race -tags=coredns_manual_registration ./core/dnsserver ./coremain
 
+      - name: Test UDP destination views
+        run: go test -race ./test -run '^TestViewServerIP'
+
   test-plugins:
     name: Test Plugins
     strategy:
@@ -93,6 +96,28 @@ jobs:
       - name: Test
         shell: bash
         run: ( cd plugin; go test -race ./... )
+
+  test-udp-macos:
+    name: Test UDP macOS
+    runs-on: macos-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: .go-version
+
+      - name: Add a second loopback address
+        run: sudo ifconfig lo0 alias 127.0.0.2
+
+      - name: Test UDP destination addresses
+        run: |
+          go test -race ./core/dnsserver ./plugin/pkg/proxyproto ./request
+          go test -race ./test -run '^TestViewServerIP'
 
   test-e2e:
     name: Test e2e

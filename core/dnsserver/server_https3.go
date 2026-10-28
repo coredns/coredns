@@ -156,7 +156,7 @@ func (s *ServerHTTPS3) ListenPacket() (net.PacketConn, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy, UDPSessionTrackingTTL: s.udpSessionTrackingTTL, UDPSessionTrackingMaxSessions: s.udpSessionTrackingMaxSessions, CaptureTLVs: s.proxyProtoTLVMetadata}
 	}
 	return p, nil
 }
@@ -245,6 +245,13 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		laddr:   s.listenAddr,
 		raddr:   &net.UDPAddr{IP: net.ParseIP(h), Port: port},
 		request: r,
+	}
+
+	// If proxyproto captured PPv2 TLVs, http3 stores the QUIC connection's
+	// RemoteAddr (our *Addr) under RemoteAddrContextKey; use it so the metadata
+	// provider exposes the TLVs, same as the other transports.
+	if ra, ok := r.Context().Value(http3.RemoteAddrContextKey).(*cproxyproto.Addr); ok {
+		dw.raddr = ra
 	}
 
 	if tsig := msg.IsTsig(); tsig != nil {

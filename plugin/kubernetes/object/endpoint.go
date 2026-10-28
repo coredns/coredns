@@ -3,6 +3,7 @@ package object
 import (
 	"fmt"
 	"maps"
+	"net/netip"
 	"strings"
 
 	discovery "k8s.io/api/discovery/v1"
@@ -103,11 +104,35 @@ func endpointSliceToEndpoints(obj meta.Object, withZones bool) (meta.Object, err
 		}
 	}
 
+	// The Kubernetes DNS specification defines endpoint records for IP
+	// addresses only. Other address types carry data that must not be treated
+	// as an address record. In particular, treating an FQDN address as record
+	// data turns it into a CNAME that CoreDNS chases through its plugin chain.
+	// Keep the object so the Service still exists, but publish no addresses.
+	switch ends.AddressType {
+	case discovery.AddressTypeIPv4, discovery.AddressTypeIPv6:
+	default:
+		*ends = discovery.EndpointSlice{}
+		return e, nil
+	}
+
 	for _, end := range ends.Endpoints {
 		if !endpointsliceReady(end.Conditions.Ready) {
 			continue
 		}
 		for _, a := range end.Addresses {
+			// The API server validates each address against the slice's address
+			// type. Retain the check here for non-conforming API implementations.
+			ip, err := netip.ParseAddr(a)
+			if err != nil {
+				continue
+			}
+			if ends.AddressType == discovery.AddressTypeIPv4 && !ip.Is4() {
+				continue
+			}
+			if ends.AddressType == discovery.AddressTypeIPv6 && !ip.Is6() {
+				continue
+			}
 			ea := EndpointAddress{IP: a}
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname

@@ -9,8 +9,8 @@
 *erratic* returns a static response to all queries, but the responses can be delayed,
 dropped or truncated. The *erratic* plugin will respond to every A or AAAA query. For
 any other type it will return a SERVFAIL response (except AXFR). The reply for A will return
-192.0.2.53 ([RFC 5737](https://tools.ietf.org/html/rfc5737)), for AAAA it returns 2001:DB8::53 ([RFC
-3849](https://tools.ietf.org/html/rfc3849)). For an AXFR request it will respond with a small
+192.0.2.53 ([RFC 5737](https://www.rfc-editor.org/info/rfc5737/)), for AAAA it returns 2001:DB8::53 ([RFC
+3849](https://www.rfc-editor.org/info/rfc3849/)). For an AXFR request it will respond with a small
 zone transfer.
 
 ## Syntax
@@ -86,4 +86,4 @@ example.org {
 
 ## See Also
 
-[RFC 3849](https://tools.ietf.org/html/rfc3849) and [RFC 5737](https://tools.ietf.org/html/rfc5737).
+[RFC 3849](https://www.rfc-editor.org/info/rfc3849/) and [RFC 5737](https://www.rfc-editor.org/info/rfc5737/).

@@ -297,6 +297,12 @@ func TestProxyDoQVerifiesServerName(t *testing.T) {
 }
 
 func TestProxyDoQSourceAddress(t *testing.T) {
+	probe, err := net.ListenPacket("udp4", "127.0.0.2:0")
+	if err != nil {
+		t.Skipf("second loopback address is unavailable: %v", err)
+	}
+	probe.Close()
+
 	remoteAddress := make(chan net.Addr, 1)
 	server, clientTLS := newDoQTestServer(t, func(_ int64, conn *quic.Conn, stream *quic.Stream, query *dns.Msg) error {
 		remoteAddress <- conn.RemoteAddr()
@@ -521,6 +527,7 @@ func TestDoQHealthCheck(t *testing.T) {
 	})
 
 	p := NewProxy("TestDoQHealth", server.addr(), transport.QUIC)
+	p.initiallyDown.Store(true)
 	p.SetTLSConfig(clientTLS)
 	defer p.Stop()
 	hc := p.GetHealthchecker()
@@ -528,6 +535,9 @@ func TestDoQHealthCheck(t *testing.T) {
 	hc.SetRecursionDesired(false)
 	if err := hc.Check(p); err != nil {
 		t.Fatalf("health check failed: %v", err)
+	}
+	if p.Down(2) {
+		t.Error("successful QUIC health check did not clear startup failure")
 	}
 	msg := <-query
 	if len(msg.Question) != 1 || msg.Question[0].Name != "health.example." || msg.Question[0].Qtype != dns.TypeNS {

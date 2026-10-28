@@ -49,7 +49,7 @@ var (
 	123.123.123	loki
 	321.321.321.321`
 	singlelinehosts = `127.0.0.2  odin`
-	ipv4hosts       = `# See https://tools.ietf.org/html/rfc1123.
+	ipv4hosts       = `# See https://www.rfc-editor.org/info/rfc1123/.
 	#
 
 	# internet address and host name
@@ -58,7 +58,7 @@ var (
 
 	# internet address, host name and aliases
 	127.0.0.3	localhost	localhost.localdomain`
-	ipv6hosts = `# See https://tools.ietf.org/html/rfc5952, https://tools.ietf.org/html/rfc4007.
+	ipv6hosts = `# See https://www.rfc-editor.org/info/rfc5952/, https://www.rfc-editor.org/info/rfc4007/.
 
 	# internet address and host name
 	::1						localhost	# inline comment separated by tab

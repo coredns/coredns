@@ -35,7 +35,7 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
     AWS credentials the same way as AWS CLI - environment variables, shared credential file (and optionally
     shared config file if `AWS_SDK_LOAD_CONFIG` env is set), and lastly EC2 Instance Roles.
     Note the usage of `aws_access_key` has been deprecated and may be removed in future versions. Instead,
-    user can use other methods to pass crentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
+    user can use other methods to pass credentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
     `AWS_SECRET_ACCESS_KEY`, respectively.
 
 *   `aws_endpoint` can be used to control the endpoint to use when querying AWS (optional). **ENDPOINT** is the
@@ -127,5 +127,5 @@ example.org {
 Route53 plugin uses [AWS Go SDK](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html)
 for authentication, where there is a list of accepted configuration methods.
 Note the usage of `aws_access_key` in Corefile has been deprecated and may be removed in future versions. Instead,
-user can use other methods to pass crentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
+user can use other methods to pass credentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
 `AWS_SECRET_ACCESS_KEY`, respectively.

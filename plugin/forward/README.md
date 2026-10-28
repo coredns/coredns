@@ -57,6 +57,7 @@ forward FROM TO... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION [no_rec] [domain FQDN]
+    start_failed
     max_concurrent MAX
     next RCODE_1 [RCODE_2] [RCODE_3...]
     failfast_all_unhealthy_upstreams
@@ -77,6 +78,12 @@ forward FROM TO... {
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
+* `start_failed` starts upstreams in an unhealthy state and immediately runs health checks using
+  the configured `health_check` settings. Each upstream becomes healthy after its first successful
+  check. This option is disabled by default and cannot be combined with `max_fails 0`.
+  Checks run asynchronously; startup does not wait for them. While all upstreams are unhealthy,
+  requests follow the usual all-unhealthy policy. Combine with `failfast_all_unhealthy_upstreams`
+  to return SERVFAIL until an upstream passes a check instead of trying a random upstream.
 * `max_connect_attempts` caps the total number of upstream connect attempts
   performed for a single incoming DNS request. The default cap is twice the number of
   configured upstreams, allowing two complete passes when all upstreams are healthy.
@@ -382,8 +389,8 @@ Forward to an upstream identified by hostname, using a specific resolver to look
 
 ## See Also
 
-[RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.
+[RFC 7858](https://www.rfc-editor.org/info/rfc7858/) for DNS over TLS.
 
-[RFC 8484](https://tools.ietf.org/html/rfc8484) for DNS over HTTPS.
+[RFC 8484](https://www.rfc-editor.org/info/rfc8484/) for DNS over HTTPS.
 
-[RFC 9250](https://www.rfc-editor.org/rfc/rfc9250.html) for DNS over QUIC.
+[RFC 9250](https://www.rfc-editor.org/info/rfc9250/) for DNS over QUIC.

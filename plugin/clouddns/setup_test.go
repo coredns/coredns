@@ -13,7 +13,7 @@ import (
 )
 
 func TestSetupCloudDNS(t *testing.T) {
-	f = func(_ctx context.Context, _opt option.ClientOption) (gcpDNS, error) {
+	f = func(_ctx context.Context, _opts ...option.ClientOption) (gcpDNS, error) {
 		return fakeGCPClient{}, nil
 	}
 
@@ -55,6 +55,30 @@ func TestSetupCloudDNS(t *testing.T) {
 }`, false},
 		{`clouddns example.org.:example-project:zone-name {
     credentials
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh 3m
+}`, false},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh 30
+}`, false},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh abc
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh 0
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    refresh -5m
+}`, true},
+		{`clouddns example.org.:example-project:zone-name {
+    endpoint https://dns.googleapis.com
+}`, false},
+		{`clouddns example.org.:example-project:zone-name {
+    endpoint
 }`, true},
 		{`clouddns example.org.:example-project:zone-name example.org.:example-project:zone-name {
 	}`, true},

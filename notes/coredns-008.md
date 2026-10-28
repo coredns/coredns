@@ -36,7 +36,7 @@ only allows `stdout` as the file name (which of course may be omitted).
    * Now supports federation records
    * Has had some other bug fixes.
 * *file*
-   * Now supports DNAME [RFC 6672](https://tools.ietf.org/html/rfc6672)
+   * Now supports DNAME [RFC 6672](https://www.rfc-editor.org/info/rfc6672/)
    * Refuse to load a zone without a SOA record.
 * *file, auto* don't reload a zone when the SOA's serial hasn't changed.
 * *secondary* now behaves properly if queried before the zone has been transferred

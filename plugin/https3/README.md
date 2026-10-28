@@ -14,8 +14,8 @@ This plugin can only be used once per HTTPS3 listener block.
 
 ```txt
 https3 {
-    max_streams POSITIVE_INTEGER
-    max_connections POSITIVE_INTEGER
+    max_streams NON_NEGATIVE_INTEGER
+    max_connections NON_NEGATIVE_INTEGER
 }
 ```
 

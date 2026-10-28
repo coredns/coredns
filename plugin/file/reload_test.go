@@ -307,6 +307,43 @@ func TestZoneReloadByMtime(t *testing.T) {
 			t.Fatalf("Zone should still serve queries after file deletion, got result %d", res)
 		}
 	})
+
+	// Test 5: A successful reload advances the mtime baseline.
+	t.Run("MtimeBaselineAdvancesAfterReload", func(t *testing.T) {
+		z, fileName, cleanup := prepareMtimeZone(t, reloadZoneTest)
+		defer cleanup()
+
+		if err := os.WriteFile(fileName, []byte(reloadZone2Test), 0644); err != nil {
+			t.Fatalf("Failed to write new zone data: %s", err)
+		}
+
+		var rrs []dns.RR
+		for start := time.Now(); time.Since(start) < 2*time.Second; {
+			var err error
+			rrs, err = z.ApexIfDefined()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rrs) == 3 {
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+		if len(rrs) != 3 {
+			t.Fatalf("Expected 3 RRs after reload, got %d", len(rrs))
+		}
+
+		fi, err := os.Stat(fileName)
+		if err != nil {
+			t.Fatalf("Failed to stat zone: %s", err)
+		}
+		z.RLock()
+		mtime := z.file_mtime
+		z.RUnlock()
+		if !mtime.Equal(fi.ModTime()) {
+			t.Fatalf("file mtime = %s after reload, want %s", mtime, fi.ModTime())
+		}
+	})
 }
 
 // prepareMtimeZone creates a zone with mtime-based reload enabled.

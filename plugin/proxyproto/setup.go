@@ -28,6 +28,7 @@ func setup(c *caddy.Controller) error {
 		defaultSet                 bool
 		sessionTrackingTTL         time.Duration
 		sessionTrackingMaxSessions int
+		tlvMetadata                bool
 	)
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -79,6 +80,11 @@ func setup(c *caddy.Controller) error {
 					}
 					sessionTrackingMaxSessions = n
 				}
+			case "tlv_metadata":
+				if len(c.RemainingArgs()) != 0 {
+					return plugin.Error("proxyproto", c.ArgErr())
+				}
+				tlvMetadata = true
 			default:
 				return c.Errf("unknown option '%s'", c.Val())
 			}
@@ -105,5 +111,13 @@ func setup(c *caddy.Controller) error {
 	}
 	config.ProxyProtoUDPSessionTrackingTTL = sessionTrackingTTL
 	config.ProxyProtoUDPSessionTrackingMaxSessions = sessionTrackingMaxSessions
+	config.ProxyProtoTLVMetadata = tlvMetadata
+	if tlvMetadata {
+		// Add a pass-through handler that implements metadata.Provider so the
+		// captured PPv2 TLVs are exposed as the "proxyproto/tlv" label.
+		config.AddPlugin(func(next plugin.Handler) plugin.Handler {
+			return handler{Next: next}
+		})
+	}
 	return nil
 }

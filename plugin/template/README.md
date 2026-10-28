@@ -30,7 +30,7 @@ template CLASS TYPE [ZONE...] {
 * `match` **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming question name.
   Specifying no regex matches everything (default: `.*`). First matching regex wins. Regex patterns
   must not exceed 10000 characters.
-* `answer|additional|authority` **RR** A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style resource record fragment
+* `answer|additional|authority` **RR** A [RFC 1035](https://www.rfc-editor.org/info/rfc1035/#section-5) style resource record fragment
   built by a [Go template](https://golang.org/pkg/text/template/) that contains the reply. Specifying no answer will result
   in a response with an empty answer section.
 * `var` **NAME** **EXPRESSION** sets the variable **NAME** to the result of **EXPRESSION**, evaluated for each matching query
@@ -71,7 +71,7 @@ and the following predefined [template functions](https://golang.org/pkg/text/te
 
 * `parseInt` interprets a string in the given base and bit size. Equivalent to [strconv.ParseUint](https://golang.org/pkg/strconv#ParseUint).
 
-The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1035) style resource record (commonly referred to as a "zone file").
+The output of the template must be a [RFC 1035](https://www.rfc-editor.org/info/rfc1035/) style resource record (commonly referred to as a "zone file").
 
 **WARNING** there is a syntactical problem with Go templates and CoreDNS config files. Expressions
  like `{{$var}}` will be interpreted as a reference to an environment variable by CoreDNS (and
@@ -123,7 +123,7 @@ The most simplistic template is
 
 ### Resolve .invalid as NXDOMAIN
 
-The `.invalid` domain is a reserved TLD (see [RFC 2606 Reserved Top Level DNS Names](https://tools.ietf.org/html/rfc2606#section-2)) to indicate invalid domains.
+The `.invalid` domain is a reserved TLD (see [RFC 2606 Reserved Top Level DNS Names](https://www.rfc-editor.org/info/rfc2606/#section-2)) to indicate invalid domains.
 
 ~~~ corefile
 . {
@@ -342,7 +342,7 @@ requested type.
 
 * [Go regexp](https://golang.org/pkg/regexp/) for details about the regex implementation
 * [RE2 syntax reference](https://github.com/google/re2/wiki/Syntax) for details about the regex syntax
-* [RFC 1034](https://tools.ietf.org/html/rfc1034#section-3.6.1) and [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) for the resource record format
+* [RFC 1034](https://www.rfc-editor.org/info/rfc1034/#section-3.6.1) and [RFC 1035](https://www.rfc-editor.org/info/rfc1035/#section-5) for the resource record format
 * [Go template](https://golang.org/pkg/text/template/) for the template language reference
 
 ## Bugs

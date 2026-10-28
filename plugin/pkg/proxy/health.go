@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/doh"
@@ -53,6 +52,8 @@ func NewHealthChecker(proxyName, protocol string, recursionDesired bool, domain 
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
+		// A Dialer replaces dns.Client's own 2s dial timeout, so keep it.
+		c.Dialer = &net.Dialer{Timeout: 2 * time.Second, Control: recvErr}
 		setDefaultTimeout(c)
 
 		return &dnsHc{
@@ -128,7 +129,7 @@ func (h *doqHc) Check(p *Proxy) error {
 		return err
 	}
 
-	atomic.StoreUint32(&p.fails, 0)
+	p.resetFails()
 	return nil
 }
 
@@ -217,7 +218,7 @@ func (h *dnsHc) Check(p *Proxy) error {
 		return err
 	}
 
-	atomic.StoreUint32(&p.fails, 0)
+	p.resetFails()
 	return nil
 }
 
@@ -291,7 +292,7 @@ func (h *dohHc) Check(p *Proxy) error {
 		return err
 	}
 
-	atomic.StoreUint32(&p.fails, 0)
+	p.resetFails()
 	return nil
 }
 

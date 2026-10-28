@@ -2,6 +2,7 @@ package dnsserver
 
 import (
 	"context"
+	"crypto/sha512"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -106,6 +107,12 @@ type Config struct {
 	// Has no effect unless ProxyProtoUDPSessionTrackingTTL is positive.
 	ProxyProtoUDPSessionTrackingMaxSessions int
 
+	// ProxyProtoTLVMetadata, when true, captures the PPv2 TLV vector and exposes
+	// it to downstream plugins as the "proxyproto/tlv" metadata label (raw hex).
+	// Opt-in: off by default so existing listeners skip the extra TLV processing.
+	// Has no effect unless ProxyProtoConnPolicy is also set.
+	ProxyProtoTLVMetadata bool
+
 	// MaxGRPCStreams defines the maximum number of concurrent streams per gRPC connection.
 	// This is nil if not specified, allowing for a default to be used.
 	MaxGRPCStreams *int
@@ -203,6 +210,13 @@ func GetConfig(c *caddy.Controller) *Config {
 	// the configs.
 	ctx.saveConfig(key, &Config{ListenHosts: []string{""}})
 	return GetConfig(c)
+}
+
+// GetConfigHash returns the SHA512 hash of the parsed configuration for c's
+// instance, including all server blocks and expanded imports. It is captured
+// before server block normalization and plugin setup, without re-reading files.
+func GetConfigHash(c *caddy.Controller) [sha512.Size]byte {
+	return c.Context().(*dnsContext).configHash
 }
 
 // AddPluginToAllServerBlocks adds m once to every server block in c's

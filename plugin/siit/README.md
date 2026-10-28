@@ -48,12 +48,12 @@ The `server` label is explained in the _prometheus_ plugin documentation.
 ## Bugs
 
 * Prefix matching in eam is not implemented yet.
-* DNSSEC support is not implemented yet. The problem is the same as DNS64. See: [RFC 6147 Section 3](https://tools.ietf.org/html/rfc6147#section-3)
+* DNSSEC support is not implemented yet. The problem is the same as DNS64. See: [RFC 6147 Section 3](https://www.rfc-editor.org/info/rfc6147/#section-3)
 
 ## See Also
 
-See [RFC 6052](https://tools.ietf.org/html/rfc6052) for more information on the SIIT mechanism
-and [RFC 7757](https://tools.ietf.org/html/rfc7757) about the explicit address mappings (eam) mechanism
+See [RFC 6052](https://www.rfc-editor.org/info/rfc6052/) for more information on the SIIT mechanism
+and [RFC 7757](https://www.rfc-editor.org/info/rfc7757/) about the explicit address mappings (eam) mechanism
 
 ## Notes
 

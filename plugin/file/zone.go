@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -8,10 +9,16 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/file/tree"
-	"github.com/coredns/coredns/plugin/pkg/upstream"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
+
+// Upstreamer is used to resolve CNAME or other external targets during the
+// resolution process.
+type Upstreamer interface {
+	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
+}
 
 // Zone is a structure that contains all data related to a DNS zone.
 type Zone struct {
@@ -32,7 +39,7 @@ type Zone struct {
 	ReloadByMtime  bool
 	reloadShutdown chan bool
 
-	Upstream *upstream.Upstream // Upstream for looking up external names during the resolution process.
+	Upstream Upstreamer // Upstream for looking up external names during the resolution process.
 }
 
 // Apex contains the apex records of a zone: SOA, NS and their potential signatures.

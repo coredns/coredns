@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -271,7 +272,9 @@ func podIPIndexFunc(obj any) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
-	return []string{p.PodIP}, nil
+	idx := make([]string, len(p.PodIPs))
+	copy(idx, p.PodIPs)
+	return idx, nil
 }
 
 func svcIPIndexFunc(obj any) ([]string, error) {
@@ -776,7 +779,7 @@ func podModified(oldObj, newObj any) bool {
 	if !okOld || !okNew {
 		return true
 	}
-	return oldPod.PodIP != newPod.PodIP
+	return !slices.Equal(oldPod.PodIPs, newPod.PodIPs)
 }
 
 // endpointsEquivalent checks if the update to an endpoint is something

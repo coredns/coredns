@@ -89,7 +89,7 @@ geoip [DBFILE] {
 
   **NOTE:** due to security reasons, recursive DNS resolvers may mask a few bits off of the clients' IP address, which can cause inaccuracies in GeoIP resolution.
 
-  There is no defined mask size in the standards, but there are examples: [RFC 7871's example](https://datatracker.ietf.org/doc/html/rfc7871#section-13) conceals the last 72 bits of an IPv6 source address, and NS1 Help Center [mentions](https://help.ns1.com/hc/en-us/articles/360020256573-About-the-EDNS-Client-Subnet-ECS-DNS-extension) that ECS-enabled DNS resolvers send only the first three octets (eg. /24) of the source IPv4 address.
+  There is no defined mask size in the standards, but there are examples: [RFC 7871's example](https://www.rfc-editor.org/info/rfc7871/#section-13) conceals the last 72 bits of an IPv6 source address, and NS1 Help Center [mentions](https://help.ns1.com/hc/en-us/articles/360020256573-About-the-EDNS-Client-Subnet-ECS-DNS-extension) that ECS-enabled DNS resolvers send only the first three octets (eg. /24) of the source IPv4 address.
 
 ## Examples
 
@@ -135,7 +135,7 @@ A limited set of fields will be exported as labels, all values are stored using 
 | `geoip/country/code`                 | `string`  | `GB`             | Country [ISO 3166-1](https://en.wikipedia.org/wiki/ISO_3166-1) code.
 | `geoip/country/name`                 | `string`  | `United Kingdom` | The country name in English language.
 | `geoip/country/is_in_european_union` | `bool`    | `false`          | Either `true` or `false`.
-| `geoip/continent/code`               | `string`  | `EU`             | See [Continent codes](#ContinentCodes).
+| `geoip/continent/code`               | `string`  | `EU`             | See [Continent codes](#continent-codes).
 | `geoip/continent/name`               | `string`  | `Europe`         | The continent name in English language.
 | `geoip/latitude`                     | `float64` | `52.2242`        | Base 10, max available precision.
 | `geoip/longitude`                    | `float64` | `0.1315`         | Base 10, max available precision.

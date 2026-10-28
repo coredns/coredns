@@ -148,7 +148,8 @@ func normalizeEndpoint(epType, ep string) (string, string, error) {
 	}
 
 	if epType == "zipkin" {
-		if !strings.Contains(ep, "http") {
+		lowerEp := strings.ToLower(ep)
+		if !strings.HasPrefix(lowerEp, "http://") && !strings.HasPrefix(lowerEp, "https://") {
 			ep = "http://" + ep + "/api/v2/spans"
 		}
 	}

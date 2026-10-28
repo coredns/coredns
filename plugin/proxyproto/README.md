@@ -17,6 +17,7 @@ proxyproto {
     allow <CIDR...>
     default <use|ignore|reject|skip>
     udp_session_tracking <duration> [max_sessions]
+    tlv_metadata
 }
 ~~~
 
@@ -39,6 +40,30 @@ and automatically applied to all subsequent headerless datagrams within that win
 refreshed on each matching packet. The optional `max_sessions` argument caps the number of
 concurrent sessions in the LRU cache (default: 10240). This option has no effect for TCP
 connections.
+
+The `tlv_metadata` option exposes the PROXY Protocol v2 [TLV](https://www.haproxy.org/download/2.3/doc/proxy-protocol.txt)
+(Type-Length-Value) vector from the header to downstream plugins via the
+[*metadata*](../metadata/README.md) plugin. When set, and the *metadata* plugin is enabled, the
+raw TLV vector is published under the label `proxyproto/tlv` as a hex-encoded string. Consumers
+decode the hex and split it with `proxyproto.SplitTLVs` from
+`github.com/pires/go-proxyproto` to read individual TLVs (e.g. the AWS VPC endpoint ID, SSL
+client CN, or vendor-specific custom TLVs). This option is opt-in: without it, TLVs are not
+captured and no extra per-connection processing occurs. It applies to all transports: `dns://`
+(UDP and TCP), `tls://` (DoT), `https://` (DoH), `grpc://`, `quic://` (DoQ), and `https3://`
+(DoH3).
+
+For the QUIC-based transports (`quic://` and `https3://`), the PPv2 header arrives as a
+standalone first datagram ahead of the QUIC handshake, so TLV capture additionally requires
+`udp_session_tracking` to be enabled; the cached session links the subsequent headerless QUIC
+datagrams to the header's source and TLVs.
+
+## Metadata
+
+When the `tlv_metadata` option and the *metadata* plugin are both enabled, the following metadata
+label is made available:
+
+- `proxyproto/tlv`: the raw PPv2 TLV vector, hex-encoded. Only set when the request's connection
+  carried a PPv2 header with at least one TLV.
 
 ## Examples
 
@@ -99,5 +124,20 @@ In this configuration, the session cap is raised to 20480:
         udp_session_tracking 28s 20000
     }
     forward . /etc/resolv.conf
+}
+~~~
+
+In this configuration, PPv2 TLVs are exposed to downstream plugins as metadata. The *metadata*
+plugin must also be enabled. Here the *log* plugin records the raw TLV vector:
+
+~~~ corefile
+. {
+    metadata
+    proxyproto {
+        allow 192.168.1.1/32
+        tlv_metadata
+    }
+    forward . /etc/resolv.conf
+    log . "{remote} {/proxyproto/tlv}"
 }
 ~~~

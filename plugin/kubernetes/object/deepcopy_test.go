@@ -55,7 +55,7 @@ func deepCopyCases() []struct {
 	}{
 		{"Pod", &Pod{
 			Version:   "1",
-			PodIP:     "10.244.0.1",
+			PodIPs:    []string{"10.244.0.1", "fd00::1"},
 			Name:      "pod1",
 			Namespace: "testns",
 			Labels:    map[string]string{"app": "nginx", "tier": "frontend"},
@@ -196,7 +196,7 @@ func TestDeepCopyObjectIsDeep(t *testing.T) {
 // Nil maps and slices must stay nil rather than becoming empty, so a round trip does
 // not change how a value compares.
 func TestDeepCopyObjectPreservesNilLabels(t *testing.T) {
-	pod := &Pod{Version: "1", PodIP: "10.244.0.1", Name: "pod1", Namespace: "testns"}
+	pod := &Pod{Version: "1", PodIPs: []string{"10.244.0.1"}, Name: "pod1", Namespace: "testns"}
 	cp := pod.DeepCopyObject().(*Pod)
 	if cp.Labels != nil {
 		t.Errorf("nil Labels became %#v after a round trip", cp.Labels)

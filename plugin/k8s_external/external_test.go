@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -98,6 +99,130 @@ func TestExternalCNAMENilUpstreamResponse(t *testing.T) {
 	_, err = e.ServeDNS(ctx, w, m)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
+	}
+}
+
+func TestExternalCNAMETargetsChasedOnce(t *testing.T) {
+	lookups := 0
+	cfg := &dnsserver.Config{
+		Zone: ".",
+		Plugin: []plugin.Plugin{
+			func(plugin.Handler) plugin.Handler {
+				return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					lookups++
+					m := new(dns.Msg)
+					m.SetReply(r)
+					w.WriteMsg(m)
+					return dns.RcodeSuccess, nil
+				})
+			},
+		},
+	}
+	server, err := dnsserver.NewServer("dns://:53", []*dnsserver.Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	ctx := context.WithValue(context.Background(), dnsserver.Key{}, server)
+
+	e := New()
+	e.upstream = upstream.New()
+	services := make([]msg.Service, 50)
+	for i := range services {
+		services[i] = msg.Service{Host: "target.example.org"}
+	}
+
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA} {
+		lookups = 0
+		m := new(dns.Msg)
+		m.SetQuestion("service.example.com.", qtype)
+		state := request.Request{W: &test.ResponseWriter{}, Req: m}
+		if qtype == dns.TypeA {
+			e.a(ctx, services, state)
+		} else {
+			e.aaaa(ctx, services, state)
+		}
+		if lookups != 1 {
+			t.Errorf("%s: expected one lookup for a repeated target, got %d", dns.TypeToString[qtype], lookups)
+		}
+	}
+}
+
+func TestExternalCNAMESelfLookupIsBounded(t *testing.T) {
+	e := New()
+	e.Zones = []string{"example.com."}
+	e.headless = true
+	e.upstream = upstream.New()
+	e.externalSerialFunc = externalSerial
+
+	calls := 0
+	e.externalFunc = func(state request.Request, _ bool) ([]msg.Service, int) {
+		calls++
+		return []msg.Service{{Host: state.QName(), TTL: 5}}, dns.RcodeSuccess
+	}
+
+	cfg := &dnsserver.Config{
+		Zone: ".",
+		Plugin: []plugin.Plugin{
+			func(plugin.Handler) plugin.Handler { return e },
+		},
+	}
+	server, err := dnsserver.NewServer("dns://:53", []*dnsserver.Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	ctx := context.WithValue(context.Background(), dnsserver.Key{}, server)
+
+	m := new(dns.Msg)
+	m.SetQuestion("service.example.com.", dns.TypeA)
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	server.ServeDNS(ctx, w, m)
+
+	if calls != 1 {
+		t.Fatalf("expected a direct self-reference to stop immediately, got %d calls", calls)
+	}
+	if w.Msg == nil {
+		t.Fatal("expected a response")
+	}
+}
+
+func TestExternalCNAMEIndirectLoopIsBounded(t *testing.T) {
+	e := New()
+	e.Zones = []string{"example.com."}
+	e.headless = true
+	e.upstream = upstream.New()
+
+	calls := 0
+	e.externalFunc = func(state request.Request, _ bool) ([]msg.Service, int) {
+		calls++
+		target := "service.example.com."
+		if state.Name() == target {
+			target = "other.example.com."
+		}
+		return []msg.Service{{Host: target, TTL: 5}}, dns.RcodeSuccess
+	}
+
+	cfg := &dnsserver.Config{
+		Zone: ".",
+		Plugin: []plugin.Plugin{
+			func(plugin.Handler) plugin.Handler { return e },
+		},
+	}
+	server, err := dnsserver.NewServer("dns://:53", []*dnsserver.Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	ctx := context.WithValue(context.Background(), dnsserver.Key{}, server)
+
+	m := new(dns.Msg)
+	m.SetQuestion("service.example.com.", dns.TypeA)
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	server.ServeDNS(ctx, w, m)
+
+	if calls != 11 {
+		t.Fatalf("expected the initial query plus ten bounded self-lookups, got %d calls", calls)
+	}
+	if w.Msg == nil {
+		t.Fatal("expected a response")
 	}
 }
 

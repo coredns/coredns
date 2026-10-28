@@ -20,6 +20,8 @@ dns64 [PREFIX]
 ~~~
 
 * **PREFIX** defines a custom prefix instead of the default `64:ff9b::/96`.
+  Its length must be 32, 40, 48, 56, 64, or 96 bits, as defined in
+  [RFC 6052 Section 2.2](https://www.rfc-editor.org/info/rfc6052/#section-2.2).
 
 Or use this slightly longer form with more options:
 
@@ -99,8 +101,8 @@ Not all features required by DNS64 are implemented, only basic AAAA synthesis.
 
 * Support "mapping of separate IPv4 ranges to separate IPv6 prefixes"
 * Resolve PTR records
-* Make resolver DNSSEC aware. See: [RFC 6147 Section 3](https://tools.ietf.org/html/rfc6147#section-3)
+* Make resolver DNSSEC aware. See: [RFC 6147 Section 3](https://www.rfc-editor.org/info/rfc6147/#section-3)
 
 ## See Also
 
-See [RFC 6147](https://tools.ietf.org/html/rfc6147) for more information on the DNS64 mechanism.
+See [RFC 6147](https://www.rfc-editor.org/info/rfc6147/) for more information on the DNS64 mechanism.

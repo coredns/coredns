@@ -8,8 +8,10 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/pb"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -135,6 +137,62 @@ func TestProxyUnix(t *testing.T) {
 	}
 	if x := rec.Msg.Answer[0].Header().Name; x != "example.org." {
 		t.Errorf("Expected %s, got %s", "example.org.", x)
+	}
+}
+
+func TestShutdownClosesClientConnection(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := grpc.NewServer()
+	pb.RegisterDnsServiceServer(server, &grpcDnsServiceServer{})
+	go server.Serve(listener)
+	t.Cleanup(func() {
+		server.Stop()
+		listener.Close()
+	})
+
+	oldDirectives, oldCaddyQuiet, oldDNSQuiet := dnsserver.Directives, caddy.Quiet, dnsserver.Quiet
+	t.Cleanup(func() {
+		dnsserver.Directives, caddy.Quiet, dnsserver.Quiet = oldDirectives, oldCaddyQuiet, oldDNSQuiet
+	})
+	if err := dnsserver.SetDirectives([]string{"grpc"}); err != nil {
+		t.Fatal(err)
+	}
+	caddy.Quiet, dnsserver.Quiet = true, true
+
+	instance, err := caddy.Start(caddy.CaddyfileInput{
+		Filepath:       "Corefile",
+		Contents:       []byte(".:0 {\ngrpc . " + listener.Addr().String() + "\n}\n"),
+		ServerTypeName: "dns",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := instance.Stop(); err != nil {
+			t.Errorf("stop CoreDNS instance: %v", err)
+		}
+		instance.Wait()
+	})
+
+	query := new(dns.Msg)
+	query.SetQuestion("example.org.", dns.TypeA)
+	response, _, err := (&dns.Client{Timeout: time.Second}).Exchange(query, instance.Servers()[0].LocalAddr().String())
+	if err != nil {
+		t.Fatalf("query before shutdown: %v", err)
+	}
+	if response.Rcode != dns.RcodeSuccess {
+		t.Fatalf("query before shutdown returned %s", dns.RcodeToString[response.Rcode])
+	}
+
+	if err := errors.Join(instance.ShutdownCallbacks()...); err != nil {
+		t.Fatalf("shutdown callbacks: %v", err)
+	}
+	response, _, err = (&dns.Client{Timeout: time.Second}).Exchange(query, instance.Servers()[0].LocalAddr().String())
+	if err == nil && response.Rcode == dns.RcodeSuccess {
+		t.Fatal("gRPC client connection remained usable after shutdown callbacks")
 	}
 }
 

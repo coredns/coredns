@@ -716,7 +716,7 @@ func (APIConnServeTest) PodIndex(ip string) []*object.Pod {
 	}
 	a := []*object.Pod{
 		{
-			Namespace: "podns", Name: "foo", PodIP: "10.240.0.1",
+			Namespace: "podns", Name: "foo", PodIPs: []string{"10.240.0.1"},
 			Labels: map[string]string{
 				"app.kubernetes.io/name": "foo",
 				"bar":                    "baz",
