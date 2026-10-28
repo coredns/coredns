@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,6 +16,8 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
+	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 )
 
 // Because we don't properly shutdown the metrics servers we are re-using the metrics between tests, not a superbad issue
@@ -407,5 +410,50 @@ func TestMetricsAvailable(t *testing.T) {
 	// we should have metrics from forward, cache, and metrics itself
 	if err := collectMetricsInfo(metrics.ListenAddr, procMetric, procCache, procCacheMiss, procForward); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
+	}
+}
+
+func TestMetricsTextFormatScrape(t *testing.T) {
+	corefile := `example.org:0 {
+		whoami
+		prometheus localhost:0
+	}`
+
+	srv, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer srv.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	if _, err = dns.Exchange(m, udp); err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+
+	// Scrape with text format Accept header to verify the text parser path
+	req, err := http.NewRequest("GET", "http://"+metrics.ListenAddr+"/metrics", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %s", err)
+	}
+	req.Header.Set("Accept", "text/plain; version=0.0.4")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to scrape metrics: %s", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected HTTP 200, got %d", resp.StatusCode)
+	}
+
+	parser := expfmt.NewTextParser(model.LegacyValidation)
+	families, err := parser.TextToMetricFamilies(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to parse text metric families: %s", err)
+	}
+
+	if _, ok := families["coredns_dns_requests_total"]; !ok {
+		t.Errorf("Expected coredns_dns_requests_total in text scraped metrics")
 	}
 }
