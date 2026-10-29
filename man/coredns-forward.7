@@ -79,6 +79,7 @@ forward FROM TO... {
     failover RCODE\_1 [RCODE\_2] [RCODE\_3...]
     source\_address IP
     resolver IP[:PORT] [IP[:PORT]...]
+    qtype\_for\_metrics TYPES...
 }
 
 .fi
@@ -203,6 +204,13 @@ As an upper bound for \fBMAX\fP, consider that each concurrent query will use ab
 .IP \(bu 4
 \fB\fCresolver\fR \fBIP[:PORT] [IP[:PORT]...]\fP specifies one or more DNS resolver addresses used to resolve hostname-based \fBTO\fP endpoints at startup. If not specified, the system resolver (\fB\fC/etc/resolv.conf\fR) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or \fB\fCIP:port\fR. Multiple addresses can be specified for redundancy.
 
+.IP \(bu 4
+\fB\fCqtype_for_metrics\fR \fBTYPES...\fP adds \fB\fCquery_name\fR and \fB\fCquery_type\fR labels to request\-duration
+observations for the listed DNS query types. At least one type is required; names such as \fB\fCA AAAA\fR
+are case\-insensitive, and \fB\fCTYPE65400\fR notation supports private or unknown types. \fB\fCANY\fR selects
+questions of type ANY, not all query types. This option may appear once per stanza and is disabled
+by default. See \fBQuery labels\fP for cardinality, retention, and aggregation.
+
 
 .PP
 The client certificate, key, and CA configuration is global for one \fB\fCforward\fR stanza. For DoT and DoQ,
@@ -268,6 +276,87 @@ The following metrics have recently been deprecated:
   * Can be replaced with \fB\fCcoredns_proxy_request_duration_seconds_count{proxy_name="forward", to, rcode}\fR
 * \fB\fCcoredns_forward_request_duration_seconds{to, rcode}\fR
   * Can be replaced with \fB\fCcoredns_proxy_request_duration_seconds{proxy_name="forward", to, rcode}\fR
+
+.SS "QUERY LABELS"
+.PP
+With \fB\fCqtype_for_metrics\fR, every matching upstream response is recorded in the existing
+\fB\fCcoredns_proxy_request_duration_seconds\fR histogram with the additional ordinary labels
+\fB\fCquery_name\fR and \fB\fCquery_type\fR. These labels are available to PromQL and alert rules. The query name
+is lowercased and represented as a fully qualified DNS name, with escaping as needed. Long names
+are retained in full. There is no sampling or name truncation.
+
+.PP
+Each upstream response is observed exactly once. Unselected query types and forwarders without
+this option retain the original \fB\fCproxy_name\fR, \fB\fCto\fR, and \fB\fCrcode\fR labels. Both label sets can coexist
+under the same metric name; summing over the query labels preserves the aggregate counts, sums,
+and buckets. Retries and failover can produce multiple observations, one for each upstream response.
+As with the ordinary histogram, attempts that fail without a response have no duration observation.
+
+.PP
+\fBCardinality and retention:\fP each distinct combination of query name, type, upstream and response
+code creates another histogram. Filtering query types does not bound the number of names. Memory
+usage and scrape size grow with these combinations, so restrict this option to a narrow forwarding
+zone and traffic you control. Enabling it for arbitrary public queries can exhaust CoreDNS or
+Prometheus resources. Query names are exposed to metrics consumers. Reloading or disabling the
+option does not delete previously accumulated series; restart CoreDNS to clear its retained series.
+Prometheus retains already scraped data according to its own retention policy.
+
+.PP
+For example, record A and AAAA queries sent upstream for \fB\fCcluster.local\fR and its subdomains, while
+keeping ordinary metrics for other forwarded names:
+
+.PP
+.RS
+
+.nf
+\&. {
+    prometheus localhost:9153
+    forward cluster.local 192.0.2.53 {
+        qtype\_for\_metrics A AAAA
+    }
+    forward . 192.0.2.53
+}
+
+.fi
+.RE
+
+.PP
+The ordinary Prometheus scrape format is sufficient; no exemplar storage or tracing backend is
+required. To inspect cumulative counts by query name, type and upstream:
+
+.PP
+.RS
+
+.nf
+sum by (query\_name, query\_type, to) (
+    coredns\_proxy\_request\_duration\_seconds\_count{proxy\_name="forward", query\_name!=""}
+)
+
+.fi
+.RE
+
+.PP
+To calculate the 99th percentile duration by query name and type from classic histogram buckets:
+
+.PP
+.RS
+
+.nf
+histogram\_quantile(0.99,
+    sum by (le, query\_name, query\_type) (
+        rate(coredns\_proxy\_request\_duration\_seconds\_bucket{proxy\_name="forward", query\_name!=""}[5m])
+    )
+)
+
+.fi
+.RE
+
+.PP
+For the scoped configuration above, a nonzero
+\fB\fCcoredns_proxy_request_duration_seconds_count{proxy_name="forward", query_name!=""}\fR
+can also identify unexpected internal forwarding in an alert rule, retaining the query labels on
+the alert. The count is cumulative since that series was created; it is not a count for a recent
+time window.
 
 .SH "EXAMPLES"
 .PP
