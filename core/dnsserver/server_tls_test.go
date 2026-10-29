@@ -1,3 +1,5 @@
+//go:build !notls
+
 package dnsserver
 
 import (
