@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -24,8 +25,9 @@ type lbFuncs struct {
 	shuffleFunc    func(*dns.Msg) *dns.Msg
 	onStartUpFunc  func() error
 	onShutdownFunc func() error
-	weighted       *weightedRR // used in unit tests only
+	weighted       *weightedRR
 	preferSubnets  []*net.IPNet
+	limitAnswers   int
 }
 
 func setup(c *caddy.Controller) error {
@@ -50,7 +52,7 @@ func setup(c *caddy.Controller) error {
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return LoadBalance{Next: next, shuffle: shuffle}
+		return LoadBalance{Next: next, shuffle: shuffle, limitAnswers: lb.limitAnswers}
 	})
 
 	return nil
@@ -83,27 +85,7 @@ func parse(c *caddy.Controller) (*lbFuncs, error) {
 				if !filepath.IsAbs(weightFileName) && config.Root != "" {
 					weightFileName = filepath.Join(config.Root, weightFileName)
 				}
-				reload := 30 * time.Second
-				for c.NextBlock() {
-					switch c.Val() {
-					case "reload":
-						t := c.RemainingArgs()
-						if len(t) < 1 {
-							return nil, c.Err("reload duration value is missing")
-						}
-						if len(t) > 1 {
-							return nil, c.Err("unexpected argument")
-						}
-						var err error
-						reload, err = time.ParseDuration(t[0])
-						if err != nil {
-							return nil, c.Errf("invalid reload duration '%s'", t[0])
-						}
-					default:
-						return nil, c.Errf("unknown property '%s'", c.Val())
-					}
-				}
-				*lb = *createWeightedFuncs(weightFileName, reload)
+				*lb = *createWeightedFuncs(weightFileName, 30*time.Second)
 			default:
 				return nil, fmt.Errorf("unknown policy: %s", args[0])
 			}
@@ -111,6 +93,35 @@ func parse(c *caddy.Controller) (*lbFuncs, error) {
 
 		for c.NextBlock() {
 			switch c.Val() {
+			case "reload":
+				if lb.weighted == nil {
+					return nil, c.Errf("unknown property '%s'", c.Val())
+				}
+				t := c.RemainingArgs()
+				if len(t) < 1 {
+					return nil, c.Err("reload duration value is missing")
+				}
+				if len(t) > 1 {
+					return nil, c.Err("unexpected argument")
+				}
+				var err error
+				lb.weighted.reload, err = time.ParseDuration(t[0])
+				if err != nil {
+					return nil, c.Errf("invalid reload duration '%s'", t[0])
+				}
+			case "limit_answers":
+				if lb.limitAnswers != 0 {
+					return nil, c.Err("limit_answers may only be specified once")
+				}
+				values := c.RemainingArgs()
+				if len(values) != 1 {
+					return nil, c.ArgErr()
+				}
+				var err error
+				lb.limitAnswers, err = strconv.Atoi(values[0])
+				if err != nil || lb.limitAnswers <= 0 {
+					return nil, c.Err("limit_answers must be a positive integer")
+				}
 			case "prefer":
 				cidrs := c.RemainingArgs()
 				for _, cidr := range cidrs {
