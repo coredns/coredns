@@ -1,9 +1,14 @@
 package plugin
 
 import (
+	"bytes"
 	"reflect"
+	"slices"
 	"sort"
+	"strings"
 	"testing"
+
+	"github.com/miekg/dns"
 )
 
 func TestZoneMatches(t *testing.T) {
@@ -200,3 +205,244 @@ func TestOriginsFromArgsOrServerBlock(t *testing.T) {
 		})
 	}
 }
+
+func TestNameCompare(t *testing.T) {
+	tests := []struct {
+		in  []string
+		out []string
+	}{
+		{
+			[]string{"aaa.powerdns.de.", "bbb.powerdns.net.", "xxx.powerdns.com."},
+			[]string{"xxx.powerdns.com.", "aaa.powerdns.de.", "bbb.powerdns.net."},
+		},
+		{
+			[]string{"aaa.POWERDNS.de.", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
+			[]string{"xxx.powerdns.com.", "aaa.POWERDNS.de.", "bbb.PoweRdnS.net."},
+		},
+		{
+			[]string{"aaa.aaaa.aa.", "aa.aaa.a.", "bbb.bbbb.bb."},
+			[]string{"aa.aaa.a.", "aaa.aaaa.aa.", "bbb.bbbb.bb."},
+		},
+		{
+			[]string{"aaaaa.", "aaa.", "bbb."},
+			[]string{"aaa.", "aaaaa.", "bbb."},
+		},
+		{
+			[]string{"a.a.a.a.", "a.a.", "a.a.a."},
+			[]string{"a.a.", "a.a.a.", "a.a.a.a."},
+		},
+		{
+			[]string{"example.", "z.example.", "a.example."},
+			[]string{"example.", "a.example.", "z.example."},
+		},
+		{
+			[]string{"a.example.", "Z.a.example.", "z.example.", "yljkjljk.a.example.", "\\001.z.example.", "example.", "*.z.example.", "\\200.z.example.", "zABC.a.EXAMPLE."},
+			[]string{"example.", "a.example.", "yljkjljk.a.example.", "Z.a.example.", "zABC.a.EXAMPLE.", "z.example.", "\\001.z.example.", "*.z.example.", "\\200.z.example."},
+		},
+		{
+			// RFC3034 example.
+			[]string{"a.example.", "Z.a.example.", "z.example.", "yljkjljk.a.example.", "example.", "*.z.example.", "zABC.a.EXAMPLE."},
+			[]string{"example.", "a.example.", "yljkjljk.a.example.", "Z.a.example.", "zABC.a.EXAMPLE.", "z.example.", "*.z.example."},
+		},
+	}
+
+	less := func(a, b string) int {
+		return Name(a).Compare(b)
+	}
+Tests:
+	for j, test := range tests {
+		slices.SortFunc(test.in, less)
+		for i := range len(test.in) {
+			if test.in[i] != test.out[i] {
+				t.Errorf("Test %d: expected %s, got %s", j, test.out[i], test.in[i])
+				n := ""
+				for k, in := range test.in {
+					if k+1 == len(test.in) {
+						n = "\n"
+					}
+					t.Logf("%s <-> %s\n%s", in, test.out[k], n)
+				}
+				continue Tests
+			}
+		}
+	}
+}
+
+func TestNameCompareRelation_EdgeCases(t *testing.T) {
+	// For every case four variants are synthesized:
+	//  - a  b
+	//  - a. b
+	//  - a  b.
+	//  - a. b.
+	//
+	// For each variant commutativity is tested.
+	tests := []struct {
+		a, b           string
+		variants       bool
+		wantCmp        int
+		wantNested     bool
+		wantAI, wantBI int
+	}{
+		{``, ``, true, 0, true, 0, 0},
+		{``, `\000`, true, -1, true, 0, 4},
+		{``, `\.`, true, -1, true, 0, 2},
+		{`\.`, `\.`, true, 0, true, 0, 0},
+		{``, `example`, true, -1, true, 0, 7},
+		{`example`, `example`, true, 0, true, 0, 0},
+		{`a\.example`, `a.example`, true, -1, false, 10, 9},
+		{`a.example`, `a-b.example`, true, -1, false, 2, 4},
+		{`a.example`, `a*.example`, true, -1, false, 2, 3},
+		{`a.example`, `a\000.example`, true, -1, false, 2, 6},
+		{`a.eXaMpLe`, `a.example`, true, 0, true, 0, 0},
+		{`\000\0320 \"\046@*`, `\000\032\048\032\034\046\064\042`, true, 0, true, 0, 0},
+		{`<=>?@ABCDE`, `\060\061\062\063\064\065\066\067\068\069`, true, 0, true, 0, 0},
+		{`<=>?@ABCDE`, `\060\061\062\063\064\097\098\099\100\101`, true, 0, true, 0, 0},
+		{`café.example`, `CAFÉ.example`, true, 1, false, 6, 6}, // é (\195\169) > É (\195\137)
+		{`\\065.example`, `\\097.example`, true, -1, false, 6, 6},
+		{``, `\`, false, 0, true, 0, 0},
+		{`a\.b.example`, `a\046b.example`, true, 0, true, 0, 0},
+		{`0.example`, `\0.example`, true, 0, true, 0, 0},
+		{`01.example`, `\01.example`, true, 0, true, 0, 0},
+		{`a\.b.example`, `a\046b.example`, true, 0, true, 0, 0},
+		{`\\.example`, `\092.example`, true, 0, true, 0, 0},
+		{`a.B.example`, `b.EXAMPLE`, true, 1, true, 2, 0},
+		{`\097.b.example`, `B.EXAMPLE`, true, 1, true, 5, 0},
+		{`\..example`, `example`, true, 1, true, 3, 0},
+		{`a\\.example`, `example`, true, 1, true, 4, 0},
+		{`aexample`, `example`, true, -1, false, 8, 7},
+		{`a\.example`, `example`, true, -1, false, 10, 7},
+		{`a\\\.example`, `example`, true, -1, false, 12, 7},
+		{`\046example`, `example`, true, -1, false, 11, 7},
+		{`example`, `example\.`, true, -1, false, 7, 9},
+		{`x.a\.b.example`, `a.b.example`, true, -1, false, 7, 4},
+	}
+	for i, test := range tests {
+		variants := []struct{ a, b string }{
+			{test.a, test.b},
+			{test.a + `.`, test.b},
+			{test.a, test.b + `.`},
+			{test.a + `.`, test.b + `.`},
+		}
+		if !test.variants {
+			variants = variants[:1]
+		}
+
+		for _, variant := range variants {
+			cmp, nested, ni := Name(variant.a).CompareRelation(variant.b)
+			cmp = max(-1, min(1, cmp))
+			if cmp != test.wantCmp || nested != test.wantNested || ni != test.wantAI {
+				t.Errorf("Test %d: expected CompareRelation(%s, %s)=(%v, %v, %v), got (%v, %v, %v)",
+					i, variant.a, variant.b, test.wantCmp, test.wantNested, test.wantAI, cmp, nested, ni)
+			}
+
+			cmp, nested, ni = Name(variant.b).CompareRelation(variant.a)
+			cmp = max(-1, min(1, cmp))
+			if cmp != -test.wantCmp || nested != test.wantNested || ni != test.wantBI {
+				t.Errorf("Test %d: expected CompareRelation(%s, %s)=(%v, %v, %v), got (%v, %v, %v)",
+					i, variant.b, variant.a, -test.wantCmp, test.wantNested, test.wantBI, cmp, nested, ni)
+			}
+		}
+	}
+}
+
+func TestNameCanonicalEscape(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{`has\046dot.campus.edu.`, `has\.dot.campus.edu.`},
+		{`has\.dot.campus.edu.`, `has\.dot.campus.edu.`},
+		{`plain.campus.edu.`, `plain.campus.edu.`},
+		{`a\009b.campus.edu.`, `a\009b.campus.edu.`}, // tab stays \DDD (unprintable)
+		{`café.example`, `caf\195\169.example`},
+	}
+	for _, tc := range cases {
+		if got := Name(tc.in).CanonicalEscape(); got != tc.want {
+			t.Errorf("canonicalEscape(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func BenchmarkNameCompare(b *testing.B) {
+	less := func(a, b string) int {
+		return Name(a).Compare(b)
+	}
+	tests := [][]string{
+		{"aaa.powerdns.de", "bbb.powerdns.net.", "xxx.powerdns.com."},
+		{"aaa.POWERDNS.de", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
+		{"aaa.aaaa.aa.", "aa.aaa.a.", "bbb.bbbb.bb."},
+		{"aaaaa.", "aaa.", "bbb."},
+		{"a.a.a.a.", "a.a.", "a.a.a."},
+		{"example.", "z.example.", "a.example."},
+		{"a.example.", "Z.a.example.", "z.example.", "yljkjljk.a.example.", "\\001.z.example.", "example.", "*.z.example.", "\\200.z.example.", "zABC.a.EXAMPLE."},
+		{"a.example.", "Z.a.example.", "z.example.", "yljkjljk.a.example.", "example.", "*.z.example.", "zABC.a.EXAMPLE."},
+	}
+	b.ResetTimer()
+
+	b.Run("base", func(b *testing.B) {
+		for b.Loop() {
+			for _, t := range tests {
+				for m := range len(t) - 1 {
+					for n := m + 1; n < len(t); n++ {
+						less0(t[m], t[n])
+					}
+				}
+			}
+		}
+	})
+
+	b.Run("optimized", func(b *testing.B) {
+		for b.Loop() {
+			for _, t := range tests {
+				for m := range len(t) - 1 {
+					for n := m + 1; n < len(t); n++ {
+						less(t[m], t[n])
+					}
+				}
+			}
+		}
+	})
+}
+
+// The original less function, serving as the benchmark test baseline.
+func less0(a, b string) int {
+	i := 1
+	aj := len(a)
+	bj := len(b)
+	for {
+		ai, oka := dns.PrevLabel(a, i)
+		bi, okb := dns.PrevLabel(b, i)
+		if oka && okb {
+			return 0
+		}
+
+		// sadly this []byte will allocate... TODO(miek): check if this is needed
+		// for a name, otherwise compare the strings.
+		ab := []byte(strings.ToLower(a[ai:aj]))
+		bb := []byte(strings.ToLower(b[bi:bj]))
+		doDDD(ab)
+		doDDD(bb)
+
+		res := bytes.Compare(ab, bb)
+		if res != 0 {
+			return res
+		}
+
+		i++
+		aj, bj = ai, bi
+	}
+}
+
+func doDDD(b []byte) {
+	lb := len(b)
+	for i := 0; i < lb; i++ {
+		if i+3 < lb && b[i] == '\\' && isDigit(b[i+1]) && isDigit(b[i+2]) && isDigit(b[i+3]) {
+			b[i] = dddToByte(b[i:])
+			for j := i + 1; j < lb-3; j++ {
+				b[j] = b[j+3]
+			}
+			lb -= 3
+		}
+	}
+}
+func isDigit(b byte) bool     { return b >= '0' && b <= '9' }
+func dddToByte(s []byte) byte { return (s[1]-'0')*100 + (s[2]-'0')*10 + (s[3] - '0') }

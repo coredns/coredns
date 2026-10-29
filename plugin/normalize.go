@@ -20,14 +20,15 @@ import (
 // Zones represents a lists of zone names.
 type Zones []string
 
-// Matches checks if qname is a subdomain of any of the zones in z.  The match
-// will return the most specific zones that matches. The empty string
-// signals a not found condition.
+// Matches finds most specific zone that qname is subdomain of.
+// Empty string signals not found condition.
 func (z Zones) Matches(qname string) (zone string) {
 	for _, zname := range z {
-		if dns.IsSubDomain(zname, qname) {
-			// We want the *longest* matching zone, otherwise we may end up in a parent
-			if len(zname) > len(zone) {
+		cmp, nested, _ := Name(zname).CompareRelation(qname)
+		if cmp == 0 {
+			return zname // cannot be more specific than equal
+		} else if cmp < 0 && nested {
+			if zone == "" || Name(zname).Compare(zone) > 0 {
 				zone = zname
 			}
 		}
@@ -35,9 +36,10 @@ func (z Zones) Matches(qname string) (zone string) {
 	return zone
 }
 
+// Contains checks if qname is subdomain of any zone in z.
 func (z Zones) Contains(qname string) bool {
 	return slices.ContainsFunc(z, func(zname string) bool {
-		return dns.IsSubDomain(zname, qname)
+		return Name(zname).Matches(qname)
 	})
 }
 
@@ -55,14 +57,122 @@ type Name string
 // Matches checks to see if other is a subdomain (or the same domain) of n.
 // This method assures that names can be easily and consistently matched.
 func (n Name) Matches(child string) bool {
-	if dns.Name(n) == dns.Name(child) {
-		return true
-	}
-	return dns.IsSubDomain(string(n), child)
+	cmp, nested, _ := n.CompareRelation(child)
+	return cmp == 0 || cmp < 0 && nested
 }
 
 // Normalize lowercases and makes n fully qualified.
+//
+// Bytes outside a-zA-Z range with distinct upper and lower cases MUST be in \DDD form.
 func (n Name) Normalize() string { return strings.ToLower(dns.Fqdn(string(n))) }
+
+// CanonicalEscape brings escape sequences in line with presentation format as decoded from wire.
+//
+// Use on domain names supplied by user to properly compare and match against wire data.
+//
+//	Name(`café.example`).CanonicalEscape() == `caf\195\169.example`
+//	Name(`ex\a\m\ple.`).CanonicalEscape() == `example.`
+func (n Name) CanonicalEscape() (n1 string) {
+	n1 = string(n)
+	if n1 == "" {
+		return n1
+	}
+	fqdn := dns.IsFqdn(n1)
+	if !fqdn {
+		n1 = n1 + "."
+	}
+	buf := make([]byte, len(n1)+1) // packing folds all escapes
+	off, err := dns.PackDomainName(n1, buf, 0, nil, false)
+	if err != nil {
+		return string(n)
+	}
+	out, _, err := dns.UnpackDomainName(buf[:off], 0)
+	if err != nil {
+		return string(n)
+	}
+	if !fqdn {
+		out = out[:len(out)-1]
+	}
+	return out
+}
+
+// Compare compares domain names regardless of normalization.
+//
+// Follows DNSSEC canonical ordering (RFC 4034, Section 6.1):
+//   - `\DDD` byte is decoded before comparison
+//   - Uppercase A-Z letters are treated as if they were lowercase
+//   - Absence of octet sorts before zero value octet
+//
+// Quirks:
+//   - Trailing `\` that escapes nothing is ignored
+//   - Leading `\` in `\D` and `\DD` is ignored
+//   - Non-FQDN names are assumed to be root-terminated
+func (n Name) Compare(name string) int {
+	cmp, _, _ := n.CompareRelation(name)
+	return cmp
+}
+
+// CompareRelation is like [Name.Compare] but also reports how names relate:
+//   - nested is whether greater name is subdomain
+//   - n[ni:] is longest common label suffix of n and name
+func (n Name) CompareRelation(name string) (cmp int, nested bool, ni int) {
+	var (
+		a, b         = string(n), name
+		adot, bdot   int
+		aoff, boff   int
+		alast, blast = stripTrailingBackslash(a), stripTrailingBackslash(b)
+		ac, bc       byte
+	)
+
+	if adot, _ = prevDot(a, alast); alast >= 0 && alast == adot {
+		alast--
+	}
+	if bdot, _ = prevDot(b, blast); blast >= 0 && blast == bdot {
+		blast--
+	}
+	ni = alast + 1
+
+	//   dot       off
+	//    ▼         ▼
+	//  my.exampledomain.com.
+	//     ▲           ▲
+	//   first        last
+
+	for alast >= 0 && blast >= 0 {
+		adot, aoff = prevDot(a, alast)
+		bdot, boff = prevDot(b, blast)
+
+		for aoff <= alast && boff <= blast {
+			ac, aoff = a[aoff], aoff+1
+			if ac == '\\' {
+				ac, aoff = nextEscapedByte(a, aoff, alast)
+			}
+			ac = foldCase(ac)
+
+			bc, boff = b[boff], boff+1
+			if bc == '\\' {
+				bc, boff = nextEscapedByte(b, boff, blast)
+			}
+			bc = foldCase(bc)
+
+			if ac != bc {
+				return int(ac) - int(bc), false, ni
+			}
+		}
+
+		// Shorter label means less.
+		if cmp = (alast - aoff) - (blast - boff); cmp != 0 {
+			return cmp, false, ni
+		}
+
+		alast = adot - 1
+		blast = bdot - 1
+		ni = adot + 1
+	}
+
+	// Fewer labels means less.
+	return alast - blast, true, ni
+}
 
 type (
 	// Host represents a host from the Corefile, may contain port.
@@ -203,4 +313,53 @@ func OriginsFromArgsOrServerBlock(args, serverblock []string) []string {
 	}
 
 	return s
+}
+
+// stripTrailingBackslash removes hanging backslash that escapes nothing.
+func stripTrailingBackslash(s string) (last int) {
+	last = len(s) - 1
+	for last >= 0 && s[last] == '\\' {
+		last--
+	}
+	if (len(s)-last)%2 == 0 { // `...\` vs `...\\`
+		return len(s) - 2
+	}
+	return len(s) - 1
+}
+
+// prevDot finds label-separator dot in [0, last].
+func prevDot(s string, last int) (dot, first int) {
+	for last >= 0 {
+		if s[last] != '.' {
+			last--
+			continue
+		}
+		off1 := last - 1
+		for off1 >= 0 && s[off1] == '\\' {
+			off1--
+		}
+		if (last-off1)%2 != 0 { // `a\.example` vs `a\\.example`
+			break
+		}
+		last = off1
+	}
+	return last, last + 1
+}
+
+// nextByte implements \DDD-aware and escape-aware advancement.
+func nextEscapedByte(s string, off, last int) (byte, int) {
+	if off+2 <= last {
+		d0, d1, d2 := s[off]-'0', s[off+1]-'0', s[off+2]-'0'
+		if d0 < 10 && d1 < 10 && d2 < 10 {
+			return d0*100 + d1*10 + d2, off + 3
+		}
+	}
+	return s[off], off + 1
+}
+
+func foldCase(c byte) byte {
+	if c-'A' < 26 {
+		c |= 0x20
+	}
+	return c
 }

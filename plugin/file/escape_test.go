@@ -51,19 +51,3 @@ func TestLookupOwnerNameWithDecimalEscape(t *testing.T) {
 		t.Error(err)
 	}
 }
-
-func TestCanonicalEscape(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{`has\046dot.campus.edu.`, `has\.dot.campus.edu.`},
-		{`has\.dot.campus.edu.`, `has\.dot.campus.edu.`},
-		{`plain.campus.edu.`, `plain.campus.edu.`},
-		{`a\009b.campus.edu.`, `a\009b.campus.edu.`}, // tab stays \DDD (unprintable)
-	}
-	for _, tc := range cases {
-		if got := canonicalEscape(tc.in); got != tc.want {
-			t.Errorf("canonicalEscape(%q) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}
