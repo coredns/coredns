@@ -50,7 +50,7 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller, n *Nomad) error {
-	var token string
+	var token, region, namespace string
 	addresses := []string{} // Multiple addresses are stored here
 
 	// Expect the first token to be "nomad"
@@ -89,6 +89,18 @@ func parse(c *caddy.Controller, n *Nomad) error {
 				return c.Err("exactly one token is required")
 			}
 			token = args[0]
+		case "region":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return c.Err("exactly one region is required")
+			}
+			region = args[0]
+		case "namespace":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return c.Err("exactly one namespace is required")
+			}
+			namespace = args[0]
 		case "ttl":
 			args := c.RemainingArgs()
 			if len(args) != 1 {
@@ -119,6 +131,13 @@ func parse(c *caddy.Controller, n *Nomad) error {
 		}
 		if len(token) > 0 {
 			cfg.SecretID = token
+		}
+		if len(region) > 0 {
+			cfg.Region = region
+		}
+		if len(namespace) > 0 {
+			cfg.Namespace = namespace
+			n.namespace = namespace
 		}
 		client, err := nomad.NewClient(cfg)
 		if err != nil {

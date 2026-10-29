@@ -82,6 +82,8 @@ nomad [ZONE] {
     address URL
     filter FILTER
     token TOKEN
+    region REGION
+    namespace NAMESPACE
     ttl DURATION
 }
 ~~~
@@ -91,6 +93,10 @@ nomad [ZONE] {
 * `filter` allows you to filter Nomad services. **FILTER** defaults to `""`. Uses [filtering](https://developer.hashicorp.com/nomad/api-docs#filtering) syntax.
 
 * `token` The SecretID of an ACL token to use to authenticate API requests with if the Nomad cluster has ACL enabled. **TOKEN** defaults to `""`.
+
+* `region` The region of the Nomad cluster to query. **REGION** defaults to the agent's own region if not set.
+
+* `namespace` The namespace to query for services. **NAMESPACE** defaults to the agent's default namespace if not set. When configured, it overrides the namespace segment of the query name for every lookup, scoping this plugin instance to that one namespace. When omitted, each query's own namespace segment is used as before.
 
 * `ttl` allows you to set a custom TTL for responses. **DURATION** defaults to `30 seconds`. The minimum TTL allowed is `0` seconds, and the maximum is capped at `3600` seconds. Setting TTL to 0 will prevent records from being cached. The unit for the value is seconds.
 
