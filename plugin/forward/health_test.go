@@ -225,7 +225,13 @@ func TestHealthMaxFails(t *testing.T) {
 
 	f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
 
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the asynchronous probes to exceed maxfails, including on busy runners.
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		if p.Fails() > f.maxfails {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	fails := p.Fails()
 	if !p.Down(f.maxfails) {
 		t.Errorf("Expected Proxy fails to be greater than %d, got %d", f.maxfails, fails)
