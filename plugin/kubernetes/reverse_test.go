@@ -137,6 +137,90 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 	return nil
 }
 
+// APIConnReversePTRHostnameOnlyTest models a pod IP selected by two services, where only one of
+// the endpoints has a hostname set (e.g. a StatefulSet pod behind its headless service plus an
+// individual LoadBalancer service). It reuses APIConnReverseTest for everything but the reverse
+// endpoint lookup.
+type APIConnReversePTRHostnameOnlyTest struct{ APIConnReverseTest }
+
+func (APIConnReversePTRHostnameOnlyTest) EpIndexReverse(ip string) []*object.Endpoints {
+	if ip != "10.0.0.50" {
+		return nil
+	}
+	withHostname := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{{IP: "10.0.0.50", Hostname: "pod-0"}},
+				Ports:     []object.EndpointPort{{Port: 80, Protocol: "tcp", Name: "http"}},
+			},
+		},
+		Name:      "svca-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svca", "testns"),
+	}
+	withoutHostname := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{{IP: "10.0.0.50", Hostname: ""}},
+				Ports:     []object.EndpointPort{{Port: 80, Protocol: "tcp", Name: "http"}},
+			},
+		},
+		Name:      "svcb-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svcb", "testns"),
+	}
+	return []*object.Endpoints{&withHostname, &withoutHostname}
+}
+
+func TestReversePTRHostnameOnly(t *testing.T) {
+	zones := []string{"cluster.local.", "0.10.in-addr.arpa."}
+
+	// Default: every endpoint gets a PTR, using the IP-derived name when no hostname is set.
+	defaultCase := test.Case{
+		Qname: "50.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.PTR("50.0.0.10.in-addr.arpa.      5    IN      PTR       10-0-0-50.svcb.testns.svc.cluster.local."),
+			test.PTR("50.0.0.10.in-addr.arpa.      5    IN      PTR       pod-0.svca.testns.svc.cluster.local."),
+		},
+	}
+
+	// ptr_hostname_only: only the endpoint with a hostname gets a PTR; the IP-derived one is dropped.
+	hostnameOnlyCase := test.Case{
+		Qname: "50.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.PTR("50.0.0.10.in-addr.arpa.      5    IN      PTR       pod-0.svca.testns.svc.cluster.local."),
+		},
+	}
+
+	for _, tt := range []struct {
+		name            string
+		ptrHostnameOnly bool
+		tc              test.Case
+	}{
+		{"default", false, defaultCase},
+		{"ptr_hostname_only", true, hostnameOnlyCase},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			k := New(zones)
+			k.APIConn = &APIConnReversePTRHostnameOnlyTest{}
+			k.ptrHostnameOnly = tt.ptrHostnameOnly
+
+			w := dnstest.NewRecorder(&test.ResponseWriter{})
+			if _, err := k.ServeDNS(context.TODO(), w, tt.tc.Msg()); err != tt.tc.Error {
+				t.Fatalf("expected error %v, got %v", tt.tc.Error, err)
+			}
+			if w.Msg == nil {
+				t.Fatal("got nil message")
+			}
+			if err := test.SortAndCheck(w.Msg, tt.tc); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
 func (APIConnReverseTest) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) {
 	return &api.Node{
 		ObjectMeta: meta.ObjectMeta{

@@ -41,6 +41,7 @@ kubernetes [ZONES...] {
     labels EXPRESSION
     pods POD-MODE
     endpoint_pod_names
+    ptr_hostname_only
     ttl TTL
     noendpoints
     fallthrough [ZONES...]
@@ -102,6 +103,15 @@ kubernetes [ZONES...] {
    follows: Use the hostname of the endpoint, or if hostname is not set, use the
    pod name of the pod targeted by the endpoint. If there is no pod targeted by
    the endpoint or pod name is longer than 63, use the dashed IP address form.
+* `ptr_hostname_only` restricts reverse (PTR) records to endpoints that have an explicit hostname
+   set, and builds the PTR from that hostname only. By default a PTR is created for every endpoint
+   address, using the dashed IP form when no hostname is set, so a pod selected by more than one
+   service (for example a StatefulSet pod behind both its headless service and an individual
+   `LoadBalancer` service) gets multiple PTR records for the same IP. With this option only the
+   hostname-based record is served, keeping a single, name-consistent PTR per IP. The trade-off is
+   that endpoints without a hostname get no PTR at all, so only enable this if your pods that need
+   reverse lookups have a hostname (e.g. StatefulSet pods behind a headless service). This restores
+   the behavior of #6898, which was reverted in #7194 as a default.
 * `ttl` allows you to set a custom TTL for responses. The default is 5 seconds.  The minimum TTL allowed is
   0 seconds, and the maximum is capped at 3600 seconds. Setting TTL to 0 will prevent records from being cached.
 * `noendpoints` will turn off the serving of endpoint records by disabling the watch on endpoints.

@@ -123,6 +123,13 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			}
 			k8s.endpointNameMode = true
 			continue
+		case "ptr_hostname_only":
+			args := c.RemainingArgs()
+			if len(args) > 0 {
+				return nil, c.ArgErr()
+			}
+			k8s.ptrHostnameOnly = true
+			continue
 		case "pods":
 			args := c.RemainingArgs()
 			if len(args) == 1 {
