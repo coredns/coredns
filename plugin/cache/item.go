@@ -23,6 +23,7 @@ type item struct {
 	Ns                 []dns.RR
 	Extra              []dns.RR
 	wildcard           string
+	do                 bool  // DO used to acquire this response, not the response's DO bit.
 	answering          bool  // immutable result of validating that this item answers its question.
 	lastKnownGood      *item // answering item retained when a non-answer overwrites this success-cache key.
 
@@ -31,16 +32,19 @@ type item struct {
 
 	*freq.Freq
 
-	// refreshing bounds in-flight refreshes for this item to one. retryAfter
-	// suppresses another attempt after a failed refresh when failure recheck
-	// is configured. A successful refresh normally replaces this item with a
-	// new one whose refresh state is zero-valued.
+	*refreshState
+}
+
+// refreshState belongs to an acquisition, not to an immutable response holder.
+// Holders that only replace lastKnownGood share it so an in-flight refresh's
+// completion and failure recheck deadline remain visible to all readers.
+type refreshState struct {
 	refreshing atomic.Bool
 	retryAfter atomic.Pointer[time.Time]
 }
 
 func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
-	i := new(item)
+	i := &item{refreshState: new(refreshState)}
 	if len(m.Question) != 0 {
 		i.Name = m.Question[0].Name
 		i.QType = m.Question[0].Qtype
@@ -75,6 +79,21 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	return i
 }
 
+// withLastKnownGood publishes a new holder without modifying readers of i.
+// The acquisition is unchanged: share its payload, frequency and refresh
+// lifecycle without copying used atomics or retaining a chain of old holders.
+func (i *item) withLastKnownGood(answer *item) *item {
+	return &item{
+		Name: i.Name, QType: i.QType, QClass: i.QClass,
+		Rcode: i.Rcode, Authoritative: i.Authoritative,
+		AuthenticatedData: i.AuthenticatedData, RecursionAvailable: i.RecursionAvailable,
+		Answer: i.Answer, Ns: i.Ns, Extra: i.Extra,
+		wildcard: i.wildcard, do: i.do, answering: i.answering,
+		lastKnownGood: answer, origTTL: i.origTTL, stored: i.stored,
+		Freq: i.Freq, refreshState: i.refreshState,
+	}
+}
+
 // toMsg turns i into a message, it tailors the reply to m.
 func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
@@ -105,6 +124,9 @@ func (i *item) toMsgWithTTL(m *dns.Msg, ttl uint32, do bool, ad bool) *dns.Msg {
 	m1.Answer = filterRRSlice(i.Answer, ttl, true)
 	m1.Ns = filterRRSlice(i.Ns, ttl, true)
 	m1.Extra = filterRRSlice(i.Extra, ttl, true)
+	if !do && i.do {
+		stripDNSSEC(m1, i.QType)
+	}
 
 	return m1
 }
@@ -115,10 +137,30 @@ func (i *item) ttl(now time.Time) int {
 }
 
 func (i *item) matches(state request.Request) bool {
-	if state.QType() == i.QType && state.QClass() == i.QClass && strings.EqualFold(state.QName(), i.Name) {
-		return true
+	return i.servesDO(requestDO(state.Req)) && i.matchesQuestion(state)
+}
+
+// servesDO reports whether i can answer a client with the given DO bit. Data
+// acquired with DO also answers clients without DO, after filtering, but not
+// the reverse. Failures go the other way: one acquired with DO can be specific
+// to DNSSEC, such as a validation failure or a larger signed response, so it
+// does not answer clients without DO; one acquired without DO also answers DO
+// clients, which only ask for more.
+func (i *item) servesDO(do bool) bool {
+	if i.failure() {
+		return do || !i.do
 	}
-	return false
+	return i.do || !do
+}
+
+// failure reports whether i is a SERVFAIL or NOTIMP response, which the cache
+// keeps for the servfail duration.
+func (i *item) failure() bool {
+	return i.Rcode == dns.RcodeServerFailure || i.Rcode == dns.RcodeNotImplemented
+}
+
+func (i *item) matchesQuestion(state request.Request) bool {
+	return state.QType() == i.QType && state.QClass() == i.QClass && strings.EqualFold(state.QName(), i.Name)
 }
 
 func (i *item) answersQuestion(state request.Request) bool {
