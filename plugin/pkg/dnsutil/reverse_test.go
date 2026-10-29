@@ -34,6 +34,26 @@ func TestExtractAddressFromReverse(t *testing.T) {
 			"",
 		},
 		{
+			// 33 nibbles: reverse6 grouped only the first 32 and answered with
+			// the address of a different host instead of rejecting the name.
+			"a.b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"",
+		},
+		{
+			"::.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"",
+		},
+		{
+			// 32 labels, but one is empty, so its group is 3 nibbles short.
+			".a.b.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"",
+		},
+		{
+			// Uppercase nibbles are still a valid name.
+			"B.A.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.B.D.0.1.0.0.2.ip6.arpa.",
+			"2001:db8::567:89ab",
+		},
+		{
 			"NONAME",
 			"",
 		},
