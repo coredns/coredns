@@ -43,8 +43,14 @@ func TestHealth(t *testing.T) {
 		t.Error("successful DNS health check did not clear startup failure")
 	}
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==true to be %d, got %d", 1, i1)
 	}
@@ -74,8 +80,14 @@ func TestHealthTCP(t *testing.T) {
 		t.Errorf("check failed: %v", err)
 	}
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==true to be %d, got %d", 1, i1)
 	}
@@ -124,8 +136,14 @@ func TestHealthHTTPS(t *testing.T) {
 		t.Error("successful HTTPS health check did not clear startup failure")
 	}
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==true to be %d, got %d", 1, i1)
 	}
@@ -154,8 +172,14 @@ func TestHealthNoRecursion(t *testing.T) {
 		t.Errorf("check failed: %v", err)
 	}
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==false to be %d, got %d", 1, i1)
 	}
@@ -204,8 +228,14 @@ func TestHealthDomain(t *testing.T) {
 		t.Errorf("check failed: %v", err)
 	}
 
-	time.Sleep(12 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with Domain==%s to be %d, got %d", hcDomain, 1, i1)
 	}
