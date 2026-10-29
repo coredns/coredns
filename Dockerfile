@@ -6,7 +6,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get -qq update \
     && apt-get -qq --no-install-recommends install libcap2-bin
 COPY coredns /coredns
-RUN setcap cap_net_bind_service=+ep /coredns
+# Let CoreDNS enable the capability only when a listener needs it. An effective
+# file capability would prevent execution when the runtime drops this capability.
+RUN setcap cap_net_bind_service=+p /coredns
 
 FROM ${BASE}
 COPY --from=build /coredns /coredns

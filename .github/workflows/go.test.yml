@@ -8,6 +8,57 @@ permissions:
   contents: read
 
 jobs:
+  test-capabilities:
+    name: Test Linux capabilities (cgo=${{ matrix.cgo }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        cgo: ['0', '1']
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
+        with:
+          go-version-file: .go-version
+      - name: Build capability tests
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/capabilities"
+          go build -o "$RUNNER_TEMP/capabilities/coredns" .
+          race=()
+          if [ "$CGO_ENABLED" = 1 ]; then race=(-race); fi
+          go test "${race[@]}" -c -o "$RUNNER_TEMP/capabilities/reuseport.test" ./plugin/pkg/reuseport
+      - name: Test permitted capabilities and CoreDNS behavior
+        run: |
+          findmnt -T /tmp -o TARGET,OPTIONS
+          caps=$(sed -n 's/^RUN setcap \(.*\) \/coredns/\1/p' Dockerfile)
+          sudo unshare --mount --net sh -ec '
+            # File capabilities must be honored regardless of the runner mount options.
+            # Both the mount and network changes are confined to this namespace.
+            mount --make-rprivate /
+            mount -t tmpfs -o mode=1777 tmpfs /tmp
+            install -m 755 "$1/reuseport.test" /tmp/reuseport.test
+            setcap cap_net_bind_service=p /tmp/reuseport.test
+            getcap /tmp/reuseport.test
+            ip link set lo up
+            sysctl -qw net.ipv4.ip_unprivileged_port_start=1024
+            setpriv --reuid=65532 --regid=65532 --clear-groups \
+              --bounding-set=-all,+net_bind_service --inh-caps=-all --ambient-caps=-all \
+              env COREDNS_TEST_BIND_CAPABILITY=1 /tmp/reuseport.test -test.v -test.run TestListenWith
+            python3 "$2" --binary "$1/coredns" --caps "$3" --label "$4"
+          ' sh "$RUNNER_TEMP/capabilities" "$PWD/.github/test-capabilities.py" "$caps" 'cgo=${{ matrix.cgo }}'
+      - name: Test container startup and DNS queries
+        if: matrix.cgo == '0'
+        run: |
+          docker build -f Dockerfile -t coredns-capabilities "$RUNNER_TEMP/capabilities"
+          docker run --rm --cap-drop=ALL coredns-capabilities -version
+          docker run --rm --cap-drop=ALL coredns-capabilities -plugins
+          python3 .github/test-capabilities.py --image coredns-capabilities --label docker
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -145,6 +196,9 @@ jobs:
           kea-dhcp-ddns -v
           # Keep the distribution AppArmor profile and use its allowed paths.
           sudo systemctl stop kea-dhcp-ddns-server
+          # The package may restrict /etc/kea to its service user/group. Allow
+          # traversal to the test directory, which remains private with mode 0700.
+          sudo chmod o+x /etc/kea
           sudo install -d -m 0700 -o "$(id -u)" -g "$(id -g)" /etc/kea/coredns-tests
           sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /run/kea
           sudo install -m 0600 -o "$(id -u)" -g "$(id -g)" /dev/null /run/kea/logger_lockfile

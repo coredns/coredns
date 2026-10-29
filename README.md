@@ -339,6 +339,19 @@ guidelines](./.github/CONTRIBUTING.md).
 Examples for deployment via systemd and other use cases can be found in the [deployment
 repository](https://github.com/coredns/deployment).
 
+On Linux, CoreDNS first tries to open listeners without changing capabilities. If a
+bind is denied and `CAP_NET_BIND_SERVICE` is permitted, CoreDNS temporarily enables
+it on the thread opening that listener. The container image grants this capability
+as permitted, so it can also start with all capabilities dropped when using
+unprivileged ports (or commands such as `-version`). Binding a privileged port as a
+nonroot user still requires the capability or a network namespace that allows that
+port through `net.ipv4.ip_unprivileged_port_start`; CoreDNS does not change that sysctl.
+
+Custom plugins that open privileged listeners directly can wrap the listener creation
+with `plugin/pkg/capability.WithNetBindService`, as the built-in listeners do. This is
+needed when relying on the image's permitted file capability rather than a capability
+already made effective by the deployment.
+
 ## Deprecation Policy
 
 When there is a backwards incompatible change in CoreDNS the following process is followed:
