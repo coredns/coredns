@@ -38,6 +38,8 @@ etcd [ZONES...] {
     credentials USERNAME PASSWORD
     tls CERT KEY CACERT
     no_apex_fallback
+    sync_interval DURATION
+    dial_timeout DURATION
 }
 ~~~
 
@@ -66,6 +68,16 @@ key exchange mechanisms use the Go `crypto/tls` defaults.
 
 * `min-lease-ttl` the minimum TTL for DNS records based on etcd lease duration. Accepts flexible time formats like '30', '30s', '5m', '1h', '2h30m'. Default: 30 seconds.
 * `max-lease-ttl` the maximum TTL for DNS records based on etcd lease duration. Accepts flexible time formats like '30', '30s', '5m', '1h', '2h30m'. Default: 24 hours.
+* `sync_interval` how often the client refreshes its endpoint list from the etcd cluster
+  membership. Accepts the same flexible duration formats as `min-lease-ttl`/`max-lease-ttl`. If not
+  provided, auto-sync is disabled, matching etcd client's own default.
+* `dial_timeout` the maximum amount of time the client will wait for operations that need a
+  completed connection, such as authenticating with `credentials`. With the pinned etcd client
+  (clientv3 v3.7.2), the client connection itself is established non-blocking (`grpc.NewClient`),
+  so this setting does *not* bound how long the initial connection to an etcd endpoint takes; a
+  slow or unreachable endpoint will not fail fast because of this value. Accepts the same flexible
+  duration formats as `min-lease-ttl`/`max-lease-ttl`. If not provided, the affected operations have
+  no timeout (block indefinitely), matching the etcd client's own default.
 
 ## Special Behaviour
 
