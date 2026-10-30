@@ -60,6 +60,7 @@ forward FROM TO... {
     start_failed
     max_concurrent MAX
     next RCODE_1 [RCODE_2] [RCODE_3...]
+    next_on_nodata
     failfast_all_unhealthy_upstreams
     failover RCODE_1 [RCODE_2] [RCODE_3...]
     source_address IP
