@@ -102,8 +102,16 @@ func (d *dio) dial() error {
 		tcpConn.SetNoDelay(false)
 	}
 
+	// The bidirectional framestream handshake can fail or time out after the
+	// socket is already open. Close it here: otherwise the connection stays
+	// open until the runtime finalizes the fd, and the peer sees the eventual
+	// close as a reset in the middle of its own handshake.
 	d.enc, err = newEncoder(conn, d.tcpTimeout)
-	return err
+	if err != nil {
+		conn.Close()
+		return err
+	}
+	return nil
 }
 
 // Connect connects to the dnstap endpoint.
