@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/coredns/coredns/request"
@@ -30,6 +31,9 @@ func TestParseRequest(t *testing.T) {
 		{"..webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, false, ""},
 		// A multicluster request with a clusterid
 		{"1-2-3-4.cluster1.webs.mynamespace.svc.inter.webs.tests.", "..1-2-3-4.cluster1.webs.mynamespace.svc", true, false, ""},
+		// An escaped dot is part of the label, not a separator between two labels
+		{`foo\.bar.mynamespace.svc.inter.webs.tests.`, `....foo\.bar.mynamespace.svc`, false, false, ""},
+		{`_http._tcp.foo\.bar.mynamespace.svc.inter.webs.tests.`, `http.tcp...foo\.bar.mynamespace.svc`, false, false, ""},
 		// zone-scoped names, both directives
 		{"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
 		{"us-west-2a.prefer._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
@@ -102,4 +106,28 @@ func BenchmarkParseRequest(b *testing.B) {
 	for b.Loop() {
 		_, _ = parseRequest("1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", zone, false, false)
 	}
+}
+
+// FuzzSplitDomainName checks the allocation-free split against dns.SplitDomainName.
+func FuzzSplitDomainName(f *testing.F) {
+	for _, s := range []string{
+		"webs.mynamespace.svc",
+		"_http._tcp.webs.mynamespace.svc",
+		"corp.example.com.pin._zone.webs.mynamespace.svc",
+		`foo\.bar.mynamespace.svc`,
+		`a\\.mynamespace.svc`,
+		"..webs.mynamespace.svc",
+		"webs..svc",
+		".svc",
+		"svc.",
+		"",
+	} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, name string) {
+		var arr [maxLabels]string
+		if got, want := splitDomainName(name, &arr), dns.SplitDomainName(name); !slices.Equal(got, want) {
+			t.Errorf("splitDomainName(%q) = %q, want %q", name, got, want)
+		}
+	})
 }
