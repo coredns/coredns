@@ -26,12 +26,12 @@ a port number here, you *can't* override it with `-dns.port` (coredns(1)), also 
 Specifying a **ZONE** *and* **PORT** combination multiple times for *different* servers will lead to
 an error on startup.
 
-When a query comes in, it is matched again all zones for all servers, the server with the longest
+When a query comes in, it is matched against all zones for all servers, the server with the longest
 match on the query name will receive the query.
 
-**PLUGIN** defines the plugin(s) we want to load into this server. This is optional as well, but as
+**PLUGIN** defines the plugin(s) we want to load into this server. This is optional as well, but a
 server with no plugins will just return SERVFAIL for all queries. Each plugin can have a number of
-properties than can have arguments, see the documentation for each plugin.
+properties that can have arguments, see the documentation for each plugin.
 
 The Corefile is line oriented: the arguments of a plugin, or of one of its properties, run until the
 end of the line. Put each plugin, each property and each closing `}` on a line of its own. A `}` that
@@ -66,7 +66,7 @@ You can use the `import` "plugin" to include parts of other files, see
 
 ## Snippets
 
-If you want to reuse a snippet you can define one with and then use it with *import*.
+If you want to reuse a snippet you can define one and then use it with *import*.
 
 ~~~ corefile
 (mysnippet) {
