@@ -28,6 +28,10 @@ relative to the current origin; for example, `test` in a zone loaded as `test.` 
 absolute name for the SOA owner. A mismatched SOA causes loading to fail; an invalid reload
 leaves the last successfully loaded zone in service.
 
+Negative answers (NXDOMAIN and NODATA) carry the zone's SOA record in the authority section. As
+required by RFC 2308, the TTL of that SOA record is the minimum of the SOA's own TTL and its
+MINIMUM field, because it tells resolvers how long they may cache the negative answer.
+
 If you want to round-robin A and AAAA responses look at the *loadbalance* plugin.
 
 ~~~
