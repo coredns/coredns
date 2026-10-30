@@ -20,6 +20,7 @@ erratic {
     drop [AMOUNT]
     truncate [AMOUNT]
     delay [AMOUNT [DURATION]]
+    large
 }
 ~~~
 
@@ -27,6 +28,9 @@ erratic {
 * `truncate`: truncate 1 per **AMOUNT** of queries, the default is 2.
 * `delay`: delay 1 per **AMOUNT** of queries for **DURATION**, the default for **AMOUNT** is 2 and
   the default for **DURATION** is 100ms.
+* `large`: answer every A query with 30 copies of the same record, which pushes the reply past 512
+  octets so compression and TCP fallback can be tested. It only affects `A`; AAAA answers are
+  unchanged.
 
 In case of a zone transfer and truncate the final SOA record *isn't* added to the response.
 
