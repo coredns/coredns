@@ -69,6 +69,38 @@ var dnsTestCases = []test.Case{
 		},
 	},
 	{
+		Qname: "www.miek.nl.", Qtype: dns.TypeSRV,
+		Answer: []dns.RR{
+			test.CNAME("www.miek.nl. 1800 IN CNAME a.miek.nl."),
+		},
+		Ns: []dns.RR{
+			test.SOA("miek.nl. 1800 IN SOA linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		},
+	},
+	{
+		// A wildcard alias followed by another CNAME to an existing name.
+		Qname: "foo.x.miek.nl.", Qtype: dns.TypeMX,
+		Answer: []dns.RR{
+			test.CNAME("foo.x.miek.nl. 1800 IN CNAME www.miek.nl."),
+			test.CNAME("www.miek.nl. 1800 IN CNAME a.miek.nl."),
+		},
+		Ns: []dns.RR{
+			test.SOA("miek.nl. 1800 IN SOA linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		},
+	},
+	{
+		// A DNAME substitution followed by a CNAME to an existing name.
+		Qname: "b.dname.miek.nl.", Qtype: dns.TypeMX,
+		Answer: []dns.RR{
+			test.CNAME("b.dname.miek.nl. 1800 IN CNAME b.x.miek.nl."),
+			test.CNAME("b.x.miek.nl. 1800 IN CNAME a.miek.nl."),
+			test.DNAME("dname.miek.nl. 1800 IN DNAME x.miek.nl."),
+		},
+		Ns: []dns.RR{
+			test.SOA("miek.nl. 1800 IN SOA linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		},
+	},
+	{
 		Qname: "b.miek.nl.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
