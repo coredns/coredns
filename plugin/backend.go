@@ -40,4 +40,8 @@ type ServiceBackend interface {
 type Options struct {
 	// NoApexFallback disables the legacy zone-root lookup when apex records are absent.
 	NoApexFallback bool
+
+	// Fallthrough permits an external lookup when an in-zone CNAME target does not exist.
+	// A nil function disables this fallback. The function is called with the target name.
+	Fallthrough func(string) bool
 }

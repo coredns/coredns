@@ -112,6 +112,9 @@ kubernetes [ZONES...] {
   the query. If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
   queries for those zones will be subject to fallthrough.
+  For A and AAAA queries following an `ExternalName` service, this also applies to a missing
+  in-cluster CNAME target. The target name must match a fallthrough zone; existing targets with
+  no records of the requested type (NODATA) do not fall through.
 * `ignore empty_service` returns NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
