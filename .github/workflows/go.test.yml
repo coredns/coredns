@@ -33,6 +33,8 @@ jobs:
           if [ "$CGO_ENABLED" = 1 ]; then race=(-race); fi
           go test "${race[@]}" -c -o "$RUNNER_TEMP/capabilities/reuseport.test" ./plugin/pkg/reuseport
       - name: Test permitted capabilities and CoreDNS behavior
+        env:
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
           findmnt -T /tmp -o TARGET,OPTIONS
           caps=$(sed -n 's/^RUN setcap \(.*\) \/coredns/\1/p' Dockerfile)
@@ -50,7 +52,7 @@ jobs:
               --bounding-set=-all,+net_bind_service --inh-caps=-all --ambient-caps=-all \
               env COREDNS_TEST_BIND_CAPABILITY=1 /tmp/reuseport.test -test.v -test.run TestListenWith
             python3 "$2" --binary "$1/coredns" --caps "$3" --label "$4"
-          ' sh "$RUNNER_TEMP/capabilities" "$PWD/.github/test-capabilities.py" "$caps" 'cgo=${{ matrix.cgo }}'
+          ' sh "$RUNNER_TEMP/capabilities" "$PWD/.github/test-capabilities.py" "$caps" "cgo=$CGO_ENABLED"
       - name: Test container startup and DNS queries
         if: matrix.cgo == '0'
         run: |

@@ -1,7 +1,8 @@
 name: 'Yamllint GitHub Actions'
 on:
   - pull_request
-permissions: read-all
+permissions:
+  contents: read
 jobs:
   yamllint:
     name: 'Yamllint'
