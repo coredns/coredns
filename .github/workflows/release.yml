@@ -56,15 +56,19 @@ jobs:
           cat release.md
           sha256sum release/*.tgz release/*.zip
       - name: Draft release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
-        with:
-          body_path: release.md
-          name: v${{ steps.info.outputs.version }}
-          tag_name: v${{ steps.info.outputs.version }}
-          target_commitish: ${{ steps.info.outputs.commit }}
-          files: |
-            release/*.tgz
-            release/*.tgz.sha256
-            release/*.zip
-            release/*.zip.sha256
-          draft: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          COMMIT: ${{ steps.info.outputs.commit }}
+          VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          # Update an existing draft when retrying a release.
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release edit "v${VERSION}" \
+              --draft --title "v${VERSION}" --target "$COMMIT" --notes-file release.md
+          else
+            gh release create "v${VERSION}" \
+              --draft --title "v${VERSION}" --target "$COMMIT" --notes-file release.md
+          fi
+          gh release upload "v${VERSION}" --clobber \
+            release/*.tgz release/*.tgz.sha256 release/*.zip release/*.zip.sha256
