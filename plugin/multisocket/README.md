@@ -2,15 +2,15 @@
 
 ## Name
 
-*multisocket* - allows to start multiple servers that will listen on one port.
+*multisocket* - allows starting multiple servers that will listen on one port.
 
 ## Description
 
 With *multisocket*, you can define the number of servers that will listen on the same port. The SO_REUSEPORT socket 
-option allows to open multiple listening sockets at the same address and port. In this case, kernel distributes incoming 
+option allows opening multiple listening sockets at the same address and port. In this case, kernel distributes incoming 
 connections between sockets.
 
-Enabling this option allows to start multiple servers, which increases the throughput of CoreDNS in environments with a 
+Enabling this option allows starting multiple servers, which increases the throughput of CoreDNS in environments with a 
 large number of CPU cores.
 
 ## Syntax
