@@ -34,6 +34,23 @@ var negativeTTLTestCases = []test.Case{
 			test.SOA("example.org.	300	IN	SOA	ns.example.org. hostmaster.example.org. 2026102701 7200 3600 1209600 300"),
 		},
 	},
+	// The wildcard *.went.example.org is an empty non-terminal.
+	{
+		Qname: "a.went.example.org.", Qtype: dns.TypeA,
+		Ns: []dns.RR{
+			test.SOA("example.org.	300	IN	SOA	ns.example.org. hostmaster.example.org. 2026102701 7200 3600 1209600 300"),
+		},
+	},
+	// The CNAME target is an empty non-terminal, so the upstream answers NODATA.
+	{
+		Qname: "ent-alias.example.org.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.CNAME("ent-alias.example.org.	3600	IN	CNAME	went.example.org."),
+		},
+		Ns: []dns.RR{
+			test.SOA("example.org.	300	IN	SOA	ns.example.org. hostmaster.example.org. 2026102701 7200 3600 1209600 300"),
+		},
+	},
 	{
 		Qname: "alias.example.org.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
@@ -74,14 +91,16 @@ var negativeTTLTestCases = []test.Case{
 	},
 }
 
-// nxdomainUpstream answers every lookup with NXDOMAIN, which is what the server returns for a CNAME target that
-// does not exist in the zone.
-type nxdomainUpstream struct{}
+// negativeUpstream answers every lookup with an empty answer: NODATA for the names in the map, which are empty
+// non-terminals in the zone, and NXDOMAIN for any other name, which does not exist in the zone.
+type negativeUpstream map[string]bool
 
-func (nxdomainUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (u negativeUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(name, typ)
-	m.Rcode = dns.RcodeNameError
+	if !u[name] {
+		m.Rcode = dns.RcodeNameError
+	}
 	return m, nil
 }
 
@@ -91,7 +110,7 @@ func TestLookupNegativeTTL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error when reading zone, got %q", err)
 	}
-	zone.Upstream = nxdomainUpstream{}
+	zone.Upstream = negativeUpstream{"went.example.org.": true}
 
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
 	ctx := context.TODO()
@@ -118,6 +137,35 @@ func TestLookupNegativeTTL(t *testing.T) {
 	}
 }
 
+func TestNegSOA(t *testing.T) {
+	soa := test.SOA("example.org.	3600	IN	SOA	ns.example.org. hostmaster.example.org. 2026102701 7200 3600 1209600 300")
+	sigs := []dns.RR{
+		test.RRSIG("example.org.	3600	IN	RRSIG	SOA 8 2 3600 20261127000000 20261027000000 12345 example.org. FUZSTyvZfeuuOpCm"),
+		test.RRSIG("example.org.	60	IN	RRSIG	SOA 13 2 3600 20261127000000 20261027000000 54321 example.org. FUZSTyvZfeuuOpCm"),
+	}
+	ap := Apex{SOA: soa, SIGSOA: sigs}
+
+	got := ap.negSOA(true)
+	// The SOA and the first signature are lowered to MINIMUM; the signature with a lower TTL keeps it.
+	want := []uint32{300, 300, 60}
+	if len(got) != len(want) {
+		t.Fatalf("Expected %d records, got %d", len(want), len(got))
+	}
+	for i, rr := range got {
+		if rr.Header().Ttl != want[i] {
+			t.Errorf("Record %d: expected TTL %d, got %d", i, want[i], rr.Header().Ttl)
+		}
+		if sig, ok := rr.(*dns.RRSIG); ok && sig.OrigTtl != 3600 {
+			t.Errorf("Record %d: expected RRSIG original TTL to be %d, got %d", i, 3600, sig.OrigTtl)
+		}
+	}
+
+	// The zone data itself is never modified.
+	if soa.Hdr.Ttl != 3600 || sigs[0].Header().Ttl != 3600 || sigs[1].Header().Ttl != 60 {
+		t.Errorf("Expected the apex records to keep their TTLs, got %d, %d and %d", soa.Hdr.Ttl, sigs[0].Header().Ttl, sigs[1].Header().Ttl)
+	}
+}
+
 const dbNegativeTTL = `$ORIGIN example.org.
 @	3600	IN	SOA	ns.example.org. hostmaster.example.org. 2026102701 7200 3600 1209600 300
 	3600	IN	RRSIG	SOA 8 2 3600 20261127000000 20261027000000 12345 example.org. FUZSTyvZfeuuOpCm
@@ -125,5 +173,7 @@ const dbNegativeTTL = `$ORIGIN example.org.
 ns	3600	IN	A	192.0.2.53
 www	3600	IN	A	192.0.2.1
 alias	3600	IN	CNAME	missing.example.org.
+ent-alias	3600	IN	CNAME	went.example.org.
 *.wild	3600	IN	TXT	"wildcard"
+a.*.went	3600	IN	TXT	"below an empty non-terminal wildcard"
 `
