@@ -59,7 +59,7 @@ To allow processing DNS requests only local host on both IPv4 and IPv6 stacks, u
 
 To bind to a particular IPv6 link-local address on `eth0`, include its zone:
 
-~~~ corefile
+~~~ txt
 . {
     bind fe80::1%eth0
 }
