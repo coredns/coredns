@@ -1,5 +1,3 @@
-//go:debug multipathtcp=0
-
 package main
 
 //go:generate go run directives_generate.go
