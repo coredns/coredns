@@ -56,7 +56,7 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	// 1. _port._protocol.service.namespace.pod|svc.zone
 	// 2. (endpoint): endpoint.service.namespace.pod|svc.zone
 	// 3. (service): service.namespace.pod|svc.zone
-	// 4. (endpoint multicluster): endpoint.cluster.service.namespace.pod|svc.zone
+	// 4. (endpoint multicluster): endpoint.cluster[.context].service.namespace.pod|svc.zone
 	// 5. (zonal): topozone.pin|prefer._zone.service.namespace.svc.zone
 
 	base, _ := dnsutil.TrimZone(name, zone)
@@ -92,7 +92,8 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	}
 
 	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint
-	// and clusterid. 3 or more: a zone-scoped name (the zone value may span labels).
+	// and clusterid. 3: an endpoint with a two-label clusterid in a multicluster zone,
+	// or a zone-scoped name. More than 3: a zone-scoped name (the zone value may span labels).
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
 	case 0: // endpoint only
@@ -105,6 +106,13 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 			r.cluster = segs[last]
 			r.endpoint = segs[last-1]
 		}
+	case 2: // endpoint and clusterid with an additional context label
+		if multicluster && segs[last] != zoneLabel {
+			r.cluster = segs[last-1] + "." + segs[last]
+			r.endpoint = segs[last-2]
+			break
+		}
+		fallthrough
 
 	default: // zone-scoped name (topozone.pin|prefer._zone), or too long
 		// Kubernetes zone label values may contain dots, so the zone is
