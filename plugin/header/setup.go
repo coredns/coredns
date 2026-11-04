@@ -29,10 +29,10 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller) ([]Rule, []Rule, error) {
-	for c.Next() {
-		var queryRules []Rule
-		var responseRules []Rule
+	var queryRules []Rule
+	var responseRules []Rule
 
+	for c.Next() {
 		for c.NextBlock() {
 			selector := strings.ToLower(c.Val())
 
@@ -58,10 +58,10 @@ func parse(c *caddy.Controller) ([]Rule, []Rule, error) {
 				queryRules = append(queryRules, rules...)
 			}
 		}
-
-		if len(queryRules) > 0 || len(responseRules) > 0 {
-			return queryRules, responseRules, nil
-		}
 	}
-	return nil, nil, c.ArgErr()
+
+	if len(queryRules) == 0 && len(responseRules) == 0 {
+		return nil, nil, c.ArgErr()
+	}
+	return queryRules, responseRules, nil
 }
