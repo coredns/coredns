@@ -232,6 +232,9 @@ func (r *Request) SizeAndDo(m *dns.Msg) bool {
 // Note, the TC bit will be set regardless of protocol, even TCP message will
 // get the bit, the client should then retry with pigeons.
 func (r *Request) Scrub(reply *dns.Msg) *dns.Msg {
+	if r.Proto() == "udp" {
+		edns.TruncateOptions(reply, r.Size())
+	}
 	reply.Truncate(r.Size())
 
 	if reply.Compress {

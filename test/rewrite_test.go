@@ -82,6 +82,7 @@ func testEdns0(t *testing.T, server string) {
 	t.Helper()
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
+	m.SetEdns0(4096, false)
 
 	r, err := dns.Exchange(m, server)
 	if err != nil {
