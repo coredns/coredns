@@ -32,6 +32,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"google.golang.org/protobuf/encoding/protodelim"
 )
 
@@ -251,7 +252,7 @@ func fetchMetricFamilies(url string, ch chan<- *dto.MetricFamily) {
 		// We could do further content-type checks here, but the
 		// fallback for now will anyway be the text format
 		// version 0.0.4, so just go for it and see if it works.
-		var parser expfmt.TextParser
+		parser := expfmt.NewTextParser(model.LegacyValidation)
 		metricFamilies, err := parser.TextToMetricFamilies(resp.Body)
 		if err != nil {
 			return
