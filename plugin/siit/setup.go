@@ -115,7 +115,7 @@ func parseEam(c *caddy.Controller) (map[int]net.IP, error) {
 
 	pref0 := net.ParseIP(args[0])
 	if pref0 == nil {
-		return nil, c.Errf("invalid IP address: %q", pref0)
+		return nil, c.Errf("invalid IP address: %q", args[0])
 	}
 
 	if pref0.To4() == nil {
@@ -124,7 +124,7 @@ func parseEam(c *caddy.Controller) (map[int]net.IP, error) {
 
 	pref1 := net.ParseIP(args[1])
 	if pref1 == nil {
-		return nil, c.Errf("invalid IP address: %q", pref1)
+		return nil, c.Errf("invalid IP address: %q", args[1])
 	}
 
 	if pref1.To4() != nil {
