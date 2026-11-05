@@ -71,7 +71,7 @@ func (e *Elem) Name() string {
 // Empty returns true is e does not contain any RRs, i.e. is an empty-non-terminal.
 func (e *Elem) Empty() bool { return len(e.m) == 0 }
 
-// Insert inserts rr into e. If rr is equal to existing RRs, the RR will be added anyway.
+// Insert inserts rr into e, suppressing duplicate RRs.
 func (e *Elem) Insert(rr dns.RR) {
 	t := rr.Header().Rrtype
 	if e.m == nil {
@@ -83,6 +83,11 @@ func (e *Elem) Insert(rr dns.RR) {
 	if !ok {
 		e.m[t] = []dns.RR{rr}
 		return
+	}
+	for _, existing := range rrs {
+		if dns.IsDuplicate(existing, rr) {
+			return
+		}
 	}
 
 	rrs = append(rrs, rr)

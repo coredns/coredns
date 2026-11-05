@@ -83,3 +83,84 @@ func TestTransferRequiresExactZone(t *testing.T) {
 		t.Fatalf("expected ErrNotAuthoritative for subdomain transfer, got %v", err)
 	}
 }
+
+func TestZoneInsertSuppressesDuplicateApexRecords(t *testing.T) {
+	zone, _ := zoneWithDuplicateApexRecords(t)
+
+	if got := len(zone.NS); got != 2 {
+		t.Errorf("Expected duplicate apex NS records to be suppressed, got %d records", got)
+	}
+	if got := len(zone.SIGSOA); got != 2 {
+		t.Errorf("Expected duplicate apex RRSIG(SOA) records to be suppressed, got %d records", got)
+	}
+	if got := len(zone.SIGNS); got != 2 {
+		t.Errorf("Expected duplicate apex RRSIG(NS) records to be suppressed, got %d records", got)
+	}
+}
+
+func TestZoneTransferSuppressesDuplicateApexRecords(t *testing.T) {
+	zone, want := zoneWithDuplicateApexRecords(t)
+
+	records, err := zone.Transfer(0)
+	if err != nil {
+		t.Fatalf("Expected no error transferring zone, got %v", err)
+	}
+
+	var transferred []dns.RR
+	for batch := range records {
+		transferred = append(transferred, batch...)
+	}
+
+	for _, rr := range want {
+		if got := countDuplicateRR(transferred, rr); got != 1 {
+			t.Errorf("Expected AXFR to emit %q once, got %d copies", rr, got)
+		}
+	}
+}
+
+func zoneWithDuplicateApexRecords(t *testing.T) (*Zone, []dns.RR) {
+	t.Helper()
+
+	zone := NewZone("example.org.", "stdin")
+	records := []struct {
+		text      string
+		duplicate bool
+	}{
+		{"example.org. 3600 IN SOA ns.example.org. hostmaster.example.org. 1 3600 1800 604800 300", false},
+		{"example.org. 3600 IN NS ns.example.org.", false},
+		{"example.org. 3600 IN NS ns.example.org.", true},
+		{"example.org. 3600 IN NS ns2.example.org.", false},
+		{"example.org. 3600 IN RRSIG SOA 8 2 3600 20300101000000 20260101000000 12345 example.org. AQID", false},
+		{"example.org. 3600 IN RRSIG SOA 8 2 3600 20300101000000 20260101000000 12345 example.org. AQID", true},
+		{"example.org. 3600 IN RRSIG SOA 8 2 3600 20300101000000 20260101000000 12345 example.org. BAUG", false},
+		{"example.org. 3600 IN RRSIG NS 8 2 3600 20300101000000 20260101000000 12345 example.org. AQID", false},
+		{"example.org. 3600 IN RRSIG NS 8 2 3600 20300101000000 20260101000000 12345 example.org. AQID", true},
+		{"example.org. 3600 IN RRSIG NS 8 2 3600 20300101000000 20260101000000 12345 example.org. BAUG", false},
+	}
+
+	var want []dns.RR
+	for _, record := range records {
+		rr, err := dns.NewRR(record.text)
+		if err != nil {
+			t.Fatalf("Failed to parse test record %q: %v", record.text, err)
+		}
+		if err := zone.Insert(rr); err != nil {
+			t.Fatalf("Failed to insert test record %q: %v", record.text, err)
+		}
+		if rr.Header().Rrtype != dns.TypeSOA && !record.duplicate {
+			want = append(want, rr)
+		}
+	}
+
+	return zone, want
+}
+
+func countDuplicateRR(records []dns.RR, want dns.RR) int {
+	count := 0
+	for _, rr := range records {
+		if dns.IsDuplicate(rr, want) {
+			count++
+		}
+	}
+	return count
+}

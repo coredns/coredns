@@ -39,3 +39,26 @@ func TestElemName_FallbackWhenCachedEmpty(t *testing.T) {
 		t.Fatalf("unexpected name after clearing RR map; want %q, got %q", want, got)
 	}
 }
+
+func TestElemInsertSuppressesDuplicates(t *testing.T) {
+	first, err := dns.NewRR("www.example. 300 IN A 192.0.2.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicate, err := dns.NewRR("www.example. 300 IN A 192.0.2.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	distinct, err := dns.NewRR("www.example. 300 IN A 192.0.2.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := newElem(first)
+	e.Insert(duplicate)
+	e.Insert(distinct)
+
+	if got := len(e.Type(dns.TypeA)); got != 2 {
+		t.Fatalf("Expected duplicate RR to be suppressed, got %d records", got)
+	}
+}
