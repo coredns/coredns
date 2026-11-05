@@ -307,29 +307,7 @@ func exchangeWithTestServerUsingClient(t *testing.T, network string, configs []*
 	if err != nil {
 		t.Fatalf("NewServer() failed: %v", err)
 	}
-
-	var addr string
-	switch network {
-	case "udp":
-		pc, err := net.ListenPacket("udp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatalf("net.ListenPacket() failed: %v", err)
-		}
-		addr = pc.LocalAddr().String()
-		go func() { _ = s.ServePacket(pc) }()
-		t.Cleanup(func() { _ = pc.Close() })
-	case "tcp":
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatalf("net.Listen() failed: %v", err)
-		}
-		addr = listener.Addr().String()
-		go func() { _ = s.Serve(listener) }()
-		t.Cleanup(func() { _ = listener.Close() })
-	default:
-		t.Fatalf("unsupported network %q", network)
-	}
-	t.Cleanup(func() { _ = s.Stop() })
+	addr := startTestServer(t, network, s)
 
 	client.Net = network
 	client.Timeout = 2 * time.Second
@@ -338,6 +316,36 @@ func exchangeWithTestServerUsingClient(t *testing.T, network string, configs []*
 		t.Fatalf("dns exchange failed: %v", err)
 	}
 	return response
+}
+
+// startTestServer serves s on a loopback listener for network ("udp" or "tcp")
+// and returns its address. The listener and server are stopped on cleanup.
+func startTestServer(tb testing.TB, network string, s *Server) string {
+	tb.Helper()
+
+	var addr string
+	switch network {
+	case "udp":
+		pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+		if err != nil {
+			tb.Fatalf("net.ListenPacket() failed: %v", err)
+		}
+		addr = pc.LocalAddr().String()
+		go func() { _ = s.ServePacket(pc) }()
+		tb.Cleanup(func() { _ = pc.Close() })
+	case "tcp":
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			tb.Fatalf("net.Listen() failed: %v", err)
+		}
+		addr = listener.Addr().String()
+		go func() { _ = s.Serve(listener) }()
+		tb.Cleanup(func() { _ = listener.Close() })
+	default:
+		tb.Fatalf("unsupported network %q", network)
+	}
+	tb.Cleanup(func() { _ = s.Stop() })
+	return addr
 }
 
 func TestDebug(t *testing.T) {
@@ -499,6 +507,49 @@ func BenchmarkCoreServeDNS(b *testing.B) {
 
 	for b.Loop() {
 		s.ServeDNS(ctx, w, m)
+	}
+}
+
+// BenchmarkServeWire measures a full query round trip through the UDP and TCP
+// listeners, including the per-request handler set up in Serve/ServePacket.
+// Allocations of the server goroutines are included in allocs/op.
+func BenchmarkServeWire(b *testing.B) {
+	for _, network := range []string{"udp", "tcp"} {
+		b.Run(network, func(b *testing.B) {
+			s, err := NewServer("127.0.0.1:0", []*Config{testConfig("dns", new(updateResponsePlugin))})
+			if err != nil {
+				b.Fatalf("NewServer() failed: %v", err)
+			}
+			s.MaxTCPQueries = -1
+			addr := startTestServer(b, network, s)
+
+			co, err := dns.Dial(network, addr)
+			if err != nil {
+				b.Fatalf("dns.Dial() failed: %v", err)
+			}
+			b.Cleanup(func() { _ = co.Close() })
+
+			m := new(dns.Msg)
+			m.SetQuestion("aaa.example.com.", dns.TypeA)
+
+			// Warm up so server start-up is not part of the timed loop.
+			if err := co.WriteMsg(m); err != nil {
+				b.Fatalf("WriteMsg() failed: %v", err)
+			}
+			if _, err := co.ReadMsg(); err != nil {
+				b.Fatalf("ReadMsg() failed: %v", err)
+			}
+
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := co.WriteMsg(m); err != nil {
+					b.Fatalf("WriteMsg() failed: %v", err)
+				}
+				if _, err := co.ReadMsg(); err != nil {
+					b.Fatalf("ReadMsg() failed: %v", err)
+				}
+			}
+		})
 	}
 }
 
