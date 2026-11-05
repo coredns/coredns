@@ -106,7 +106,7 @@ func parse(c *caddy.Controller) (*lbFuncs, error) {
 				}
 				var err error
 				lb.weighted.reload, err = time.ParseDuration(t[0])
-				if err != nil {
+				if err != nil || lb.weighted.reload < 0 {
 					return nil, c.Errf("invalid reload duration '%s'", t[0])
 				}
 			case "limit_answers":
