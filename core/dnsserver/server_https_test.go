@@ -1,3 +1,5 @@
+//go:build !nohttps
+
 package dnsserver
 
 import (
