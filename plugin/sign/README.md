@@ -34,8 +34,8 @@ it do key or algorithm rollovers - it just signs.
  *  Create RRSIGs that have an inception of -3 hours (minus a jitter between 0 and 18 hours)
     and a expiration of +32 (plus a jitter between 0 and 5 days) days for every given DNSKEY.
 
- *  Add NSEC records for all names in the zone. The TTL for these is the negative cache TTL from the
-    SOA record.
+ *  Add NSEC records for all names in the zone. The TTL for these is the lesser of the SOA's
+    MINIMUM field and the TTL of the SOA itself, as required by RFC 9077.
 
  *  Add or replace *all* apex CDS/CDNSKEY records with the ones derived from the given keys. For
     each key two CDS are created one with SHA1 and another with SHA256.
