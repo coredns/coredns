@@ -1,6 +1,7 @@
 package loadbalance
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"net"
@@ -19,6 +20,39 @@ w1,example.org
 192.168.1.15 10
 192.168.1.14 20
 `
+
+func TestWeightedDomainCase(t *testing.T) {
+	for _, configured := range []string{"example.org", "ExAmPlE.ORG"} {
+		for _, owner := range []string{"example.org.", "EXAMPLE.org."} {
+			t.Run(configured+"/"+owner, func(t *testing.T) {
+				w := &weightedRR{randomGen: &fakeRandomGen{t: t, expectedLimit: 11}}
+				var err error
+				w.domains, err = w.parseWeights(bufio.NewScanner(strings.NewReader(configured + "\n192.0.2.1 1\n192.0.2.2 10\n")))
+				if err != nil {
+					t.Fatal(err)
+				}
+				m := new(dns.Msg)
+				m.SetQuestion(owner, dns.TypeA)
+				m.Response = true
+				m.Answer = []dns.RR{
+					testutil.A(owner + " 60 IN A 192.0.2.1"),
+					testutil.A(owner + " 60 IN A 192.0.2.2"),
+				}
+				rec := dnstest.NewRecorder(&testutil.ResponseWriter{})
+				rw := &LoadBalanceResponseWriter{ResponseWriter: rec, shuffle: func(m *dns.Msg) *dns.Msg { return weightedShuffle(m, w) }}
+				if err := rw.WriteMsg(m); err != nil {
+					t.Fatal(err)
+				}
+				if got := rec.Msg.Answer[0].(*dns.A).A.String(); got != "192.0.2.2" {
+					t.Errorf("first address = %s, want 192.0.2.2", got)
+				}
+				if got := rec.Msg.Answer[0].Header().Name; got != owner {
+					t.Errorf("owner = %q, want original %q", got, owner)
+				}
+			})
+		}
+	}
+}
 
 var testOneDomainWRR = map[string]weights{
 	"w1,example.org.": {
