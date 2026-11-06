@@ -40,7 +40,7 @@ implementing a method `Ready() bool` that returns true when the plugin is ready 
 
 ## Examples
 
-Let *ready* report readiness for both the `.` and `example.org` servers (assuming the *whois*
+Let *ready* report readiness for both the `.` and `example.org` servers (assuming the *whoami*
 plugin also exports readiness):
 
 ~~~ txt

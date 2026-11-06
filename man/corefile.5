@@ -39,13 +39,13 @@ Specifying a \fBZONE\fP \fIand\fP \fBPORT\fP combination multiple times for \fId
 an error on startup.
 
 .PP
-When a query comes in, it is matched again all zones for all servers, the server with the longest
+When a query comes in, it is matched against all zones for all servers, the server with the longest
 match on the query name will receive the query.
 
 .PP
-\fBPLUGIN\fP defines the plugin(s) we want to load into this server. This is optional as well, but as
+\fBPLUGIN\fP defines the plugin(s) we want to load into this server. This is optional as well, but a
 server with no plugins will just return SERVFAIL for all queries. Each plugin can have a number of
-properties than can have arguments, see the documentation for each plugin.
+properties that can have arguments, see the documentation for each plugin.
 
 .PP
 The Corefile is line oriented: the arguments of a plugin, or of one of its properties, run until the
@@ -96,7 +96,7 @@ https://coredns.io/plugins/import
 
 .SH "SNIPPETS"
 .PP
-If you want to reuse a snippet you can define one with and then use it with \fIimport\fP.
+If you want to reuse a snippet you can define one and then use it with \fIimport\fP.
 
 .PP
 .RS

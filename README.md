@@ -79,7 +79,7 @@ setup a Go environment, you could build CoreDNS easily:
 ```
 docker run --rm -i -t \
     -v $PWD:/go/src/github.com/coredns/coredns -w /go/src/github.com/coredns/coredns \
-        golang:1.25 sh -c 'GOFLAGS="-buildvcs=false" make gen && GOFLAGS="-buildvcs=false" make'
+        golang:1.27 sh -c 'GOFLAGS="-buildvcs=false" make gen && GOFLAGS="-buildvcs=false" make'
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -338,6 +338,19 @@ guidelines](./.github/CONTRIBUTING.md).
 
 Examples for deployment via systemd and other use cases can be found in the [deployment
 repository](https://github.com/coredns/deployment).
+
+On Linux, CoreDNS first tries to open listeners without changing capabilities. If a
+bind is denied and `CAP_NET_BIND_SERVICE` is permitted, CoreDNS temporarily enables
+it on the thread opening that listener. The container image grants this capability
+as permitted, so it can also start with all capabilities dropped when using
+unprivileged ports (or commands such as `-version`). Binding a privileged port as a
+nonroot user still requires the capability or a network namespace that allows that
+port through `net.ipv4.ip_unprivileged_port_start`; CoreDNS does not change that sysctl.
+
+Custom plugins that open privileged listeners directly can wrap the listener creation
+with `plugin/pkg/capability.WithNetBindService`, as the built-in listeners do. This is
+needed when relying on the image's permitted file capability rather than a capability
+already made effective by the deployment.
 
 ## Deprecation Policy
 

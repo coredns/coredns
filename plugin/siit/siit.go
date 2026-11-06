@@ -224,7 +224,7 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) (*dns.Msg, bool)
 
 	// 5.1.7: The TTL is the minimum of the A RR and the SOA RR. If SOA is
 	// unknown, then the TTL is the minimum of A TTL and 600
-	SOATtl := uint32(600) // Default NS record TTL
+	SOATtl := uint32(600) // Default SOA record TTL
 	for _, ns := range origResponse.Ns {
 		if ns.Header().Rrtype == dns.TypeSOA {
 			SOATtl = ns.Header().Ttl

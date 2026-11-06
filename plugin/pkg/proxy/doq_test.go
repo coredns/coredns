@@ -297,6 +297,12 @@ func TestProxyDoQVerifiesServerName(t *testing.T) {
 }
 
 func TestProxyDoQSourceAddress(t *testing.T) {
+	probe, err := net.ListenPacket("udp4", "127.0.0.2:0")
+	if err != nil {
+		t.Skipf("second loopback address is unavailable: %v", err)
+	}
+	probe.Close()
+
 	remoteAddress := make(chan net.Addr, 1)
 	server, clientTLS := newDoQTestServer(t, func(_ int64, conn *quic.Conn, stream *quic.Stream, query *dns.Msg) error {
 		remoteAddress <- conn.RemoteAddr()

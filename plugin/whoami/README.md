@@ -14,7 +14,7 @@ The reply always has an empty answer section. The port and transport are include
 section as a SRV record, transport can be "tcp" or "udp".
 
 ~~~ txt
-._<transport>.qname. 0 IN SRV 0 0 <port> .
+_<transport>.qname. 0 IN SRV 0 0 <port> .
 ~~~
 
 The *whoami* plugin will respond to every A or AAAA query, regardless of the query name.

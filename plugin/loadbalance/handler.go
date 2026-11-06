@@ -11,13 +11,19 @@ import (
 
 // LoadBalance is a plugin to rewrite responses for "load balancing".
 type LoadBalance struct {
-	Next    plugin.Handler
-	shuffle func(*dns.Msg) *dns.Msg
+	Next         plugin.Handler
+	shuffle      func(*dns.Msg) *dns.Msg
+	limitAnswers int
 }
 
 // ServeDNS implements the plugin.Handler interface.
 func (lb LoadBalance) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	rw := &LoadBalanceResponseWriter{ResponseWriter: w, shuffle: lb.shuffle}
+	limit := lb.limitAnswers
+	// Capture the client's DO bit before downstream plugins can change EDNS.
+	if opt := r.IsEdns0(); opt != nil && opt.Do() {
+		limit = 0
+	}
+	rw := &LoadBalanceResponseWriter{ResponseWriter: w, shuffle: lb.shuffle, limitAnswers: limit}
 	return plugin.NextOrFailure(lb.Name(), lb.Next, ctx, rw, r)
 }
 

@@ -15,6 +15,11 @@ func TestCacheACLAuthorization(t *testing.T) {
 		allowedSource = "127.0.0.2"
 		queryName     = "secret.protected.example."
 	)
+	probe, err := net.ListenPacket("udp4", net.JoinHostPort(allowedSource, "0"))
+	if err != nil {
+		t.Skipf("second loopback address is unavailable: %v", err)
+	}
+	probe.Close()
 
 	exchange := func(server, source string) *dns.Msg {
 		t.Helper()

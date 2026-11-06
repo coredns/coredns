@@ -55,7 +55,8 @@ The plugin will check for changes every \fBINTERVAL\fP, subject to +/- the \fBJI
 \fBINTERVAL\fP and \fBJITTER\fP are Golang durations
 \[la]https://golang.org/pkg/time/#ParseDuration\[ra].
 The default \fBINTERVAL\fP is 30s, default \fBJITTER\fP is 15s, the minimal value for \fBINTERVAL\fP
-is 2s, and for \fBJITTER\fP it is 1s. If \fBJITTER\fP is more than half of \fBINTERVAL\fP, it will be
+is 2s and a non-zero \fBJITTER\fP must be at least 1s; a \fBJITTER\fP of \fB\fC0s\fR is accepted and checks
+run at exactly every \fBINTERVAL\fP. If \fBJITTER\fP is more than half of \fBINTERVAL\fP, it will be
 set to half of \fBINTERVAL\fP
 
 

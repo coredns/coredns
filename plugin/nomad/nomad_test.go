@@ -182,6 +182,73 @@ func TestNomad(t *testing.T) {
 	runTests(ctx, t, &demoNomad, cases)
 }
 
+// TestNomadConfiguredNamespaceOverridesQuery is a request-level regression test for the
+// configured `namespace` directive: it must override the namespace segment carried in
+// the query name, and must leave existing per-query behavior untouched when unset.
+func TestNomadConfiguredNamespaceOverridesQuery(t *testing.T) {
+	var gotNamespace string
+	nomadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/service/example":
+			gotNamespace = r.URL.Query().Get("namespace")
+			w.Write([]byte(`[{"Address":"1.2.3.4","Namespace":"` + gotNamespace + `","Port":23202,"ServiceName":"example"}]`))
+		case "/v1/agent/self":
+			w.Write([]byte(`{"Member":{"Name":"foobar"}}`))
+		}
+	}))
+	defer nomadServer.Close()
+
+	cfg := nomad.DefaultConfig()
+	cfg.Address = nomadServer.URL
+	client, err := nomad.NewClient(cfg)
+	if err != nil {
+		t.Fatalf("Failed to create Nomad client: %v", err)
+	}
+
+	qname := "example.development.service.nomad."
+
+	t.Run("configured_namespace_overrides_query", func(t *testing.T) {
+		n := &Nomad{
+			Next:      test.ErrorHandler(),
+			ttl:       uint32(defaultTTL),
+			Zone:      "service.nomad",
+			clients:   []*nomad.Client{client},
+			namespace: "production",
+		}
+
+		w := dnstest.NewRecorder(&test.ResponseWriter{})
+		req := new(dns.Msg)
+		req.SetQuestion(qname, dns.TypeA)
+
+		if _, err := n.ServeDNS(context.Background(), w, req); err != nil {
+			t.Fatalf("ServeDNS returned error: %v", err)
+		}
+		if gotNamespace != "production" {
+			t.Errorf("expected configured namespace %q to be sent, got %q", "production", gotNamespace)
+		}
+	})
+
+	t.Run("omitted_namespace_preserves_query_namespace", func(t *testing.T) {
+		n := &Nomad{
+			Next:    test.ErrorHandler(),
+			ttl:     uint32(defaultTTL),
+			Zone:    "service.nomad",
+			clients: []*nomad.Client{client},
+		}
+
+		w := dnstest.NewRecorder(&test.ResponseWriter{})
+		req := new(dns.Msg)
+		req.SetQuestion(qname, dns.TypeA)
+
+		if _, err := n.ServeDNS(context.Background(), w, req); err != nil {
+			t.Fatalf("ServeDNS returned error: %v", err)
+		}
+		if gotNamespace != "development" {
+			t.Errorf("expected query namespace %q to be sent, got %q", "development", gotNamespace)
+		}
+	})
+}
+
 func runTests(ctx context.Context, t *testing.T, n *Nomad, cases []test.Case) {
 	t.Helper()
 	for i, tc := range cases {

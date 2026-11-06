@@ -232,6 +232,15 @@ Kubernetes API.
 This plugin creates PTR records for every Pod selected by a Service. If a given Pod is selected by more than
 one Service a separate PTR record will exist for each Service selecting it.
 
+## EndpointSlice Address Types
+
+Endpoint records are served from EndpointSlices of address type `IPv4` and `IPv6` only. The
+[Kubernetes EndpointSlice API reference](https://kubernetes.io/docs/reference/kubernetes-api/discovery/endpoint-slice-v1/)
+documents `FQDN` as deprecated, defines no semantics for it, and states that kube-proxy only processes
+`IPv4` and `IPv6` slices. An FQDN slice carries names chosen by whoever wrote it rather than addresses,
+and the plugin publishes no records for it. A `CNAME` target for a Service is expressed with a Service
+of type `ExternalName`.
+
 ## Examples
 
 Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Also handle all

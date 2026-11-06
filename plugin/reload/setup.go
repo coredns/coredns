@@ -3,6 +3,7 @@ package reload
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ func reloadForController(c *caddy.Controller) *reload {
 	return state
 }
 
-var once sync.Once
+var eventHookMu sync.Mutex
 
 func setup(c *caddy.Controller) error {
 	c.Next() // 'reload'
@@ -80,10 +81,21 @@ func setup(c *caddy.Controller) error {
 	state.configHash = dnsserver.GetConfigHash(c)
 	state.setInterval(i)
 	state.setUsage(used)
-	once.Do(func() {
-		caddy.RegisterEventHook("reload", hook)
-	})
+	registerEventHook()
 	return nil
+}
+
+// Caddy removes all event hooks before a SIGUSR1 restart. Register the hook
+// whenever the directive is set up so that it is restored for that restart,
+// while avoiding duplicate registration during ordinary reloads.
+func registerEventHook() {
+	eventHookMu.Lock()
+	defer eventHookMu.Unlock()
+
+	if slices.Contains(caddy.ListPlugins()["event_hooks"], "reload") {
+		return
+	}
+	caddy.RegisterEventHook("reload", hook)
 }
 
 const (

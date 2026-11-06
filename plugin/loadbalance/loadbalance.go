@@ -14,7 +14,8 @@ const (
 // LoadBalanceResponseWriter is a response writer that shuffles A, AAAA and MX records.
 type LoadBalanceResponseWriter struct {
 	dns.ResponseWriter
-	shuffle func(*dns.Msg) *dns.Msg
+	shuffle      func(*dns.Msg) *dns.Msg
+	limitAnswers int
 }
 
 // WriteMsg implements the dns.ResponseWriter interface.
@@ -38,7 +39,11 @@ func (r *LoadBalanceResponseWriter) WriteMsg(res *dns.Msg) error {
 		return r.ResponseWriter.WriteMsg(res)
 	}
 
-	return r.ResponseWriter.WriteMsg(r.shuffle(res))
+	res = r.shuffle(res)
+	if r.limitAnswers > 0 {
+		limitAnswers(res, r.limitAnswers)
+	}
+	return r.ResponseWriter.WriteMsg(res)
 }
 
 func randomShuffle(res *dns.Msg) *dns.Msg {

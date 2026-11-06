@@ -19,6 +19,7 @@ implementations (like glibc) are particular about that.
 loadbalance [round_robin | weighted WEIGHTFILE] {
 			reload DURATION
 			prefer CIDR [CIDR...]
+			limit_answers NUM_ANSWERS
 }
 ~~~
 * `round_robin` policy randomizes the order of  A, AAAA, and MX records applying a uniform probability distribution. This is the default load balancing policy.
@@ -32,6 +33,25 @@ Additionally, the plugin supports subnet-based ordering using the `prefer` direc
  * **WEIGHTFILE** is the file containing the weight values assigned to IPs for various domain names. If the path is relative, the path from the **root** plugin will be prepended to it. The format is explained below in the *Weightfile* section.
 
  * **DURATION** interval to reload `WEIGHTFILE` and update weight assignments if there are changes in the file. The default value is `30s`. A value of `0s` means to not scan for changes and reload.
+
+ * `limit_answers` keeps at most **NUM_ANSWERS** records from each A, AAAA, or MX
+   RRset in the answer section. **NUM_ANSWERS** must be a positive integer. The
+   default is no limit. Selection happens after the configured policy and any
+   `prefer` ordering, keeping the first records of each RRset (same name, class,
+   and type). With `weighted`, only the first address is selected by weight;
+   the remaining addresses retain their existing order.
+
+   CNAME/DNAME records and other record types do not count toward the limit.
+   Authority and additional sections are not limited. A response can therefore
+   contain more than **NUM_ANSWERS** records in total.
+
+   This is an opt-in local answer rewriting policy for unsigned data. It returns
+   the selected subset without setting the TC flag. Downstream caches may cache
+   that subset for its TTL; it does not balance individual connections. Queries
+   with the DNSSEC OK (DO) bit, responses with the authenticated data (AD) or TC
+   bit, responses containing signatures (RRSIG, SIG, or TSIG), and zone transfers
+   bypass limiting. These exceptions preserve signed RRsets and incomplete
+   responses. The configured ordering still applies as usual.
 
 
 ## Weightfile
@@ -105,3 +125,21 @@ Prioritize IPs from 10.9.20.0/24 and 192.168.1.0/24:
 ```
 
 If the DNS response includes multiple A/AAAA records, the plugin will reorder them to place the ones matching preferred subnets first.
+
+### Limit Answers
+
+Select one address from each answer RRset after round-robin ordering:
+
+~~~ corefile
+example.com {
+    loadbalance {
+        limit_answers 1
+    }
+    file db.example.com
+}
+~~~
+
+An unsigned A reply containing two CNAME records and five addresses will retain
+both CNAME records and one address. The same option can be combined with
+`weighted`, `reload`, and `prefer` in a single block. If `prefer` is configured,
+preferred addresses are selected before other addresses.

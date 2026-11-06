@@ -25,11 +25,12 @@ var (
 type Nomad struct {
 	Next plugin.Handler
 
-	ttl     uint32
-	Zone    string
-	clients []*api.Client
-	current int
-	filter  string
+	ttl       uint32
+	Zone      string
+	clients   []*api.Client
+	current   int
+	filter    string
+	namespace string
 }
 
 func (n *Nomad) Name() string {
@@ -46,6 +47,14 @@ func (n Nomad) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	namespace, serviceName, err := extractNamespaceAndService(qname)
 	if err != nil {
 		return plugin.NextOrFailure(n.Name(), n.Next, ctx, w, r)
+	}
+
+	// A configured namespace scopes this plugin instance to that namespace, taking
+	// precedence over whatever namespace the query name encodes. Query names must
+	// still carry a namespace segment (the zone format requires it), but it's
+	// otherwise ignored once a namespace is configured.
+	if n.namespace != "" {
+		namespace = n.namespace
 	}
 
 	m, header := initializeMessage(state, n.ttl)

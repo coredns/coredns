@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sync/atomic"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -13,16 +14,82 @@ import (
 	"github.com/miekg/dns"
 )
 
-const maxCnameChainLength = 10
+const (
+	maxCnameChainLength = 10
+	maxCnameLookups     = 32
+)
+
+var errMaxCnameLookups = fmt.Errorf("maximum CNAME lookups exceeded")
+
+type cnameVisitSet map[string]struct{}
+
+func (v cnameVisitSet) first(target string) bool {
+	target = dns.CanonicalName(target)
+	if _, ok := v[target]; ok {
+		return false
+	}
+	v[target] = struct{}{}
+	return true
+}
+
+type cnameAncestor struct {
+	name   string
+	parent *cnameAncestor
+}
+
+type cnameAncestorKey struct{}
+
+func withCnameAncestor(ctx context.Context, name string) context.Context {
+	ancestor, _ := ctx.Value(cnameAncestorKey{}).(*cnameAncestor)
+	return context.WithValue(ctx, cnameAncestorKey{}, &cnameAncestor{name: dns.CanonicalName(name), parent: ancestor})
+}
+
+func isCnameAncestor(ctx context.Context, target string) bool {
+	target = dns.CanonicalName(target)
+	ancestor, _ := ctx.Value(cnameAncestorKey{}).(*cnameAncestor)
+	for ; ancestor != nil; ancestor = ancestor.parent {
+		if ancestor.name == target {
+			return true
+		}
+	}
+	return false
+}
+
+type cnameLookupBudget struct {
+	used atomic.Uint32
+}
+
+type cnameLookupBudgetKey struct{}
+
+func cnameBudget(ctx context.Context) (context.Context, *cnameLookupBudget) {
+	if budget, ok := ctx.Value(cnameLookupBudgetKey{}).(*cnameLookupBudget); ok {
+		return ctx, budget
+	}
+	budget := new(cnameLookupBudget)
+	return context.WithValue(ctx, cnameLookupBudgetKey{}, budget), budget
+}
+
+func (b *cnameLookupBudget) take() bool {
+	return b.used.Add(1) <= maxCnameLookups
+}
+
+func (b *cnameLookupBudget) exhausted() bool {
+	return b.used.Load() > maxCnameLookups
+}
 
 // A returns A records from Backend or an error.
 func A(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
+	return a(ctx, b, zone, state, previousRecords, opt, nil)
+}
+
+func a(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options, cnames cnameVisitSet) (records []dns.RR, truncated bool, err error) {
 	services, err := checkForApex(ctx, b, zone, state, opt)
 	if err != nil {
 		return nil, false, err
 	}
 
 	dup := make(map[string]struct{})
+	var budget *cnameLookupBudget
 
 	for _, serv := range services {
 		what, ip := serv.HostType()
@@ -43,10 +110,23 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
 				continue
 			}
+			if isCnameAncestor(ctx, newRecord.Target) {
+				continue
+			}
+			if cnames == nil {
+				ctx, budget = cnameBudget(ctx)
+				cnames = make(cnameVisitSet)
+			}
+			if !cnames.first(newRecord.Target) {
+				continue
+			}
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
-				nextRecords, tc, err := A(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
+				nextRecords, tc, err := a(ctx, b, zone, state1, append(previousRecords, newRecord), opt, cnames)
+				if err == errMaxCnameLookups {
+					return nil, false, err
+				}
 
 				if err == nil {
 					// Not only have we found something we should add the CNAME and the IP addresses.
@@ -62,8 +142,17 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			}
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
+			if budget == nil {
+				ctx, budget = cnameBudget(ctx)
+			}
+			if !budget.take() {
+				return nil, false, errMaxCnameLookups
+			}
 			// Lookup
-			m1, e1 := b.Lookup(ctx, state, target, state.QType())
+			m1, e1 := b.Lookup(withCnameAncestor(ctx, state.Name()), state, target, state.QType())
+			if budget.exhausted() {
+				return nil, false, errMaxCnameLookups
+			}
 			if e1 != nil || m1 == nil {
 				continue
 			}
@@ -90,12 +179,17 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 
 // AAAA returns AAAA records from Backend or an error.
 func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
+	return aaaa(ctx, b, zone, state, previousRecords, opt, nil)
+}
+
+func aaaa(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options, cnames cnameVisitSet) (records []dns.RR, truncated bool, err error) {
 	services, err := checkForApex(ctx, b, zone, state, opt)
 	if err != nil {
 		return nil, false, err
 	}
 
 	dup := make(map[string]struct{})
+	var budget *cnameLookupBudget
 
 	for _, serv := range services {
 		what, ip := serv.HostType()
@@ -117,10 +211,23 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
 				continue
 			}
+			if isCnameAncestor(ctx, newRecord.Target) {
+				continue
+			}
+			if cnames == nil {
+				ctx, budget = cnameBudget(ctx)
+				cnames = make(cnameVisitSet)
+			}
+			if !cnames.first(newRecord.Target) {
+				continue
+			}
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
-				nextRecords, tc, err := AAAA(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
+				nextRecords, tc, err := aaaa(ctx, b, zone, state1, append(previousRecords, newRecord), opt, cnames)
+				if err == errMaxCnameLookups {
+					return nil, false, err
+				}
 
 				if err == nil {
 					// Not only have we found something we should add the CNAME and the IP addresses.
@@ -136,7 +243,16 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			}
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
-			m1, e1 := b.Lookup(ctx, state, target, state.QType())
+			if budget == nil {
+				ctx, budget = cnameBudget(ctx)
+			}
+			if !budget.take() {
+				return nil, false, errMaxCnameLookups
+			}
+			m1, e1 := b.Lookup(withCnameAncestor(ctx, state.Name()), state, target, state.QType())
+			if budget.exhausted() {
+				return nil, false, errMaxCnameLookups
+			}
 			if e1 != nil || m1 == nil {
 				continue
 			}
@@ -344,12 +460,17 @@ func CNAME(ctx context.Context, b ServiceBackend, _zone string, state request.Re
 
 // TXT returns TXT records from Backend or an error.
 func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
+	return txt(ctx, b, zone, state, previousRecords, opt, nil)
+}
+
+func txt(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options, cnames cnameVisitSet) (records []dns.RR, truncated bool, err error) {
 	services, err := b.Services(ctx, state, false, opt)
 	if err != nil {
 		return nil, false, err
 	}
 
 	dup := make(map[string]struct{})
+	var budget *cnameLookupBudget
 
 	for _, serv := range services {
 		what, _ := serv.HostType()
@@ -370,10 +491,23 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
 				continue
 			}
+			if isCnameAncestor(ctx, newRecord.Target) {
+				continue
+			}
+			if cnames == nil {
+				ctx, budget = cnameBudget(ctx)
+				cnames = make(cnameVisitSet)
+			}
+			if !cnames.first(newRecord.Target) {
+				continue
+			}
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
-				nextRecords, tc, err := TXT(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
+				nextRecords, tc, err := txt(ctx, b, zone, state1, append(previousRecords, newRecord), opt, cnames)
+				if err == errMaxCnameLookups {
+					return nil, false, err
+				}
 				if tc {
 					truncated = true
 				}
@@ -388,8 +522,17 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			}
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
+			if budget == nil {
+				ctx, budget = cnameBudget(ctx)
+			}
+			if !budget.take() {
+				return nil, false, errMaxCnameLookups
+			}
 			// Lookup
-			m1, e1 := b.Lookup(ctx, state, target, state.QType())
+			m1, e1 := b.Lookup(withCnameAncestor(ctx, state.Name()), state, target, state.QType())
+			if budget.exhausted() {
+				return nil, false, errMaxCnameLookups
+			}
 			if e1 != nil || m1 == nil {
 				continue
 			}

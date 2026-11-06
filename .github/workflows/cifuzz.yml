@@ -14,12 +14,12 @@ jobs:
     steps:
       - name: Build Fuzzers
         id: build
-        uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master  # cifuzz can't be pinned https://github.com/google/oss-fuzz/issues/6836
+        uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master  # zizmor: ignore[unpinned-uses] CIFuzz can't be pinned: https://github.com/google/oss-fuzz/issues/6836
         with:
           oss-fuzz-project-name: "go-coredns"
           dry-run: false
       - name: Run Fuzzers
-        uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master  # cifuzz can't be pinned
+        uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master  # zizmor: ignore[unpinned-uses] CIFuzz can't be pinned: https://github.com/google/oss-fuzz/issues/6836
         with:
           oss-fuzz-project-name: "go-coredns"
           fuzz-seconds: 600

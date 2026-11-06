@@ -4,6 +4,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
@@ -50,6 +51,101 @@ func TestEtcdCache(t *testing.T) {
 	checkResponse(t, resp)
 	if len(resp.Extra) != 0 {
 		t.Errorf("Expected no RRs in additional section, got: %d", len(resp.Extra))
+	}
+}
+
+func TestEtcdCacheCrossZoneCNAMEConvergence(t *testing.T) {
+	corefile := `.:0 {
+		cache 30
+		etcd example.org example.net {
+			path /skydns
+			endpoint http://localhost:2379
+		}
+	}`
+
+	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer ex.Stop()
+
+	etc := etcdPlugin()
+	services := []*msg.Service{
+		{Host: "b.example.net.", Key: "x1.a.example.org."},
+		{Host: "c.example.net.", Key: "x2.a.example.org."},
+		{Host: "d.example.org.", Key: "b.example.net."},
+		{Host: "d.example.org.", Key: "c.example.net."},
+		{Host: "192.0.2.1", Key: "d.example.org."},
+	}
+	ctx := context.Background()
+	for _, serv := range services {
+		set(ctx, t, etc, serv.Key, 0, serv)
+		defer delete(ctx, t, etc, serv.Key)
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion("a.example.org.", dns.TypeA)
+	resp, err := dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("parent query failed: %v", err)
+	}
+	if len(resp.Answer) != 6 {
+		t.Fatalf("expected both CNAME branches in the parent answer, got %d records: %v", len(resp.Answer), resp.Answer)
+	}
+
+	// Remove the records after the parent lookup. A direct query for c must
+	// still get the complete answer cached by the nested lookup.
+	delete(ctx, t, etc, services[3].Key)
+	delete(ctx, t, etc, services[4].Key)
+	for range 2 {
+		m.SetQuestion("c.example.net.", dns.TypeA)
+		resp, err = dns.Exchange(m, udp)
+		if err != nil {
+			t.Fatalf("cached sibling query failed: %v", err)
+		}
+		if len(resp.Answer) != 2 {
+			t.Fatalf("expected cached CNAME and address, got %d records: %v", len(resp.Answer), resp.Answer)
+		}
+		if resp.Answer[0].Header().Rrtype != dns.TypeCNAME || resp.Answer[1].Header().Rrtype != dns.TypeA {
+			t.Fatalf("unexpected cached sibling answer: %v", resp.Answer)
+		}
+	}
+}
+
+func TestEtcdCNAMECrossZoneLookupBudget(t *testing.T) {
+	corefile := `.:0 {
+		cache 30
+		etcd example.org example.net {
+			path /skydns
+			endpoint http://localhost:2379
+		}
+	}`
+
+	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer ex.Stop()
+
+	etc := etcdPlugin()
+	ctx := context.Background()
+	for i := 0; i < 33; i++ {
+		serv := &msg.Service{
+			Host: fmt.Sprintf("target%d.example.net.", i),
+			Key:  fmt.Sprintf("x%d.limit.example.org.", i),
+		}
+		set(ctx, t, etc, serv.Key, 0, serv)
+		defer delete(ctx, t, etc, serv.Key)
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion("limit.example.org.", dns.TypeA)
+	resp, err := dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("budget query failed: %v", err)
+	}
+	if resp.Rcode != dns.RcodeServerFailure {
+		t.Fatalf("expected SERVFAIL after exhausting the CNAME lookup budget, got %s", dns.RcodeToString[resp.Rcode])
 	}
 }
 

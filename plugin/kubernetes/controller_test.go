@@ -145,7 +145,12 @@ func generateEndpointSlices(cidr string, svcType string, client kubernetes.Inter
 	port := int32(80)
 	protocol := api.Protocol("tcp")
 	name := "http"
+	addressType := discovery.AddressTypeIPv4
+	if ip.To4() == nil {
+		addressType = discovery.AddressTypeIPv6
+	}
 	eps := &discovery.EndpointSlice{
+		AddressType: addressType,
 		Ports: []discovery.EndpointPort{
 			{
 				Port:     &port,

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/capability"
+
 	tap "github.com/dnstap/golang-dnstap"
 )
 
@@ -100,12 +102,16 @@ func (l *listener) listen() error {
 			}
 		}
 
-		ln, err = tls.Listen("tcp", l.endpoint, config)
+		ln, err = capability.WithNetBindService(func() (net.Listener, error) {
+			return tls.Listen("tcp", l.endpoint, config)
+		})
 		if err != nil {
 			return err
 		}
 	case "tcp":
-		ln, err = net.Listen("tcp", l.endpoint)
+		ln, err = capability.WithNetBindService(func() (net.Listener, error) {
+			return net.Listen("tcp", l.endpoint)
+		})
 		if err != nil {
 			return err
 		}

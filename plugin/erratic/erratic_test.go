@@ -81,6 +81,27 @@ func TestErraticTruncate(t *testing.T) {
 	}
 }
 
+func TestErraticTruncateThree(t *testing.T) {
+	e := &Erratic{truncate: 3} // 1 per 3 queries
+
+	ctx := context.TODO()
+
+	for i := range 6 {
+		req := new(dns.Msg)
+		req.SetQuestion("example.org.", dns.TypeA)
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if _, err := e.ServeDNS(ctx, rec, req); err != nil {
+			t.Fatalf("Test %d: Expected no error, but got %q", i, err)
+		}
+
+		want := i%3 == 0
+		if rec.Msg.Truncated != want {
+			t.Errorf("Test %d: Truncated = %t, want %t", i, rec.Msg.Truncated, want)
+		}
+	}
+}
+
 func TestAxfr(t *testing.T) {
 	e := &Erratic{truncate: 0} // nothing, just check if we can get an axfr
 
