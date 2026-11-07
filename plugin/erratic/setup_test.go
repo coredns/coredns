@@ -55,6 +55,40 @@ func TestParseErratic(t *testing.T) {
 			drop 3
 			truncate
 		}`, false, 3, 0, 2},
+		{`erratic {
+			drop
+		}`, false, 2, 0, 0},
+		{`erratic {
+			drop
+			delay 3 1ms
+		}`, false, 2, 3, 0},
+		{`erratic {
+			delay 3 1ms
+			drop
+		}`, false, 2, 3, 0},
+		{`erratic {
+			drop
+			truncate 3
+		}`, false, 2, 0, 3},
+		{`erratic {
+			truncate 3
+			drop
+		}`, false, 2, 0, 3},
+		{`erratic {
+			drop
+			delay 3 1ms
+			truncate 3
+		}`, false, 2, 3, 3},
+		{`erratic {
+			delay 3 1ms
+		}`, false, 0, 3, 0},
+		{`erratic {
+			truncate 3
+		}`, false, 0, 0, 3},
+		{`erratic {
+			drop 0
+			delay 3 1ms
+		}`, false, 0, 3, 0},
 		// fails
 		{`erratic {
 			drop -1

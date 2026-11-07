@@ -33,6 +33,7 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "drop":
+				drop = true
 				args := c.RemainingArgs()
 				if len(args) > 1 {
 					return nil, c.ArgErr()
@@ -50,7 +51,6 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 					return nil, fmt.Errorf("illegal amount value given %q", args[0])
 				}
 				e.drop = uint64(amount)
-				drop = true
 			case "delay":
 				args := c.RemainingArgs()
 				if len(args) > 2 {
