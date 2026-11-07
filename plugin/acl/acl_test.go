@@ -569,6 +569,9 @@ func TestACLServeDNS(t *testing.T) {
 				w.setZone(tt.zones[0])
 			}
 			m.SetQuestion(tt.args.domain, tt.args.qtype)
+			if tt.wantExtendedErrorCode != 0 {
+				m.SetEdns0(4096, false)
+			}
 			_, err = a.ServeDNS(ctx, w, m)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Error: acl.ServeDNS() error = %v, wantErr %v", err, tt.wantErr)
@@ -593,6 +596,59 @@ func TestACLServeDNS(t *testing.T) {
 				if !matched {
 					t.Error("Error: acl.ServeDNS() missing Extended DNS Error option")
 				}
+			}
+		})
+	}
+}
+
+func TestACLResponseEDNS(t *testing.T) {
+	tests := []struct {
+		name   string
+		action string
+		edns   bool
+		do     bool
+	}{
+		{name: "block without EDNS", action: "block"},
+		{name: "filter without EDNS", action: "filter"},
+		{name: "block with EDNS", action: "block", edns: true},
+		{name: "filter with EDNS", action: "filter", edns: true},
+		{name: "block with EDNS and DO", action: "block", edns: true, do: true},
+		{name: "filter with EDNS and DO", action: "filter", edns: true, do: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctr := NewTestControllerWithZones("acl example.org {\n"+tt.action+" net 192.168.0.0/16\n}", []string{})
+			a, err := parse(ctr)
+			if err != nil {
+				t.Fatalf("Cannot parse acl from config: %v", err)
+			}
+			a.Next = test.NextHandler(dns.RcodeSuccess, nil)
+
+			w := &testResponseWriter{}
+			w.setRemoteIP("192.168.0.2")
+			m := new(dns.Msg)
+			m.SetQuestion("www.example.org.", dns.TypeA)
+			if tt.edns {
+				m.SetEdns0(1232, tt.do)
+			}
+
+			if _, err := a.ServeDNS(context.Background(), w, m); err != nil {
+				t.Fatalf("ServeDNS() error = %v", err)
+			}
+
+			opt := w.Msg.IsEdns0()
+			if !tt.edns {
+				if opt != nil {
+					t.Errorf("response has an OPT record, but the request had none")
+				}
+				return
+			}
+			if opt == nil {
+				t.Fatal("response has no OPT record, but the request had one")
+			}
+			if opt.Do() != tt.do {
+				t.Errorf("response DO bit = %v, want %v", opt.Do(), tt.do)
 			}
 		})
 	}

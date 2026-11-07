@@ -76,11 +76,8 @@ RulesCheckLoop:
 			}
 		case actionBlock:
 			{
-				m := new(dns.Msg).
-					SetRcode(r, dns.RcodeRefused).
-					SetEdns0(4096, true)
-				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeBlocked}
-				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
+				m := new(dns.Msg).SetRcode(r, dns.RcodeRefused)
+				addEDE(r, m, dns.ExtendedErrorCodeBlocked)
 				w.WriteMsg(m)
 				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
@@ -91,11 +88,8 @@ RulesCheckLoop:
 			}
 		case actionFilter:
 			{
-				m := new(dns.Msg).
-					SetRcode(r, dns.RcodeSuccess).
-					SetEdns0(4096, true)
-				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeFiltered}
-				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
+				m := new(dns.Msg).SetRcode(r, dns.RcodeSuccess)
+				addEDE(r, m, dns.ExtendedErrorCodeFiltered)
 				w.WriteMsg(m)
 				RequestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
@@ -105,6 +99,18 @@ RulesCheckLoop:
 
 	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx), metrics.WithView(ctx)).Inc()
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
+}
+
+// addEDE adds an Extended DNS Error to m. The OPT record that carries it is
+// only added when the request has one (RFC 6891, section 7), and the DO bit
+// is copied from the request (RFC 3225).
+func addEDE(r, m *dns.Msg, code uint16) {
+	o := r.IsEdns0()
+	if o == nil {
+		return
+	}
+	m.SetEdns0(4096, o.Do())
+	m.IsEdns0().Option = append(m.IsEdns0().Option, &dns.EDNS0_EDE{InfoCode: code})
 }
 
 // matchWithPolicies matches the DNS query with a list of ACL polices and returns suitable
