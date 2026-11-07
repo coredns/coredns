@@ -117,6 +117,14 @@ func TestHandler(t *testing.T) {
 		fall:      fall.Root,
 		zones:     []string{"."},
 	}
+	emptyRRTemplate := template{
+		regex:  []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", `{{ if eq .Name "www.example." }}{{ .Name }} 60 IN A 192.0.2.1{{ end }}`))},
+		qclass: dns.ClassANY,
+		qtype:  dns.TypeANY,
+		fall:   fall.Root,
+		zones:  []string{"."},
+	}
 	cnameTemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("example[.]net[.]")},
 		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "example.net 60 IN CNAME target.example.com"))},
@@ -226,6 +234,18 @@ func TestHandler(t *testing.T) {
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  `dns: not a TTL: "test.example." at line: 1:13`,
+			verifyResponse: func(_r *dns.Msg) error {
+				return nil
+			},
+		},
+		{
+			name:         "EmptyRRTemplate",
+			tmpl:         emptyRRTemplate,
+			qclass:       dns.ClassINET,
+			qtype:        dns.TypeA,
+			qname:        "test.example.",
+			expectedCode: dns.RcodeServerFailure,
+			expectedErr:  "answer template rendered no resource record",
 			verifyResponse: func(_r *dns.Msg) error {
 				return nil
 			},

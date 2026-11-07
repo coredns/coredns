@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"regexp"
 	"strconv"
 	gotmpl "text/template"
@@ -179,6 +180,9 @@ func executeRRTemplate(server, view, section string, template *gotmpl.Template, 
 		return nil, err
 	}
 	rr, err := dns.NewRR(buffer.String())
+	if err == nil && rr == nil {
+		err = fmt.Errorf("%s template rendered no resource record", section)
+	}
 	if err != nil {
 		templateRRFailureCount.WithLabelValues(server, data.Zone, view, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
 		return rr, err
