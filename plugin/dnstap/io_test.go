@@ -2,6 +2,7 @@ package dnstap
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"testing"
@@ -87,7 +88,7 @@ func TestTransport(t *testing.T) {
 		})
 
 		dio := newIO(param[0], l.Addr().String(), 1, 1)
-		dio.tcpTimeout = 10 * time.Millisecond
+		dio.tcpTimeout = time.Second
 		dio.flushTimeout = 30 * time.Millisecond
 		dio.errorCheckInterval = 50 * time.Millisecond
 		dio.connect()
@@ -115,7 +116,7 @@ func TestRace(t *testing.T) {
 	})
 
 	dio := newIO("tcp", l.Addr().String(), 1, 1)
-	dio.tcpTimeout = 10 * time.Millisecond
+	dio.tcpTimeout = time.Second
 	dio.flushTimeout = 30 * time.Millisecond
 	dio.errorCheckInterval = 50 * time.Millisecond
 	dio.connect()
@@ -150,7 +151,7 @@ func TestReconnect(t *testing.T) {
 		addr := l.Addr().String()
 		logger := MockLogger{}
 		dio := newIO("tcp", addr, 1, 1)
-		dio.tcpTimeout = 10 * time.Millisecond
+		dio.tcpTimeout = time.Second
 		dio.flushTimeout = 30 * time.Millisecond
 		dio.errorCheckInterval = 50 * time.Millisecond
 		dio.logger = &logger
@@ -205,7 +206,7 @@ func TestReconnect(t *testing.T) {
 		logger := MockLogger{}
 		addr := l.Addr().String()
 		dio := newIO("tcp", addr, 1, 1)
-		dio.tcpTimeout = 10 * time.Millisecond
+		dio.tcpTimeout = time.Second
 		dio.flushTimeout = 30 * time.Millisecond
 		dio.errorCheckInterval = 50 * time.Millisecond
 		dio.logger = &logger
@@ -283,6 +284,47 @@ func TestFullQueueWriteFail(t *testing.T) {
 	//		Dropped messages are logged
 	require.NotEqual(t, 0, logger.WarnCount())
 	require.Contains(t, logger.WarnLog(), "Dropped dnstap messages")
+}
+
+func TestFailedHandshakeClosesConnection(t *testing.T) {
+	// A dial that opens the socket but then fails the framestream handshake
+	// must close that socket before returning. Otherwise every redial against
+	// an endpoint that accepts but never completes the handshake leaks a
+	// connection until the runtime finalizes the fd.
+	l, err := reuseport.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Cannot start listener: %s", err)
+	}
+	defer l.Close()
+
+	closed := make(chan struct{})
+	go func() {
+		// Accept but never reply, so the client's handshake times out.
+		server, err := l.Accept()
+		if err != nil {
+			return
+		}
+		defer server.Close()
+		// Returns once the client closes its side.
+		io.Copy(io.Discard, server)
+		close(closed)
+	}()
+
+	dio := newIO("tcp", l.Addr().String(), 1, 1)
+	dio.tcpTimeout = 50 * time.Millisecond
+
+	if err := dio.dial(); err == nil {
+		t.Fatal("dial should have failed the handshake")
+	}
+	if dio.enc != nil {
+		t.Fatal("failed dial must not install an encoder")
+	}
+
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("connection was not closed after a failed handshake (fd leak)")
+	}
 }
 
 func TestReconnectClosesPreviousConnection(t *testing.T) {
