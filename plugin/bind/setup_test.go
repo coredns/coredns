@@ -75,7 +75,7 @@ func TestSetupTentativeAddressIgnored(t *testing.T) {
 	netInterfaces = func() ([]net.Interface, error) {
 		return []net.Interface{{Name: "eth0"}}, nil
 	}
-	getInterfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
+	getInterfaceAddrs = func(_ net.Interface) ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPNet{IP: net.ParseIP("172.18.137.65"), Mask: net.CIDRMask(32, 32)},
 			&net.IPNet{IP: net.ParseIP("fe80::6446:60ff:fe2d:49d9"), Mask: net.CIDRMask(64, 128)},
@@ -124,7 +124,7 @@ func TestSetupMultipleValidAddressesWithTentative(t *testing.T) {
 	netInterfaces = func() ([]net.Interface, error) {
 		return []net.Interface{{Name: "eth0"}}, nil
 	}
-	getInterfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
+	getInterfaceAddrs = func(_ net.Interface) ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPNet{IP: net.ParseIP("192.0.2.1"), Mask: net.CIDRMask(24, 32)},
 			&net.IPNet{IP: net.ParseIP("2001:db8::1"), Mask: net.CIDRMask(64, 128)},
@@ -164,12 +164,12 @@ func TestSetupAllInterfaceAddressesUnavailable(t *testing.T) {
 	netInterfaces = func() ([]net.Interface, error) {
 		return []net.Interface{{Name: "eth0"}}, nil
 	}
-	getInterfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
+	getInterfaceAddrs = func(_ net.Interface) ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPNet{IP: net.ParseIP("fe80::1"), Mask: net.CIDRMask(64, 128)},
 		}, nil
 	}
-	checkBind = func(addr string) error {
+	checkBind = func(_ string) error {
 		return syscall.EADDRNOTAVAIL
 	}
 
@@ -196,12 +196,12 @@ func TestSetupFatalBindError(t *testing.T) {
 	netInterfaces = func() ([]net.Interface, error) {
 		return []net.Interface{{Name: "eth0"}}, nil
 	}
-	getInterfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
+	getInterfaceAddrs = func(_ net.Interface) ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPNet{IP: net.ParseIP("192.0.2.1"), Mask: net.CIDRMask(24, 32)},
 		}, nil
 	}
-	checkBind = func(addr string) error {
+	checkBind = func(_ string) error {
 		return syscall.EACCES
 	}
 
@@ -228,13 +228,13 @@ func TestSetupExceptWithNonAssignableAddress(t *testing.T) {
 	netInterfaces = func() ([]net.Interface, error) {
 		return []net.Interface{{Name: "eth0"}}, nil
 	}
-	getInterfaceAddrs = func(iface net.Interface) ([]net.Addr, error) {
+	getInterfaceAddrs = func(_ net.Interface) ([]net.Addr, error) {
 		return []net.Addr{
 			&net.IPNet{IP: net.ParseIP("192.0.2.1"), Mask: net.CIDRMask(24, 32)},
 			&net.IPNet{IP: net.ParseIP("192.0.2.2"), Mask: net.CIDRMask(24, 32)},
 		}, nil
 	}
-	checkBind = func(addr string) error {
+	checkBind = func(_ string) error {
 		return nil
 	}
 
