@@ -58,8 +58,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		return ret, err
 	}
-	ttl := i.ttl(now)
-	stale := ttl <= 0
+	stale := !i.withinLifetime(now, 0)
 	if stale {
 		// serve stale behavior
 		if c.verifyStale {
@@ -90,7 +89,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
-		now = now.Add(time.Duration(ttl) * time.Second)
+		now = now.Add(time.Duration(i.ttl(now)) * time.Second)
 		if !c.verifyStale {
 			c.tryPrefetch(ctx, i, server, rc, do, cd, now, true)
 		}
@@ -233,7 +232,7 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 		return false
 	}
 	i.Update(c.duration, now)
-	threshold := int(math.Ceil(float64(c.percentage) / 100 * float64(i.origTTL)))
+	threshold := int(math.Ceil(float64(c.percentage) / 100 * float64(i.origTTL/time.Second)))
 	return i.Hits() >= c.prefetch && i.ttl(now) <= threshold
 }
 
@@ -255,8 +254,7 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 		if i, ok := c.pcache.Get(k); ok {
 			i = i.answeringItem(state)
 			if i != nil {
-				ttl := i.ttl(now)
-				if ttl > 0 || -ttl < int(c.staleUpTo.Seconds()) {
+				if i.withinLifetime(now, c.staleUpTo) {
 					cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 					return i
 				}
@@ -265,14 +263,12 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 	}
 
 	if i, ok := c.ncache.Get(k); ok {
-		ttl := i.ttl(now)
-		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+		if i.matches(state) && i.withinLifetime(now, c.staleUpTo) {
 			// SERVFAIL is transient; prefer a valid positive cache entry if one
 			// exists, so a cached SERVFAIL does not shadow a previously good answer.
 			if i.Rcode == dns.RcodeServerFailure {
 				if p, pok := c.pcache.Get(k); pok {
-					pttl := p.ttl(now)
-					if p.matches(state) && (pttl > 0 || (c.staleUpTo > 0 && -pttl < int(c.staleUpTo.Seconds()))) {
+					if p.matches(state) && p.withinLifetime(now, c.staleUpTo) {
 						cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 						return p
 					}
@@ -283,8 +279,7 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		ttl := i.ttl(now)
-		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+		if i.matches(state) && i.withinLifetime(now, c.staleUpTo) {
 			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 			return i
 		}

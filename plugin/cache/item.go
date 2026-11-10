@@ -26,7 +26,7 @@ type item struct {
 	answering          bool  // immutable result of validating that this item answers its question.
 	lastKnownGood      *item // answering item retained when a non-answer overwrites this success-cache key.
 
-	origTTL uint32
+	origTTL time.Duration
 	stored  time.Time
 
 	*freq.Freq
@@ -65,7 +65,11 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	i.Extra = i.Extra[:j]
 	i.answering = answersQuestion(m)
 
-	i.origTTL = uint32(d.Seconds())
+	i.origTTL = time.Duration(uint32(d.Seconds())) * time.Second
+	if i.Rcode == dns.RcodeServerFailure {
+		// Failure lifetimes come from configuration rather than DNS TTLs.
+		i.origTTL = d
+	}
 	// Keep the monotonic clock reading so TTL expiry is unaffected by wall
 	// clock adjustments.
 	i.stored = now
@@ -110,8 +114,20 @@ func (i *item) toMsgWithTTL(m *dns.Msg, ttl uint32, do bool, ad bool) *dns.Msg {
 }
 
 func (i *item) ttl(now time.Time) int {
-	ttl := int(i.origTTL) - int(now.Sub(i.stored).Seconds())
+	ttl := int(i.origTTL/time.Second) - int(now.Sub(i.stored).Seconds())
 	return ttl
+}
+
+// withinLifetime reports whether i is fresh or eligible for stale serving.
+// SERVFAIL lifetimes may be fractional, independently of the whole-second
+// TTLs used on the wire. Other responses retain DNS TTL aging semantics.
+func (i *item) withinLifetime(now time.Time, staleUpTo time.Duration) bool {
+	if i.Rcode == dns.RcodeServerFailure {
+		remaining := i.origTTL - now.Sub(i.stored)
+		return remaining > 0 || (staleUpTo > 0 && -remaining < staleUpTo)
+	}
+	ttl := i.ttl(now)
+	return ttl > 0 || (staleUpTo > 0 && -ttl < int(staleUpTo.Seconds()))
 }
 
 func (i *item) matches(state request.Request) bool {
