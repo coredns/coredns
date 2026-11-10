@@ -647,6 +647,74 @@ func TestCacheServfailTTL0(t *testing.T) {
 	}
 }
 
+// TestCacheServfailDuration uses a controlled clock so even a nanosecond
+// lifetime can be checked without relying on the timing of client retries.
+func TestCacheServfailDuration(t *testing.T) {
+	for _, written := range []bool{false, true} {
+		for _, stale := range []bool{false, true} {
+			for _, duration := range []time.Duration{time.Nanosecond, 500 * time.Millisecond, 1500 * time.Millisecond, 5 * time.Second, 5 * time.Minute} {
+				t.Run(fmt.Sprintf("written=%t/stale=%t/%s", written, stale, duration), func(t *testing.T) {
+					c := New()
+					c.failttl = duration
+					if stale {
+						c.staleUpTo = time.Minute
+						c.verifyStale = true
+					}
+					start := time.Now()
+					now := start
+					c.now = func() time.Time { return now }
+					calls := 0
+					failure := servFailBackend(300)
+					c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+						calls++
+						if written {
+							return failure.ServeDNS(context.Background(), w, r)
+						}
+						return dns.RcodeServerFailure, fmt.Errorf("upstream timeout")
+					})
+					req := new(dns.Msg)
+					req.SetQuestion("example.org.", dns.TypeA)
+					ret, err := c.ServeDNS(context.Background(), &test.ResponseWriter{}, req)
+					if ret != dns.RcodeServerFailure || (err == nil) != written || calls != 1 {
+						t.Fatalf("initial failure: rcode=%d, err=%v, backend calls=%d", ret, err, calls)
+					}
+
+					for _, elapsed := range []time.Duration{0, duration / 2, duration - time.Nanosecond} {
+						now = start.Add(elapsed)
+						rec := dnstest.NewRecorder(&test.ResponseWriter{})
+						ret, err := c.ServeDNS(context.Background(), rec, req)
+						if ret != dns.RcodeSuccess || err != nil || calls != 1 || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeServerFailure {
+							t.Fatalf("at %s of %s: rcode=%d, err=%v, backend calls=%d, response=%v", elapsed, duration, ret, err, calls, rec.Msg)
+						}
+						if written {
+							ttl := uint32(duration/time.Second - elapsed/time.Second)
+							if len(rec.Msg.Ns) != 1 || rec.Msg.Ns[0].Header().Ttl != ttl {
+								t.Fatalf("at %s of %s: expected wire TTL %d, got %v", elapsed, duration, ttl, rec.Msg.Ns)
+							}
+						}
+					}
+
+					// Once the failure interval ends, a healthy backend must be
+					// retried, including when stale verification is enabled.
+					healthy := ttlBackend(300)
+					c.Next = plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+						calls++
+						return healthy.ServeDNS(ctx, w, r)
+					})
+					now = start.Add(duration + time.Nanosecond)
+					for range 2 {
+						rec := dnstest.NewRecorder(&test.ResponseWriter{})
+						ret, err := c.ServeDNS(context.Background(), rec, req)
+						if ret != dns.RcodeSuccess || err != nil || calls != 2 || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeSuccess || len(rec.Msg.Answer) != 1 {
+							t.Fatalf("after %s: rcode=%d, err=%v, backend calls=%d, response=%v", duration, ret, err, calls, rec.Msg)
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
 // TestCacheServfailOnTimeout verifies that a resolver which fails without
 // writing a response (e.g. forward on an upstream timeout) is cached as a
 // SERVFAIL bounded by the servfail TTL, so client retries are answered from
