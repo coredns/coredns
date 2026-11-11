@@ -43,7 +43,7 @@ func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 		return 0, plugin.Error("minimal", fmt.Errorf("unhandled response type %q for %q", ty, nw.Msg.Question[0].Name))
 	}
 
-	// copy over the original Msg params, deep copy not required as RRs are not modified
+	// Copy over the original Msg params, keeping answer RRs unchanged.
 	d := &dns.Msg{
 		MsgHdr:   nw.Msg.MsgHdr,
 		Compress: nw.Msg.Compress,
@@ -51,6 +51,11 @@ func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 		Answer:   nw.Msg.Answer,
 		Ns:       nil,
 		Extra:    nil,
+	}
+	// OPT carries EDNS response metadata, rather than additional zone data.
+	// The server's ScrubWriter applies the original client's EDNS capabilities.
+	if opt := nw.Msg.IsEdns0(); opt != nil {
+		d.Extra = []dns.RR{dns.Copy(opt)}
 	}
 
 	w.WriteMsg(d)
