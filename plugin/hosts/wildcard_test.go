@@ -1,6 +1,7 @@
 package hosts
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -50,6 +51,29 @@ func TestLookupWildcardHost(t *testing.T) {
 		{"c.example.com.", []string{"192.168.33.10"}, []string{}},
 		{"example.com.", []string{}, []string{}},
 		{"deep.foo.example.org.", []string{}, []string{}},
+	}
+
+	for _, ent := range tests {
+		testStaticHost(t, ent, h)
+	}
+}
+
+func TestLookupWildcardHostExplicitName(t *testing.T) {
+	const hosts = `
+192.168.33.10 *.example.com
+fd00::10 *.example.com
+fd00::11 v6only.example.com
+`
+
+	h := testHostsfile(hosts)
+	h.inline = h.parseSource(strings.NewReader("192.168.33.12 inline.example.com"), "inline")
+
+	tests := []staticHostEntry{
+		// A name with an explicit entry of either family does not match the wildcard.
+		{"v6only.example.com.", []string{}, []string{"fd00::11"}},
+		// An explicit inline entry overrides a wildcard from the hosts file.
+		{"inline.example.com.", []string{"192.168.33.12"}, []string{}},
+		{"other.example.com.", []string{"192.168.33.10"}, []string{"fd00::10"}},
 	}
 
 	for _, ent := range tests {

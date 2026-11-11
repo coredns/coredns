@@ -76,6 +76,13 @@ func newMap() *Map {
 	}
 }
 
+// hasName reports whether name has an IPv4 or IPv6 entry of its own.
+func (h *Map) hasName(name string) bool {
+	_, ok4 := h.name4[name]
+	_, ok6 := h.name6[name]
+	return ok4 || ok6
+}
+
 // Len returns the total number of addresses in the hostmap, this includes V4/V6 and any reverse addresses.
 func (h *Map) Len() int {
 	l := 0
@@ -353,13 +360,13 @@ func isSpace(c byte) bool {
 	return false
 }
 
-func (h *Hostsfile) lookupStaticHostLocked(m, wild map[string][]net.IP, host string) []net.IP {
+func (h *Hostsfile) lookupStaticHostLocked(m, wild map[string][]net.IP, host string, named bool) []net.IP {
 	if ips, ok := m[host]; ok {
 		ipsCp := make([]net.IP, len(ips))
 		copy(ipsCp, ips)
 		return ipsCp
 	}
-	if pattern := replaceWithAsteriskLabel(host); pattern != "" {
+	if pattern := replaceWithAsteriskLabel(host); pattern != "" && !named {
 		if ips, ok := wild[pattern]; ok {
 			ipsCp := make([]net.IP, len(ips))
 			copy(ipsCp, ips)
@@ -377,13 +384,18 @@ func (h *Hostsfile) lookupStaticHostFamily(host string, v4 bool) []net.IP {
 
 	// h.hmap and h.inline must be read under the lock: readHosts swaps h.hmap
 	// under h.Lock() on every reload.
+	//
+	// As in the file plugin, a wildcard doesn't match a name that has its own
+	// entry, of either address family and in either source.
+	named := h.hmap.hasName(host) || h.inline.hasName(host)
+
 	var ip1, ip2 []net.IP
 	if v4 {
-		ip1 = h.lookupStaticHostLocked(h.hmap.name4, h.hmap.wildName4, host)
-		ip2 = h.lookupStaticHostLocked(h.inline.name4, h.inline.wildName4, host)
+		ip1 = h.lookupStaticHostLocked(h.hmap.name4, h.hmap.wildName4, host, named)
+		ip2 = h.lookupStaticHostLocked(h.inline.name4, h.inline.wildName4, host, named)
 	} else {
-		ip1 = h.lookupStaticHostLocked(h.hmap.name6, h.hmap.wildName6, host)
-		ip2 = h.lookupStaticHostLocked(h.inline.name6, h.inline.wildName6, host)
+		ip1 = h.lookupStaticHostLocked(h.hmap.name6, h.hmap.wildName6, host, named)
+		ip2 = h.lookupStaticHostLocked(h.inline.name6, h.inline.wildName6, host, named)
 	}
 	return append(ip1, ip2...)
 }
