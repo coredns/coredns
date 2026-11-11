@@ -1,6 +1,7 @@
 package header
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -55,5 +56,32 @@ func TestSetupHeader(t *testing.T) {
 				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
 			}
 		}
+	}
+}
+
+func TestParseMultipleBlocks(t *testing.T) {
+	input := `header {
+		query set rd
+	}
+	header {
+		response set aa
+		response clear ra
+	}`
+	c := caddy.NewTestController("dns", input)
+	queryRules, responseRules, err := parse(c)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	expectedQuery := []Rule{{Flag: recursionDesired, State: true}}
+	expectedResponse := []Rule{
+		{Flag: authoritative, State: true},
+		{Flag: recursionAvailable, State: false},
+	}
+	if !reflect.DeepEqual(queryRules, expectedQuery) {
+		t.Errorf("Expected query rules %v, got %v", expectedQuery, queryRules)
+	}
+	if !reflect.DeepEqual(responseRules, expectedResponse) {
+		t.Errorf("Expected response rules %v, got %v", expectedResponse, responseRules)
 	}
 }
