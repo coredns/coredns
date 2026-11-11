@@ -155,8 +155,11 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			msg.Ns = append(msg.Ns, rr)
 		}
 
-		if template.ederror != nil {
-			msg = msg.SetEdns0(4096, true)
+		// The OPT record that carries the Extended DNS Error is only added when
+		// the request has one (RFC 6891, section 7), and the DO bit is copied
+		// from the request (RFC 3225).
+		if o := r.IsEdns0(); template.ederror != nil && o != nil {
+			msg.SetEdns0(4096, o.Do())
 			ede := dns.EDNS0_EDE{InfoCode: template.ederror.code, ExtraText: template.ederror.reason}
 			msg.IsEdns0().Option = append(msg.IsEdns0().Option, &ede)
 		}

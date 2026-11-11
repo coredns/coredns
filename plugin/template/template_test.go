@@ -164,6 +164,7 @@ func TestHandler(t *testing.T) {
 		expectedErr    string
 		verifyResponse func(*dns.Msg) error
 		md             map[string]string
+		edns           bool
 	}{
 		{
 			name:         "RcodeServFail",
@@ -459,6 +460,7 @@ func TestHandler(t *testing.T) {
 			qtype:        dns.TypeA,
 			qname:        "test.invalid.",
 			expectedCode: dns.RcodeNameError,
+			edns:         true,
 			verifyResponse: func(r *dns.Msg) error {
 				if opt := r.IsEdns0(); opt != nil {
 					matched := false
@@ -495,6 +497,9 @@ func TestHandler(t *testing.T) {
 				Qclass: tr.qclass,
 				Qtype:  tr.qtype,
 			}},
+		}
+		if tr.edns {
+			req.SetEdns0(4096, false)
 		}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		if tr.md != nil {
@@ -677,3 +682,67 @@ func TestMultiSection(t *testing.T) {
 }
 
 const rcodeFallthrough = 3841 // reserved for private use, used to indicate a fallthrough
+
+func TestHandlerEDEResponseEDNS(t *testing.T) {
+	tmpl := template{
+		rcode:   dns.RcodeNameError,
+		regex:   []*regexp.Regexp{regexp.MustCompile(".*")},
+		qclass:  dns.ClassANY,
+		qtype:   dns.TypeANY,
+		zones:   []string{"."},
+		ederror: &ederror{code: dns.ExtendedErrorCodeBlocked, reason: "blocked"},
+	}
+
+	tests := []struct {
+		name string
+		edns bool
+		do   bool
+	}{
+		{name: "without EDNS"},
+		{name: "with EDNS", edns: true},
+		{name: "with EDNS and DO", edns: true, do: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := Handler{
+				Next:      test.NextHandler(rcodeFallthrough, nil),
+				Zones:     []string{"."},
+				Templates: []template{tmpl},
+			}
+			req := new(dns.Msg)
+			req.SetQuestion("test.invalid.", dns.TypeA)
+			if tt.edns {
+				req.SetEdns0(1232, tt.do)
+			}
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			if _, err := handler.ServeDNS(context.Background(), rec, req); err != nil {
+				t.Fatalf("ServeDNS() error = %v", err)
+			}
+
+			opt := rec.Msg.IsEdns0()
+			if !tt.edns {
+				if opt != nil {
+					t.Errorf("response has an OPT record, but the request had none")
+				}
+				return
+			}
+			if opt == nil {
+				t.Fatal("response has no OPT record, but the request had one")
+			}
+			if opt.Do() != tt.do {
+				t.Errorf("response DO bit = %v, want %v", opt.Do(), tt.do)
+			}
+			found := false
+			for _, o := range opt.Option {
+				if ede, ok := o.(*dns.EDNS0_EDE); ok && ede.InfoCode == dns.ExtendedErrorCodeBlocked {
+					found = true
+				}
+			}
+			if !found {
+				t.Error("response has no Extended DNS Error option")
+			}
+		})
+	}
+}
