@@ -30,6 +30,8 @@ func TestParseRequest(t *testing.T) {
 		{"..webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, false, ""},
 		// A multicluster request with a clusterid
 		{"1-2-3-4.cluster1.webs.mynamespace.svc.inter.webs.tests.", "..1-2-3-4.cluster1.webs.mynamespace.svc", true, false, ""},
+		// A clusterid may include a second label identifying its registry.
+		{"1-2-3-4.cluster1.registry-a.webs.mynamespace.svc.inter.webs.tests.", "..1-2-3-4.cluster1.registry-a.webs.mynamespace.svc", true, false, ""},
 		// zone-scoped names, both directives
 		{"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
 		{"us-west-2a.prefer._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
@@ -60,9 +62,10 @@ func TestParseRequest(t *testing.T) {
 
 func TestParseInvalidRequest(t *testing.T) {
 	invalid := []string{
-		"webs.mynamespace.pood.inter.webs.test.",                      // Request must be for pod or svc subdomain.
-		"too.long.for.what.I.am.trying.to.pod.inter.webs.tests.",      // Too long.
-		"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", // Zonal shape without the zonal option.
+		"webs.mynamespace.pood.inter.webs.test.",                        // Request must be for pod or svc subdomain.
+		"too.long.for.what.I.am.trying.to.pod.inter.webs.tests.",        // Too long.
+		"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.",   // Zonal shape without the zonal option.
+		"ep.cluster1.registry-a.webs.mynamespace.svc.inter.webs.tests.", // Two-label clusterid outside a multicluster zone.
 	}
 
 	// The zonal-shaped rejections that must hold even WITH the option on:
