@@ -1,13 +1,14 @@
 package msg
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
 
 func TestSplit255(t *testing.T) {
 	xs := split255("abc")
-	if len(xs) != 1 && xs[0] != "abc" {
+	if len(xs) != 1 || xs[0] != "abc" {
 		t.Errorf("Failure to split abc")
 	}
 	s := ""
@@ -15,7 +16,7 @@ func TestSplit255(t *testing.T) {
 		s += "a"
 	}
 	xs = split255(s)
-	if len(xs) != 1 && xs[0] != s {
+	if len(xs) != 1 || xs[0] != s {
 		t.Errorf("Failure to split 255 char long string")
 	}
 	s += "b"
@@ -29,6 +30,19 @@ func TestSplit255(t *testing.T) {
 	xs = split255(s)
 	if len(xs) != 3 || xs[2] != "a" {
 		t.Errorf("Failure to split 510 char long string: %d", len(xs))
+	}
+
+	// Exact multiples of 255 must not pick up a trailing empty chunk.
+	for _, n := range []int{255, 510, 765} {
+		xs = split255(strings.Repeat("a", n))
+		if len(xs) != n/255 {
+			t.Errorf("Failure to split %d char long string: got %d chunks, want %d", n, len(xs), n/255)
+		}
+		for i, x := range xs {
+			if x == "" {
+				t.Errorf("Split of %d char long string has an empty chunk at index %d", n, i)
+			}
+		}
 	}
 }
 
