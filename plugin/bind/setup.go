@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"slices"
 
 	"github.com/coredns/caddy"
@@ -98,7 +99,7 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 			}
 		}
 		if !isIface {
-			if net.ParseIP(a) == nil {
+			if _, err := netip.ParseAddr(a); err != nil {
 				return nil, fmt.Errorf("not a valid IP address or interface name: %q", a)
 			}
 			all = append(all, a)
