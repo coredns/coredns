@@ -146,10 +146,12 @@ func TestMetricsRewriteRequestSize(t *testing.T) {
 	// number of requests to send
 	numRequests := 5
 
+	testDNSServer := localEmptyReplyDNSServer(t)
+
 	// First test without rewrite
 	corefileWithoutRewrite := `.:0 {
 		prometheus localhost:0
-		forward . 8.8.8.8
+		forward . ` + testDNSServer + `
 	}`
 
 	srv, udp, _, err := CoreDNSServerAndPorts(corefileWithoutRewrite)
@@ -189,7 +191,7 @@ func TestMetricsRewriteRequestSize(t *testing.T) {
 	corefileWithRewrite := `.:0 {
 		prometheus localhost:0
 		rewrite edns0 local set 0x13 test123456 revert
-		forward . 8.8.8.8
+		forward . ` + testDNSServer + `
 	}`
 
 	srv2, udp2, _, err := CoreDNSServerAndPorts(corefileWithRewrite)
@@ -298,10 +300,11 @@ func TestMetricsAuto(t *testing.T) {
 func TestMetricsSeveralBlocs(t *testing.T) {
 	cacheSizeMetricName := "coredns_cache_entries"
 	addrMetrics := "localhost:9155"
+	testDNSServer := localEmptyReplyDNSServer(t)
 	corefile := `
 	example.org:0 {
 		prometheus ` + addrMetrics + `
-		forward . 8.8.8.8:53 {
+		forward . ` + testDNSServer + ` {
 			force_tcp
 		}
 	}
@@ -382,10 +385,11 @@ func TestMetricsAvailable(t *testing.T) {
 	procCache := "coredns_cache_entries"
 	procCacheMiss := "coredns_cache_misses_total"
 	procForward := "coredns_dns_request_duration_seconds"
+	testDNSServer := localEmptyReplyDNSServer(t)
 	corefileWithMetrics := `.:0 {
 		prometheus localhost:0
 		cache
-		forward . 8.8.8.8 {
+		forward . ` + testDNSServer + ` {
 			force_tcp
 		}
 	}`
