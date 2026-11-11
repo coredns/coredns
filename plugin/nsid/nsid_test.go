@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/plugin/whoami"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -131,6 +132,30 @@ func TestNsidCache(t *testing.T) {
 					}
 				}
 			}
+		}
+	}
+}
+
+func TestNsidCopiesDo(t *testing.T) {
+	for _, do := range []bool{false, true} {
+		req := new(dns.Msg)
+		req.SetQuestion(".", dns.TypeA)
+		req.SetEdns0(4096, do)
+		option := req.Extra[0].(*dns.OPT)
+		option.Option = append(option.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID})
+
+		em := Nsid{Data: "NSID", Next: whoami.Whoami{}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if _, err := em.ServeDNS(context.TODO(), request.NewScrubWriter(req, rec), req); err != nil {
+			t.Fatalf("DO=%t: unexpected error: %v", do, err)
+		}
+
+		opt := rec.Msg.IsEdns0()
+		if opt == nil {
+			t.Fatalf("DO=%t: expected an OPT record in the response", do)
+		}
+		if opt.Do() != do {
+			t.Errorf("DO=%t: expected DO bit %t in the response, got %t", do, do, opt.Do())
 		}
 	}
 }

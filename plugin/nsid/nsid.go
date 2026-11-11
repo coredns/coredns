@@ -38,8 +38,8 @@ func (n Nsid) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
-	if w.request.IsEdns0() != nil && res.IsEdns0() == nil {
-		res.SetEdns0(w.request.IsEdns0().UDPSize(), true)
+	if o := w.request.IsEdns0(); o != nil && res.IsEdns0() == nil {
+		res.SetEdns0(o.UDPSize(), o.Do())
 	}
 
 	if option := res.IsEdns0(); option != nil {
