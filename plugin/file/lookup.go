@@ -417,14 +417,19 @@ Redo:
 	}
 
 	targets := elem.Type(qtype)
-	if len(targets) > 0 {
-		rrs = append(rrs, targets...)
-
+	if len(targets) == 0 {
+		ret := z.soa(do)
 		if do {
-			sigs := elem.Type(dns.TypeRRSIG)
-			sigs = rrutil.SubTypeSignature(sigs, qtype)
-			rrs = append(rrs, sigs...)
+			ret = append(ret, typeFromElem(elem, dns.TypeNSEC, do)...)
 		}
+		return rrs, ret, nil, NoData
+	}
+	rrs = append(rrs, targets...)
+
+	if do {
+		sigs := elem.Type(dns.TypeRRSIG)
+		sigs = rrutil.SubTypeSignature(sigs, qtype)
+		rrs = append(rrs, sigs...)
 	}
 
 	return rrs, z.ns(do), z.additionalProcessing(rrs, do), Success

@@ -72,6 +72,19 @@ var dnssecTestCases = []test.Case{
 		},
 	},
 	{
+		Qname: "www.miek.nl.", Qtype: dns.TypeSRV, Do: true,
+		Answer: []dns.RR{
+			test.CNAME("www.miek.nl. 1800 IN CNAME a.miek.nl."),
+			test.RRSIG("www.miek.nl. 1800 RRSIG CNAME 8 3 1800 20160426031301 20160327031301 12051 miek.nl. NVZmMJaypS+wDL2Lar4Zw1zF"),
+		},
+		Ns: []dns.RR{
+			test.NSEC("a.miek.nl. 14400 IN NSEC archive.miek.nl. A AAAA RRSIG NSEC"),
+			test.RRSIG("a.miek.nl. 14400 IN RRSIG NSEC 8 3 14400 20160426031301 20160327031301 12051 miek.nl. GqnF6cutipmSHEao="),
+			test.RRSIG("miek.nl. 1800 IN RRSIG SOA 8 2 1800 20160426031301 20160327031301 12051 miek.nl. FIrzy07acBbtyQczy1dc="),
+			test.SOA("miek.nl. 1800 IN SOA linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		},
+	},
+	{
 		Qname: "b.miek.nl.", Qtype: dns.TypeA, Do: true,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
