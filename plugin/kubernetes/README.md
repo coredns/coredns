@@ -38,6 +38,7 @@ kubernetes [ZONES...] {
     apiserver_burst BURST
     apiserver_max_inflight MAX
     namespaces NAMESPACE...
+    namespace_labels EXPRESSION
     labels EXPRESSION
     pods POD-MODE
     endpoint_pod_names
