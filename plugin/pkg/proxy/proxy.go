@@ -27,7 +27,8 @@ type Proxy struct {
 	dohMethod string
 	dohHost   string
 
-	readTimeout time.Duration
+	readTimeout      time.Duration
+	qtypesForMetrics map[uint16]struct{}
 
 	// health checking
 	probe  *up.Probe
