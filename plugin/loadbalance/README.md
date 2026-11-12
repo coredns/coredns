@@ -25,8 +25,10 @@ loadbalance [round_robin | weighted WEIGHTFILE] {
 * `round_robin` policy randomizes the order of  A, AAAA, and MX records applying a uniform probability distribution. This is the default load balancing policy.
 
 * `weighted` policy assigns weight values to IPs to control the relative likelihood of particular IPs to be returned as the first
-(top) A/AAAA record in the answer. Note that it does not shuffle all the records in the answer, it is only concerned about the first A/AAAA record
-returned in the answer.
+(top) A/AAAA record in the answer. It only applies to A, AAAA and SRV queries, and instead of shuffling the address records it
+merely swaps the randomly picked top A/AAAA record with the one in the first position; responses
+without any A/AAAA records (such as SRV answers) are passed through unchanged. Note that as a side effect the records in the answer and extra sections are regrouped
+into CNAME records first, then all other records, then the A/AAAA records and finally the MX records.
 
 Additionally, the plugin supports subnet-based ordering using the `prefer` directive, which reorders A/AAAA records so that IPs from preferred subnets appear first.
 
