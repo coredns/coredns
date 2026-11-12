@@ -2,6 +2,7 @@ package siit
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -201,6 +202,23 @@ func TestSetupSiit(t *testing.T) {
 			if !reflect.DeepEqual(gotEam, test.wantEam) {
 				t.Errorf("Test %d expected eam %v, got %v", i+1, test.wantEam, gotEam)
 			}
+		}
+	}
+}
+
+func TestSetupSiitEamErrorNamesAddress(t *testing.T) {
+	for _, input := range []string{
+		`siit {
+			eam foobar 64:dead::1
+		}`,
+		`siit {
+			eam 10.0.0.1 foobar
+		}`,
+	} {
+		c := caddy.NewTestController("dns", input)
+		_, err := siitParse(c)
+		if err == nil || !strings.Contains(err.Error(), `"foobar"`) {
+			t.Errorf("expected an error naming %q for %s, got %v", "foobar", input, err)
 		}
 	}
 }
