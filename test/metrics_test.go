@@ -300,11 +300,10 @@ func TestMetricsAuto(t *testing.T) {
 func TestMetricsSeveralBlocs(t *testing.T) {
 	cacheSizeMetricName := "coredns_cache_entries"
 	addrMetrics := "localhost:9155"
-	testDNSServer := localEmptyReplyDNSServer(t)
 	corefile := `
 	example.org:0 {
 		prometheus ` + addrMetrics + `
-		forward . ` + testDNSServer + ` {
+		forward . 192.0.2.1 {
 			force_tcp
 		}
 	}
