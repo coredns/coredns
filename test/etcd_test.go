@@ -40,7 +40,7 @@ func TestEtcdStubLoop(t *testing.T) {
 }
 
 func TestEtcdStubAndProxyLookup(t *testing.T) {
-	testDNSServer := localEmptyReplyDNSServer(t)
+	testDNSServer := localExampleComDNSServer(t)
 	corefile := `.:0 {
 		etcd skydns.local {
 			stubzones
