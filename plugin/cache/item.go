@@ -36,7 +36,13 @@ type item struct {
 	// is configured. A successful refresh normally replaces this item with a
 	// new one whose refresh state is zero-valued.
 	refreshing atomic.Bool
-	retryAfter atomic.Pointer[time.Time]
+	// refreshDone is closed by endRefresh when the in-flight refresh
+	// finishes, so requests waiting on that refresh can sleep on it instead
+	// of polling. It is published by beginRefresh after the refreshing flag
+	// is set, and a waiter that loads a stale or nil channel simply retries
+	// its load while refreshing is still set.
+	refreshDone atomic.Pointer[chan struct{}]
+	retryAfter  atomic.Pointer[time.Time]
 }
 
 func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
@@ -141,7 +147,12 @@ func (i *item) beginRefresh(now time.Time, failureRecheck time.Duration) bool {
 			return false
 		}
 	}
-	return i.refreshing.CompareAndSwap(false, true)
+	if !i.refreshing.CompareAndSwap(false, true) {
+		return false
+	}
+	ch := make(chan struct{})
+	i.refreshDone.Store(&ch)
+	return true
 }
 
 func (i *item) endRefresh(now time.Time, failureRecheck time.Duration, refreshed bool) {
@@ -151,6 +162,10 @@ func (i *item) endRefresh(now time.Time, failureRecheck time.Duration, refreshed
 	} else {
 		i.retryAfter.Store(nil)
 	}
-	// Publish the retry deadline before allowing another refresh to start.
+	// Publish the retry deadline before allowing another refresh to start,
+	// and wake any requests waiting on this refresh first.
+	if ch := i.refreshDone.Load(); ch != nil {
+		close(*ch)
+	}
 	i.refreshing.Store(false)
 }
