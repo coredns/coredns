@@ -55,7 +55,7 @@ func localExampleComDNSServer(t *testing.T) string {
 
 		response.SetReply(r)
 		if len(r.Question) > 0 && r.Question[0].Qtype == dns.TypeA && r.Question[0].Name == "example.com." {
-			response.Answer = []dns.RR{test.A("example.com. 1 IN A 93.184.216.34")}
+			response.Answer = []dns.RR{test.A("example.com. 1 IN A 192.0.2.99")}
 		}
 		// Callers of this function *do* care about results
 		if err := w.WriteMsg(response); err != nil {
