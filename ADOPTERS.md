@@ -37,3 +37,4 @@
 * [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net) uses CoreDNS on K8s in its highly-loaded internal infrastructure.
 * [plusserver](https://www.plusserver.com) uses CoreDNS on K8s in its plusserver Kubernetes Engine.
 * [Sophotech](https://sopho.tech) uses CoreDNS with a tuned configuration for Kubernetes deployment in production environments.
+* [goat](https://github.com/USAREUR-AF/goatcore) (USAREUR-AF), an open-source data fabric, uses CoreDNS to serve mesh-internal and site-LAN names in every environment, from zones generated from inventory.
