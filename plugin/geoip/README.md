@@ -64,9 +64,25 @@ if getASNOrg := metadata.ValueFunc(ctx, "geoip/asn/org"); getASNOrg != nil {
 // ...
 ```
 
+**Domain example:**
+
+```go
+import (
+    "github.com/coredns/coredns/plugin/metadata"
+)
+// ...
+if getDomain := metadata.ValueFunc(ctx, "geoip/domain"); getDomain != nil {
+    domain := getDomain()
+    // Do something useful with domain.
+} else {
+    // The metadata label geoip/domain for some reason, was not set.
+}
+// ...
+```
+
 ## Databases
 
-The supported databases use city schema such as `ASN`, `City`, and `Enterprise`. `.mmdb` files are generally supported, as long as their field names correctly map to the Metadata Labels below. Other database types with different schemas are not supported yet.
+The supported databases use city schema such as `ASN`, `City`, and `Enterprise`, or the `Domain` schema. `.mmdb` files are generally supported, as long as their field names correctly map to the Metadata Labels below. Other database types with different schemas are not supported yet.
 
 Free and commercial GeoIP `.mmdb` files are commonly available from vendors like [MaxMind](https://dev.maxmind.com/geoip/docs/databases), [IPinfo](https://ipinfo.io/developers/database-download), and [IPtoASN](https://iptoasn.com/) which is [Public Domain-licensed](https://opendatacommons.org/licenses/pddl/1-0/).
 
@@ -144,6 +160,7 @@ A limited set of fields will be exported as labels, all values are stored using 
 | `geoip/subdivisions/code`            | `string`  | `ENG,TWH`        | Comma separated [ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2) subdivision(region) codes, e.g. first level (province), second level (state).
 | `geoip/asn/number`                   | `uint`    | `396982`         | The autonomous system number.
 | `geoip/asn/org`                      | `string`  | `GOOGLE-CLOUD-PLATFORM` | The autonomous system organization.
+| `geoip/domain`                       | `string`  | `example.com`    | The second level domain associated with the IP address.
 
 ## Continent Codes
 
