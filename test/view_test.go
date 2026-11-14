@@ -1,7 +1,6 @@
 package test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
@@ -10,22 +9,10 @@ import (
 )
 
 func TestView(t *testing.T) {
-	// Hack to get an available port - We spin up a temporary dummy coredns on :0 to get the port number, then we re-use
-	// that one port consistently across all server blocks.
-	corefile := `example.org:0 {
-		erratic
-	}`
-	tmp, addr, _, err := CoreDNSServerAndPorts(corefile)
-	if err != nil {
-		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
-	}
-
-	port := addr[strings.LastIndex(addr, ":")+1:]
-
 	// Corefile with test views
-	corefile = `
-      # split-type config: splits quries for A/AAAA into separate views
-      split-type:` + port + ` {
+	corefile := `
+      # split-type config: splits queries for A/AAAA into separate views
+      split-type:0 {
 		view test-view-a {
           expr type() == 'A'
 	    }
@@ -33,7 +20,7 @@ func TestView(t *testing.T) {
           1.2.3.4 test.split-type
         }
       }
-      split-type:` + port + ` {
+      split-type:0 {
 		view test-view-aaaa {
           expr type() == 'AAAA'
 	    }
@@ -43,7 +30,7 @@ func TestView(t *testing.T) {
       }
 
       # split-name config: splits queries into separate views based on first label in query name ("one", "two")
-      split-name:` + port + ` {
+      split-name:0 {
 		view test-view-1 {
           expr name() matches '^one\\..*\\.split-name\\.$'
 	    }
@@ -51,7 +38,7 @@ func TestView(t *testing.T) {
           1.1.1.1 one.test.split-name one.test.test.test.split-name
         }
       }
-      split-name:` + port + ` {
+      split-name:0 {
 		view test-view-2 {
           expr name() matches '^two\\..*\\.split-name\\.$'
 	    }
@@ -59,7 +46,7 @@ func TestView(t *testing.T) {
           2.2.2.2 two.test.split-name two.test.test.test.split-name
         }
       }
-      split-name:` + port + ` {
+      split-name:0 {
         hosts {
           3.3.3.3 default.test.split-name
         }
@@ -67,7 +54,7 @@ func TestView(t *testing.T) {
 
      # metadata config: verifies that metadata is properly collected by the server,
      # and that metadata function correctly looks up the value of the metadata.
-     metadata:` + port + ` {
+     metadata:0 {
        metadata
        view test-view-meta1 {
          # This is never true
@@ -77,7 +64,7 @@ func TestView(t *testing.T) {
          1.1.1.1 test.metadata
        }
      }
-     metadata:` + port + ` {
+     metadata:0 {
        view test-view-meta2 {
          # This is never true. The metadata plugin is not enabled in this server block so the metadata function returns
          # an empty string
@@ -87,7 +74,7 @@ func TestView(t *testing.T) {
          2.2.2.2 test.metadata
        }
      }
-     metadata:` + port + ` {
+     metadata:0 {
        metadata
        view test-view-meta3 {
          # This is always true.  Queries in the zone 'metadata.' should always be served using this view.
@@ -97,7 +84,7 @@ func TestView(t *testing.T) {
          2.2.2.2 test.metadata
        }
      }
-     metadata:` + port + ` {
+     metadata:0 {
        # This block should never be reached since the prior view in the same zone is always true
        hosts {
          3.3.3.3 test.metadata
@@ -111,8 +98,6 @@ func TestView(t *testing.T) {
 	}
 	// there are multiple sever blocks, but they are all on the same port, so it's a single server instance to stop
 	defer i.Stop()
-	// stop the temporary instance before starting tests.
-	tmp.Stop()
 
 	viewTest(t, "split-type A", addr, "test.split-type.", dns.TypeA, dns.RcodeSuccess,
 		[]dns.RR{test.A("test.split-type.	303	IN	A	1.2.3.4")})
@@ -178,20 +163,11 @@ func TestViewServerBlockOrdering(t *testing.T) {
 	//
 	// See https://github.com/coredns/coredns/issues/7733
 
-	corefile := `example.org:0 {
-		erratic
-	}`
-	tmp, addr, _, err := CoreDNSServerAndPorts(corefile)
-	if err != nil {
-		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
-	}
-	port := addr[strings.LastIndex(addr, ":")+1:]
-
-	corefile = `
+	corefile := `
       # Scenario: filtered blocks before unfiltered (order-test)
       # Filtered blocks are listed first, unfiltered catch-all is last.
       # Each view handles its matching queries; the catch-all handles the rest.
-      order-test:` + port + ` {
+      order-test:0 {
         view v-a {
           expr type() == 'A'
         }
@@ -199,7 +175,7 @@ func TestViewServerBlockOrdering(t *testing.T) {
           1.2.3.4 test.order-test
         }
       }
-      order-test:` + port + ` {
+      order-test:0 {
         view v-aaaa {
           expr type() == 'AAAA'
         }
@@ -207,7 +183,7 @@ func TestViewServerBlockOrdering(t *testing.T) {
           1:2:3::4 test.order-test
         }
       }
-      order-test:` + port + ` {
+      order-test:0 {
         hosts {
           5.6.7.8 test.order-test
         }
@@ -216,12 +192,12 @@ func TestViewServerBlockOrdering(t *testing.T) {
       # Scenario: unfiltered block first (order-test2)
       # Unfiltered block is declared first. It matches all queries, so the
       # filtered block below it is effectively shadowed.
-      order-test2:` + port + ` {
+      order-test2:0 {
         hosts {
           5.6.7.8 test.order-test2
         }
       }
-      order-test2:` + port + ` {
+      order-test2:0 {
         view v-a {
           expr type() == 'A'
         }
@@ -233,7 +209,7 @@ func TestViewServerBlockOrdering(t *testing.T) {
       # Scenario: unfiltered block in the middle (order-test3)
       # The first view catches A queries. The unfiltered block catches
       # everything else, shadowing the second filtered block.
-      order-test3:` + port + ` {
+      order-test3:0 {
         view v-a {
           expr type() == 'A'
         }
@@ -241,12 +217,12 @@ func TestViewServerBlockOrdering(t *testing.T) {
           1.2.3.4 test.order-test3
         }
       }
-      order-test3:` + port + ` {
+      order-test3:0 {
         hosts {
           5.6.7.8 test.order-test3
         }
       }
-      order-test3:` + port + ` {
+      order-test3:0 {
         view v-aaaa {
           expr type() == 'AAAA'
         }
@@ -257,7 +233,7 @@ func TestViewServerBlockOrdering(t *testing.T) {
 
       # Scenario: no catch-all (order-test4)
       # Only filtered blocks. Queries not matching any view get REFUSED.
-      order-test4:` + port + ` {
+      order-test4:0 {
         view v-a {
           expr type() == 'A'
         }
@@ -265,7 +241,7 @@ func TestViewServerBlockOrdering(t *testing.T) {
           1.2.3.4 test.order-test4
         }
       }
-      order-test4:` + port + ` {
+      order-test4:0 {
         view v-aaaa {
           expr type() == 'AAAA'
         }
@@ -280,7 +256,6 @@ func TestViewServerBlockOrdering(t *testing.T) {
 		t.Fatalf("Could not start server: %s", err)
 	}
 	defer i.Stop()
-	tmp.Stop()
 
 	// filtered blocks before unfiltered — views handle matching types, catch-all handles the rest
 	viewTest(t, "A routed to v-a", addr, "test.order-test.", dns.TypeA, dns.RcodeSuccess,
