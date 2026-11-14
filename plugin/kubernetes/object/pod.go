@@ -35,6 +35,12 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 	for i, pip := range apiPod.Status.PodIPs {
 		podIPs[i] = pip.IP
 	}
+	// A pod that has run to completion keeps its IPs in its status, but the
+	// IPs have been released and may already belong to another pod. Don't
+	// index them, so lookups by IP only find the pod that holds it now.
+	if apiPod.Status.Phase == api.PodSucceeded || apiPod.Status.Phase == api.PodFailed {
+		podIPs = []string{}
+	}
 	pod := &Pod{
 		Version:   apiPod.GetResourceVersion(),
 		PodIPs:    podIPs,
