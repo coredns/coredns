@@ -36,6 +36,9 @@ func TestSetupHeader(t *testing.T) {
 			response set ra aa
 			query clear rd
 }`, false, ""},
+		{`header {
+					response set ad cd
+		}`, false, ""},
 	}
 
 	for i, test := range tests {

@@ -14,6 +14,8 @@ const (
 	authoritative      = "aa"
 	recursionAvailable = "ra"
 	recursionDesired   = "rd"
+	authenticatedData  = "ad"
+	checkingDisabled   = "cd"
 )
 
 var log = clog.NewWithPlugin("header")
@@ -70,6 +72,8 @@ func newRules(key string, args []string) ([]Rule, error) {
 		case authoritative:
 		case recursionAvailable:
 		case recursionDesired:
+		case authenticatedData:
+		case checkingDisabled:
 		default:
 			return nil, fmt.Errorf("unknown/unsupported flag=%s", flag)
 		}
@@ -90,6 +94,10 @@ func applyRules(res *dns.Msg, rules []Rule) {
 			res.RecursionAvailable = rule.State
 		case recursionDesired:
 			res.RecursionDesired = rule.State
+		case authenticatedData:
+			res.AuthenticatedData = rule.State
+		case checkingDisabled:
+			res.CheckingDisabled = rule.State
 		}
 	}
 }
