@@ -86,15 +86,32 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 				} else if served, ret, err := c.verifyWithTimeout(ctx, refreshState, w, cw, r, do, ad, i, failureRecheck, nowFunc); served {
 					return ret, err
 				}
+			} else if c.awaitRefresh(ctx, i) {
+				// A refresh was already running for this entry: wait for it and
+				// serve whatever is cached now instead of the stale entry, so a
+				// verify that succeeds is not hidden behind a stale answer. When
+				// only the failure recheck delay is active (no refresh running)
+				// this returns immediately and the stale entry below is served.
+				now = nowFunc()
+				if ni, _ := c.lookupIfNotStale(now, state); ni != nil {
+					i = ni
+				}
+				ttl = i.ttl(now)
+				stale = ttl <= 0
 			}
 		}
 
-		// Adjust the time to get a 0 TTL in the reply built from a stale item.
-		now = now.Add(time.Duration(ttl) * time.Second)
-		if !c.verifyStale {
-			c.tryPrefetch(ctx, i, server, rc, do, cd, now, true)
+		if stale {
+			// Adjust the time to get a 0 TTL in the reply built from a stale item.
+			// A request that waited for an in-flight refresh may have been handed
+			// a fresh entry above, in which case it keeps its real TTL and is not
+			// counted as served stale.
+			now = now.Add(time.Duration(ttl) * time.Second)
+			if !c.verifyStale {
+				c.tryPrefetch(ctx, i, server, rc, do, cd, now, true)
+			}
+			servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 		}
-		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
 		c.tryPrefetch(ctx, i, server, rc, do, cd, now, false)
 	}
@@ -228,6 +245,44 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 	}
 }
 
+// awaitRefresh waits for an in-flight refresh of i to finish and reports
+// whether it finished. The wait is bounded by the configured verify timeout
+// when set, and is abandoned when ctx is done. When no refresh is running it
+// returns immediately. The refresher signals completion by closing the
+// channel published by beginRefresh, so waiting requests sleep instead of
+// polling.
+func (c *Cache) awaitRefresh(ctx context.Context, i *item) bool {
+	var timeout <-chan time.Time
+	if c.verifyStaleTimeout > 0 {
+		timer := time.NewTimer(c.verifyStaleTimeout)
+		defer timer.Stop()
+		timeout = timer.C
+	}
+	for i.refreshing.Load() {
+		ch := i.refreshDone.Load()
+		if ch == nil {
+			// The refresh just started and has not published its done
+			// channel yet; yield briefly and retry.
+			select {
+			case <-ctx.Done():
+				return false
+			case <-timeout:
+				return false
+			case <-time.After(time.Microsecond):
+			}
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-timeout:
+			return false
+		case <-*ch:
+		}
+	}
+	return true
+}
+
 func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 	if c.prefetch <= 0 {
 		return false
@@ -248,8 +303,26 @@ func (c *Cache) Name() string { return "cache" }
 
 // getIfNotStale returns an item if it exists in the cache and has not expired.
 func (c *Cache) getIfNotStale(now time.Time, state request.Request, server string) *item {
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+
+	i, hit := c.lookupIfNotStale(now, state)
+	if i == nil {
+		cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+		return nil
+	}
+	cacheHits.WithLabelValues(server, hit, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+	return i
+}
+
+// lookupIfNotStale returns an item if it exists in the cache and has not
+// expired, without recording any metrics. It applies the same selection as
+// getIfNotStale: prefer_positive checks the success cache first, and a cached
+// SERVFAIL never shadows a usable positive entry. The second return value is
+// the hit class (Success or Denial) for the metrics recorded by getIfNotStale.
+// Callers that already counted the request, such as a request that waited for
+// an in-flight refresh, use this to avoid counting the same request twice.
+func (c *Cache) lookupIfNotStale(now time.Time, state request.Request) (*item, string) {
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
 
 	if c.preferPositive && c.staleUpTo > 0 {
 		if i, ok := c.pcache.Get(k); ok {
@@ -257,8 +330,7 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 			if i != nil {
 				ttl := i.ttl(now)
 				if ttl > 0 || -ttl < int(c.staleUpTo.Seconds()) {
-					cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-					return i
+					return i, Success
 				}
 			}
 		}
@@ -273,24 +345,20 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 				if p, pok := c.pcache.Get(k); pok {
 					pttl := p.ttl(now)
 					if p.matches(state) && (pttl > 0 || (c.staleUpTo > 0 && -pttl < int(c.staleUpTo.Seconds()))) {
-						cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-						return p
+						return p, Success
 					}
 				}
 			}
-			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i
+			return i, Denial
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
 		ttl := i.ttl(now)
 		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
-			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i
+			return i, Success
 		}
 	}
-	cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-	return nil
+	return nil, ""
 }
 
 // exists unconditionally returns an item if it exists in the cache.

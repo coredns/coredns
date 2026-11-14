@@ -11,6 +11,7 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 type staleRecheckClock struct {
@@ -368,6 +369,260 @@ func TestServeStaleFailureRecheckDisabledPreservesVerifyBehavior(t *testing.T) {
 	serveStaleRecheckRequest(t, c, req)
 	if got := calls.Load(); got != 2 {
 		t.Fatalf("expected disabled failure recheck to preserve per-request verify, got %d attempts", got)
+	}
+}
+
+func TestServeStaleVerifyWaitsForInFlightRefresh(t *testing.T) {
+	clock := newStaleRecheckClock()
+	c := New()
+	c.now = clock.Now
+	c.minpttl = 0
+	c.minnttl = 0
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.staleRecheck = 30 * time.Second
+	c.Next = ttlBackend(1)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	serveStaleRecheckRequest(t, c, req) // prime the cache
+	clock.Set(2 * time.Second)
+	staleBefore := servedStaleCount()
+
+	var calls atomic.Int32
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.99")}
+		if err := w.WriteMsg(m); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+		return dns.RcodeSuccess, nil
+	})
+
+	type outcome struct {
+		msg *dns.Msg
+		err error
+	}
+	serve := func() <-chan outcome {
+		ch := make(chan outcome, 1)
+		go func() {
+			recorder := dnstest.NewRecorder(&test.ResponseWriter{})
+			_, err := c.ServeDNS(context.Background(), recorder, req.Copy())
+			ch <- outcome{recorder.Msg, err}
+		}()
+		return ch
+	}
+
+	first := serve()
+	waitForStaleSignal(t, started, "verify did not start")
+	second := serve()
+
+	// The concurrent request must wait for the in-flight verify instead of
+	// serving the stale entry right away.
+	select {
+	case o := <-second:
+		if o.err != nil {
+			t.Fatalf("concurrent ServeDNS failed: %v", o.err)
+		}
+		t.Fatalf("concurrent request did not wait for the in-flight verify, got answer %v", o.msg.Answer)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(release)
+
+	for idx, ch := range []<-chan outcome{first, second} {
+		o := <-ch
+		if o.err != nil {
+			t.Fatalf("ServeDNS %d failed: %v", idx, o.err)
+		}
+		assertRefreshedAddress(t, o.msg)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected one upstream verify, got %d", got)
+	}
+	// The waiting request was served the refreshed entry, so it must not be
+	// counted as served stale.
+	if got := servedStaleCount() - staleBefore; got != 0 {
+		t.Fatalf("expected no stale serves, got %v", got)
+	}
+}
+
+func assertRefreshedAddress(t *testing.T, msg *dns.Msg) {
+	t.Helper()
+	if msg == nil || msg.Truncated || len(msg.Answer) != 1 {
+		t.Fatalf("expected one complete answer, got %#v", msg)
+	}
+	a, ok := msg.Answer[0].(*dns.A)
+	if !ok || a.A.String() != "192.0.2.99" {
+		t.Fatalf("expected refreshed address 192.0.2.99, got %v", msg.Answer)
+	}
+	// The clock is frozen, so a refreshed entry must keep its full TTL
+	// instead of being served as a stale entry with TTL 0.
+	if a.Hdr.Ttl != 60 {
+		t.Fatalf("expected refreshed TTL 60, got %d", a.Hdr.Ttl)
+	}
+}
+
+// servedStaleCount reads the served_stale counter for the label values used
+// by these tests (no server, no zones, no view). The counter is shared by
+// all tests in the package, so callers compare deltas, not absolute values.
+func servedStaleCount() float64 {
+	return testutil.ToFloat64(servedStale.WithLabelValues("", "", ""))
+}
+
+func TestServeStaleVerifyTimeoutWaitsForInFlightRefresh(t *testing.T) {
+	clock := newStaleRecheckClock()
+	c := New()
+	c.now = clock.Now
+	c.minpttl = 0
+	c.minnttl = 0
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 500 * time.Millisecond
+	c.staleRecheck = 30 * time.Second
+	c.Next = ttlBackend(1)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	serveStaleRecheckRequest(t, c, req) // prime the cache
+	clock.Set(2 * time.Second)
+	staleBefore := servedStaleCount()
+
+	var calls atomic.Int32
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.99")}
+		if err := w.WriteMsg(m); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+		return dns.RcodeSuccess, nil
+	})
+
+	type outcome struct {
+		msg *dns.Msg
+		err error
+	}
+	firstCh := make(chan outcome, 1)
+	go func() {
+		recorder := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err := c.ServeDNS(context.Background(), recorder, req.Copy())
+		firstCh <- outcome{recorder.Msg, err}
+	}()
+	waitForStaleSignal(t, started, "background verify did not start")
+
+	// Release the upstream well before the verify timeout: the concurrent
+	// request below must wait for the in-flight verify and be served the
+	// refreshed entry rather than the stale one.
+	time.AfterFunc(100*time.Millisecond, func() { close(release) })
+	second := serveStaleRecheckRequest(t, c, req)
+	assertRefreshedAddress(t, second)
+
+	first := <-firstCh
+	if first.err != nil {
+		t.Fatalf("ServeDNS failed: %v", first.err)
+	}
+	assertRefreshedAddress(t, first.msg)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected one upstream verify, got %d", got)
+	}
+	// The waiting request was served the refreshed entry, so it must not be
+	// counted as served stale.
+	if got := servedStaleCount() - staleBefore; got != 0 {
+		t.Fatalf("expected no stale serves, got %v", got)
+	}
+}
+
+func TestServeStaleVerifyManyWaitersShareRefresh(t *testing.T) {
+	clock := newStaleRecheckClock()
+	c := New()
+	c.now = clock.Now
+	c.minpttl = 0
+	c.minnttl = 0
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.staleRecheck = 30 * time.Second
+	c.Next = ttlBackend(1)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	serveStaleRecheckRequest(t, c, req) // prime the cache
+	clock.Set(2 * time.Second)
+	staleBefore := servedStaleCount()
+
+	var calls atomic.Int32
+	started := make(chan struct{}, 2)
+	release := make(chan struct{})
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		calls.Add(1)
+		started <- struct{}{}
+		<-release
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.99")}
+		if err := w.WriteMsg(m); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+		return dns.RcodeSuccess, nil
+	})
+
+	type outcome struct {
+		msg *dns.Msg
+		err error
+	}
+	serve := func() <-chan outcome {
+		ch := make(chan outcome, 1)
+		go func() {
+			recorder := dnstest.NewRecorder(&test.ResponseWriter{})
+			_, err := c.ServeDNS(context.Background(), recorder, req.Copy())
+			ch <- outcome{recorder.Msg, err}
+		}()
+		return ch
+	}
+
+	const waiters = 20
+	first := serve()
+	waitForStaleSignal(t, started, "verify did not start")
+	rest := make([]<-chan outcome, waiters)
+	for i := range rest {
+		rest[i] = serve()
+	}
+	// Give every waiter time to reach the in-flight verify before the
+	// upstream answers. A waiter that arrives late still gets the fresh
+	// entry from cache, so the assertions below hold either way.
+	time.Sleep(200 * time.Millisecond)
+	close(release)
+
+	for idx, ch := range append([]<-chan outcome{first}, rest...) {
+		select {
+		case o := <-ch:
+			if o.err != nil {
+				t.Fatalf("ServeDNS %d failed: %v", idx, o.err)
+			}
+			assertRefreshedAddress(t, o.msg)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("ServeDNS %d did not return after the refresh finished", idx)
+		}
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected one upstream verify, got %d", got)
+	}
+	if got := servedStaleCount() - staleBefore; got != 0 {
+		t.Fatalf("expected no stale serves, got %v", got)
 	}
 }
 
