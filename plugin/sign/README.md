@@ -162,7 +162,3 @@ coredns-keygen directory.
 
 Other useful DNSSEC tools can be found in [ldns](https://nlnetlabs.nl/projects/ldns/about/), e.g.
 `ldns-key2ds` to create DS records from DNSKEYs.
-
-## Bugs
-
-`keys directory` is not implemented.

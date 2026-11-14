@@ -59,7 +59,29 @@ func keyParse(c *caddy.Controller) ([]Pair, error) {
 			pairs = append(pairs, pair)
 		}
 	case "directory":
-		return nil, fmt.Errorf("directory: not implemented")
+		ds := c.RemainingArgs()
+		if len(ds) == 0 {
+			return nil, c.ArgErr()
+		}
+		for _, d := range ds {
+			dir := d
+			if !filepath.IsAbs(dir) && config.Root != "" {
+				dir = filepath.Join(config.Root, dir)
+			}
+
+			ks, err := filepath.Glob(filepath.Join(dir, "K*.key"))
+			if err != nil {
+				return nil, err
+			}
+			for _, k := range ks {
+				base := strings.TrimSuffix(k, ".key")
+				pair, err := readKeyPair(base+".key", base+".private")
+				if err != nil {
+					return nil, err
+				}
+				pairs = append(pairs, pair)
+			}
+		}
 	}
 
 	return pairs, nil
