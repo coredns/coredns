@@ -139,7 +139,10 @@ The maximum TLS version, TLS 1.2 cipher suites, and key exchange mechanisms use 
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
-* `next_on_nodata` If `NOERROR` is returned by the remote, but an empty answer section (`NODATA`) was provided, execute the next `forward` plugin, if configured.
+* `next_on_nodata` If `NOERROR` is returned by the remote in a non-truncated response, but an empty
+  answer section (`NODATA`) was provided, execute the next `forward` plugin, if configured.
+  Truncated responses are not treated as `NODATA`; the `prefer_udp`, `force_tcp`, and explicit `next`
+  policies still apply.
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
 * `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
