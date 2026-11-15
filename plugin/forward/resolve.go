@@ -217,6 +217,21 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 	c.ReadTimeout = 2 * time.Second
 	c.WriteTimeout = 2 * time.Second
 
+	exchange := func(m *dns.Msg, addr string) (*dns.Msg, error) {
+		r, _, err := c.Exchange(m, addr)
+		if err != nil || r == nil || !r.Truncated {
+			return r, err
+		}
+		// Discard the incomplete UDP answer and retry this query over TCP.
+		tcp := *c
+		tcp.Net = "tcp"
+		r, _, err = tcp.Exchange(m, addr)
+		if err == nil && r != nil && r.Truncated {
+			return nil, errors.New("truncated TCP response")
+		}
+		return r, err
+	}
+
 	var lastErr error
 
 	for _, resolver := range resolvers {
@@ -231,7 +246,7 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 		m.SetQuestion(dns.Fqdn(hostname), dns.TypeA)
 		m.RecursionDesired = true
 
-		r, _, err := c.Exchange(m, resolverAddr)
+		r, err := exchange(m, resolverAddr)
 		if err != nil {
 			lastErr = err
 			continue
@@ -249,7 +264,7 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 		m.SetQuestion(dns.Fqdn(hostname), dns.TypeAAAA)
 		m.RecursionDesired = true
 
-		r, _, err = c.Exchange(m, resolverAddr)
+		r, err = exchange(m, resolverAddr)
 		if err != nil {
 			if len(ips) > 0 {
 				return ips, nil // we have A records, AAAA failure is OK
