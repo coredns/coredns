@@ -36,7 +36,7 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 						continue
 					}
 					fileMtime = fi.ModTime()
-					serial = 0 // force reload of the zone
+					serial = -1 // force reload of the zone
 				}
 
 				reader, err := os.Open(filepath.Clean(zFile))

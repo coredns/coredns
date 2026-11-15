@@ -114,7 +114,7 @@ func fileParseWithParser(c *caddy.Controller, parse func(io.Reader, string, stri
 				z[origins[i]] = NewZone(origins[i], fileName)
 				if openErr == nil {
 					reader.Seek(0, 0)
-					zone, err := parse(reader, origins[i], fileName, 0)
+					zone, err := parse(reader, origins[i], fileName, -1)
 					if err != nil {
 						return err
 					}
