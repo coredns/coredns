@@ -2,6 +2,8 @@ package auto
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"io"
 	golog "log"
 	"os"
@@ -9,6 +11,12 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
+
+	"github.com/miekg/dns"
 )
 
 var dbFiles = []string{"db.example.org", "aa.example.org"}
@@ -46,6 +54,52 @@ func TestWalk(t *testing.T) {
 		if _, ok := a.Z[name]; !ok {
 			t.Errorf("%s should have been added", name)
 		}
+	}
+}
+
+func TestWalkSerial(t *testing.T) {
+	for _, serial := range []uint32{0, 1, 4294967295} {
+		t.Run(fmt.Sprintf("serial=%d", serial), func(t *testing.T) {
+			dir := t.TempDir()
+			contents := strings.Replace(zoneContent, "2016082534", fmt.Sprint(serial), 1)
+			if err := os.WriteFile(filepath.Join(dir, "db.example.org"), []byte(contents), 0600); err != nil {
+				t.Fatal(err)
+			}
+			corefile := fmt.Sprintf("auto example.org. {\n directory %q\n reload 0\n}", filepath.ToSlash(dir))
+			a, err := autoParse(caddy.NewTestController("dns", corefile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := a.Walk(); err != nil {
+				t.Fatal(err)
+			}
+			for _, tc := range []test.Case{
+				{
+					Qname: "example.org.", Qtype: dns.TypeSOA, Authoritative: true,
+					Answer: []dns.RR{test.SOA(fmt.Sprintf("example.org. 0 IN SOA sns.dns.icann.org. noc.dns.icann.org. %d 7200 3600 1209600 3600", serial))},
+					Ns: []dns.RR{
+						test.NS("example.org. 0 IN NS a.iana-servers.net."),
+						test.NS("example.org. 0 IN NS b.iana-servers.net."),
+					},
+				},
+				{
+					Qname: "www.example.org.", Qtype: dns.TypeA, Authoritative: true,
+					Answer: []dns.RR{test.A("www.example.org. 0 IN A 127.0.0.1")},
+					Ns: []dns.RR{
+						test.NS("example.org. 0 IN NS a.iana-servers.net."),
+						test.NS("example.org. 0 IN NS b.iana-servers.net."),
+					},
+				},
+			} {
+				rec := dnstest.NewRecorder(&test.ResponseWriter{})
+				if rcode, err := a.ServeDNS(context.Background(), rec, tc.Msg()); err != nil || rcode != dns.RcodeSuccess {
+					t.Fatalf("lookup returned rcode %d, error %v", rcode, err)
+				}
+				if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+					t.Fatalf("unexpected reply: %v", err)
+				}
+			}
+		})
 	}
 }
 
