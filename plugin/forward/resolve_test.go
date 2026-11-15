@@ -2,12 +2,15 @@ package forward
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
@@ -681,5 +684,83 @@ func TestSystemLookupUsesFQDN(t *testing.T) {
 
 	if gotHostname != "dns.google." {
 		t.Errorf("expected system resolver lookup for %q, got %q", "dns.google.", gotHostname)
+	}
+}
+
+func TestSetupBootstrapReplies(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA} {
+		for _, partial := range []int{0, 1} {
+			t.Run(fmt.Sprintf("%s/partial=%d", dns.TypeToString[qtype], partial), func(t *testing.T) {
+				answers := []dns.RR{test.A("upstream.example. IN A 192.0.2.1"), test.A("upstream.example. IN A 192.0.2.2")}
+				want := []string{"192.0.2.1:53", "192.0.2.2:53"}
+				if qtype == dns.TypeAAAA {
+					answers = []dns.RR{test.AAAA("upstream.example. IN AAAA 2001:db8::1"), test.AAAA("upstream.example. IN AAAA 2001:db8::2")}
+					want = []string{"[2001:db8::1]:53", "[2001:db8::2]:53"}
+				}
+				var tcpQueries atomic.Int32
+				s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+					ret := new(dns.Msg)
+					ret.SetReply(r)
+					if r.Question[0].Qtype == qtype {
+						ret.Answer = answers
+						if _, udp := w.RemoteAddr().(*net.UDPAddr); udp {
+							ret.Truncated = true
+							ret.Answer = answers[:partial]
+						} else {
+							tcpQueries.Add(1)
+						}
+					}
+					w.WriteMsg(ret)
+				})
+				defer s.Close()
+				c := caddy.NewTestController("dns", fmt.Sprintf("forward . upstream.example {\nresolver %s\n}", s.Addr))
+				if err := setup(c); err != nil {
+					t.Fatalf("setup() error = %v", err)
+				}
+				if _, err := dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)}); err != nil {
+					t.Fatal(err)
+				}
+				f := dnsserver.GetConfig(c).Handler("forward").(*Forward)
+				got := make([]string, 0, len(f.proxies))
+				for _, p := range f.proxies {
+					got = append(got, p.Addr())
+				}
+				if !reflect.DeepEqual(got, want) || tcpQueries.Load() != 1 {
+					t.Errorf("upstream addresses = %v, TCP queries = %d; want %v, 1", got, tcpQueries.Load(), want)
+				}
+			})
+		}
+	}
+}
+
+func TestDnsLookupIncompleteTCP(t *testing.T) {
+	for _, qtype := range []uint16{dns.TypeA, dns.TypeAAAA} {
+		for _, tcpMode := range []string{"empty", "closed", "truncated"} {
+			t.Run(dns.TypeToString[qtype]+"/"+tcpMode, func(t *testing.T) {
+				s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+					ret := new(dns.Msg)
+					ret.SetReply(r)
+					if r.Question[0].Qtype == qtype {
+						_, udp := w.RemoteAddr().(*net.UDPAddr)
+						if !udp && tcpMode == "closed" {
+							w.Close()
+							return
+						}
+						if udp || tcpMode == "truncated" {
+							ret.Truncated = true
+							ret.Answer = []dns.RR{test.A("upstream.example. IN A 192.0.2.99")}
+							if qtype == dns.TypeAAAA {
+								ret.Answer = []dns.RR{test.AAAA("upstream.example. IN AAAA 2001:db8::99")}
+							}
+						}
+					}
+					w.WriteMsg(ret)
+				})
+				defer s.Close()
+				if got, err := dnsLookup("upstream.example", []string{s.Addr}); err == nil || len(got) != 0 {
+					t.Errorf("dnsLookup() = %v, %v; want no addresses and an error", got, err)
+				}
+			})
+		}
 	}
 }
