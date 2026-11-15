@@ -2,6 +2,7 @@ package loadbalance
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -212,6 +213,62 @@ func BenchmarkRoundRobin(b *testing.B) {
 	for b.Loop() {
 		_ = roundRobin(answer)
 	}
+}
+
+func BenchmarkRoundRobinShuffle(b *testing.B) {
+	for _, n := range []int{2, 4, 8} {
+		records := addressRecords(n)
+		b.Run(strconv.Itoa(n), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				roundRobinShuffle(records)
+			}
+		})
+	}
+}
+
+// TestRoundRobinShuffleUniform checks that all orders are equally likely.
+func TestRoundRobinShuffleUniform(t *testing.T) {
+	const trials, want = 120000, 20000 // 3 records have 6 orders.
+	in := addressRecords(3)
+	counts := make(map[[3]dns.RR]int)
+	for range trials {
+		r := [3]dns.RR(in)
+		roundRobinShuffle(r[:])
+		counts[r]++
+	}
+	if len(counts) != 6 {
+		t.Fatalf("saw %d orders, want 6", len(counts))
+	}
+	// With a correct shuffle each count has σ = √(trials·1/6·5/6) ≈ 129,
+	// under 1% of want, so ±5% does not flake. A naive shuffle (swap each
+	// i with any j) has 3³ = 27 equally likely paths, so each order gets
+	// 4/27 or 5/27 of the trials instead of 4.5/27: 11% off.
+	for order, n := range counts {
+		if n < want*95/100 || n > want*105/100 {
+			t.Errorf("order %v seen %d times, want about %d", order, n, want)
+		}
+	}
+}
+
+// TestRoundRobinAllocs checks that shuffling does not allocate
+// and that roundRobin allocates only the copy of its input.
+func TestRoundRobinAllocs(t *testing.T) {
+	records := addressRecords(4)
+	if n := testing.AllocsPerRun(100, func() { roundRobinShuffle(records) }); n != 0 {
+		t.Errorf("roundRobinShuffle: %v allocs, want 0", n)
+	}
+	if n := testing.AllocsPerRun(100, func() { roundRobin(records) }); n != 1 {
+		t.Errorf("roundRobin: %v allocs, want 1", n)
+	}
+}
+
+func addressRecords(n int) []dns.RR {
+	records := make([]dns.RR, n)
+	for i := range records {
+		records[i] = test.A("a.example.org. 300 IN A 10.0.0." + strconv.Itoa(i+1))
+	}
+	return records
 }
 
 // TestRoundRobinDoesNotMutateInput guards the contract that roundRobin leaves its

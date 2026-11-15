@@ -2,6 +2,7 @@ package loadbalance
 
 import (
 	"fmt"
+	"math/rand/v2"
 
 	"github.com/miekg/dns"
 )
@@ -107,21 +108,10 @@ func roundRobin(in []dns.RR) []dns.RR {
 }
 
 func roundRobinShuffle(records []dns.RR) {
-	switch l := len(records); l {
-	case 0, 1:
-	case 2:
-		if dns.Id()%2 == 0 {
-			records[0], records[1] = records[1], records[0]
-		}
-	default:
-		for j := range l {
-			p := j + (int(dns.Id()) % (l - j))
-			if j == p {
-				continue
-			}
-			records[j], records[p] = records[p], records[j]
-		}
-	}
+	// #nosec G404 -- non-cryptographic randomness for load balancing.
+	rand.Shuffle(len(records), func(i, j int) {
+		records[i], records[j] = records[j], records[i]
+	})
 }
 
 // Write implements the dns.ResponseWriter interface.
