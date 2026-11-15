@@ -62,8 +62,8 @@ func (a Auto) Walk() error {
 		}
 		defer reader.Close()
 
-		// Serial for loading a zone is 0, because it is a new zone.
-		zo, err := file.Parse(reader, origin, path, 0)
+		// Disable serial comparison when loading a new zone.
+		zo, err := file.Parse(reader, origin, path, -1)
 		if err != nil {
 			log.Warningf("Parse zone `%s': %v", origin, err)
 			return nil
