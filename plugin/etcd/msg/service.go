@@ -149,7 +149,7 @@ func split255(s string) []string {
 	sx := []string{}
 	p, i := 0, 255
 	for {
-		if i > len(s) {
+		if i >= len(s) {
 			sx = append(sx, s[p:])
 			break
 		}
