@@ -1,6 +1,7 @@
 package file
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -114,6 +115,9 @@ Transfer:
 		}
 	}
 	if serial == -1 {
+		if len(z.TransferFrom) > 0 && Err == nil {
+			Err = fmt.Errorf("no usable SOA response for %s", z.origin)
+		}
 		return false, Err
 	}
 	soa := z.getSOA()
