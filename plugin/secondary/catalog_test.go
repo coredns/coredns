@@ -755,7 +755,9 @@ func TestCatalogRefreshFailures(t *testing.T) {
 			t.Run(strings.Join(primaries, "/"), func(t *testing.T) {
 				rrs := catalogZoneRecordsForMembers(t, origin, nil, 100)
 				soa := rrs[0].(*dns.SOA)
-				soa.Refresh, soa.Retry, soa.Expire = 100, 1, 120
+				// Leave time between retries for a pending expiration tick to be
+				// handled, even if a retry first sleeps for its full 2s jitter.
+				soa.Refresh, soa.Retry, soa.Expire = 100, 10, 120
 				newer := dns.Copy(soa).(*dns.SOA)
 				newer.Serial++
 				var transfers atomic.Int32
