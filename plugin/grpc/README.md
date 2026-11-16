@@ -19,8 +19,9 @@ grpc FROM TO...
 ~~~
 
 * **FROM** is the base domain to match for the request to be proxied.
-* **TO...** are the destination endpoints to proxy to. The number of upstreams is
-  limited to 15.
+* **TO...** are the destination endpoints to proxy to. Each endpoint must serve CoreDNS's
+  DNS-over-gRPC protocol; ordinary DNS, DNS-over-TLS and DNS-over-HTTPS endpoints cannot be used.
+  The number of upstreams is limited to 15.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a proxy returns an error
 the next upstream in the list is tried.
@@ -53,10 +54,9 @@ grpc FROM TO... {
 CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
 key exchange mechanisms use the Go `crypto/tls` defaults.
 
-* `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
-  needs this to be set to `dns.quad9.net`. Multiple upstreams are still allowed in this scenario,
-  but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
-  (Cloudflare) will not work.
+* `tls_servername` **NAME** sets the server name used to verify the upstream's certificate.
+  For example, use `grpc.example.org` when connecting to an IP address whose certificate is issued
+  for that name. Multiple upstreams must use certificates valid for the same `tls_servername`.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
 * `fallthrough` **[ZONES...]** If a query results in NXDOMAIN from the gRPC backend, pass the request
   to the next plugin instead of returning the NXDOMAIN response. This is useful when the gRPC backend
@@ -105,7 +105,8 @@ Forward everything except requests to `example.org`
 }
 ~~~
 
-Proxy everything except `example.org` using the host's `resolv.conf`'s nameservers:
+Proxy everything except `example.org` using the host's `resolv.conf`'s nameservers.
+These nameservers must provide DNS-over-gRPC on port 53:
 
 ~~~ corefile
 . {
@@ -115,29 +116,36 @@ Proxy everything except `example.org` using the host's `resolv.conf`'s nameserve
 }
 ~~~
 
-Proxy all requests to 9.9.9.9 using the TLS protocol, and cache every answer for up to 30
-seconds. Note the `tls_servername` is mandatory if you want a working setup, as 9.9.9.9 can't be
-used in the TLS negotiation.
+Proxy all requests over TLS to a CoreDNS gRPC server on port 5553, and cache every answer for up
+to 30 seconds. The upstream certificate `cert.pem` must be valid for `grpc.example.org`, with its
+private key in `key.pem`. The proxy trusts its issuing CA through `ca.pem`. See the *tls* plugin
+for the server-side TLS options.
+
+The upstream server answers A queries for `example.org` with `192.0.2.1`:
 
 ~~~ corefile
-. {
-    grpc . 9.9.9.9 {
-       tls_servername dns.quad9.net
+grpc://.:5553 {
+    tls cert.pem key.pem
+    hosts {
+        192.0.2.1 example.org
+    }
+}
+~~~
+
+The proxy listens for ordinary DNS queries on port 1053:
+
+~~~ corefile
+.:1053 {
+    grpc . 127.0.0.1:5553 {
+        tls ca.pem
+        tls_servername grpc.example.org
     }
     cache 30
 }
 ~~~
 
-Or with multiple upstreams from the same provider
-
-~~~ corefile
-. {
-    grpc . 1.1.1.1 1.0.0.1 {
-       tls_servername cloudflare-dns.com
-    }
-    cache 30
-}
-~~~
+Query the proxy with `dig @127.0.0.1 -p 1053 example.org A`. Multiple gRPC upstreams can be listed
+in the same stanza if their certificates are valid for the configured `tls_servername`.
 
 Forward requests to a local upstream listening on a Unix domain socket.
 
