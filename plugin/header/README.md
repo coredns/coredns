@@ -29,6 +29,9 @@ header {
     * `ra` - RecursionAvailable
     * `rd` - RecursionDesired
 
+Multiple *header* directives may appear in a server block. Their rules are combined in configuration
+order, so for the same flag and selector the last rule takes precedence.
+
 ## Examples
 
 Make sure recursive available `ra` flag is set in all the responses:
@@ -58,6 +61,20 @@ Make sure "recursion desired" `rd` is set for all subsequent plugins::
 . {
     header {
         query set rd
+    }
+}
+~~~
+
+Split the rules over two *header* directives. `aa` is set by the first and cleared by the second, so
+responses go out with `ra` set and `aa` cleared:
+
+~~~ corefile
+. {
+    header {
+        response set ra aa
+    }
+    header {
+        response clear aa
     }
 }
 ~~~

@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+
+	"github.com/miekg/dns"
 )
 
 func TestSetupHeader(t *testing.T) {
@@ -83,5 +85,40 @@ func TestParseMultipleBlocks(t *testing.T) {
 	}
 	if !reflect.DeepEqual(responseRules, expectedResponse) {
 		t.Errorf("Expected response rules %v, got %v", expectedResponse, responseRules)
+	}
+}
+
+func TestParseMultipleBlocksSameFlag(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{`header {
+			response set aa
+		}
+		header {
+			response clear aa
+		}`, false},
+		{`header {
+			response clear aa
+		}
+		header {
+			response set aa
+		}`, true},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		_, responseRules, err := parse(c)
+		if err != nil {
+			t.Fatalf("Test %d: Expected no error, got: %v", i, err)
+		}
+
+		msg := new(dns.Msg)
+		msg.Authoritative = !test.expected
+		applyRules(msg, responseRules)
+		if msg.Authoritative != test.expected {
+			t.Errorf("Test %d: Expected aa to be %v, got %v", i, test.expected, msg.Authoritative)
+		}
 	}
 }
