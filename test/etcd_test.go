@@ -10,10 +10,33 @@ import (
 
 	"github.com/coredns/coredns/plugin/etcd"
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 	etcdcv3 "go.etcd.io/etcd/client/v3"
 )
+
+// localExampleComDNSServer runs a DNS server that knows a single A record, returning the addr as a string
+func localExampleComDNSServer(t *testing.T) string {
+	t.Helper()
+
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		response := new(dns.Msg)
+
+		response.SetReply(r)
+		if len(r.Question) > 0 && r.Question[0].Qtype == dns.TypeA && r.Question[0].Name == "example.com." {
+			response.Answer = []dns.RR{test.A("example.com. 1 IN A 192.0.2.99")}
+		}
+		// Callers of this function *do* care about results
+		if err := w.WriteMsg(response); err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Cleanup(s.Close)
+	return s.Addr
+}
 
 func etcdPlugin() *etcd.Etcd {
 	etcdCfg := etcdcv3.Config{
