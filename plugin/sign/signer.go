@@ -49,7 +49,6 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 	for _, pair := range s.keys {
 		pair.Public.Header().Ttl = ttl // set TTL on key so it matches the RRSIG.
 		z.Insert(pair.Public)
-		z.Insert(pair.Public.ToDS(dns.SHA1).ToCDS())
 		z.Insert(pair.Public.ToDS(dns.SHA256).ToCDS())
 		z.Insert(pair.Public.ToCDNSKEY())
 	}
