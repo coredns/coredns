@@ -123,7 +123,7 @@ for the server-side TLS options.
 
 The upstream server answers A queries for `example.org` with `192.0.2.1`:
 
-~~~ corefile
+~~~
 grpc://.:5553 {
     tls cert.pem key.pem
     hosts {
@@ -134,7 +134,7 @@ grpc://.:5553 {
 
 The proxy listens for ordinary DNS queries on port 1053:
 
-~~~ corefile
+~~~
 .:1053 {
     grpc . 127.0.0.1:5553 {
         tls ca.pem
