@@ -1,7 +1,12 @@
 package dnsutil
 
 import (
+	"encoding/binary"
+	"math/rand/v2"
+	"net"
 	"testing"
+
+	"github.com/miekg/dns"
 )
 
 func TestExtractAddressFromReverse(t *testing.T) {
@@ -54,6 +59,19 @@ func TestExtractAddressFromReverse(t *testing.T) {
 			"2001:db8::567:89ab",
 		},
 		{
+			// A v4-mapped address prints in dotted form, as net.IP does.
+			"4.0.3.0.2.0.1.0.f.f.f.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.",
+			"1.2.3.4",
+		},
+		{
+			"g.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"",
+		},
+		{
+			"b-a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"",
+		},
+		{
 			"NONAME",
 			"",
 		},
@@ -67,6 +85,37 @@ func TestExtractAddressFromReverse(t *testing.T) {
 		if got != test.expectedAddress {
 			t.Errorf("Test %d, expected '%s', got '%s'", i, test.expectedAddress, got)
 		}
+	}
+}
+
+func TestExtractAddressFromReverseRoundTrip(t *testing.T) {
+	r := rand.New(rand.NewPCG(1, 2))
+	for range 10000 {
+		var b [16]byte
+		binary.BigEndian.PutUint64(b[:8], r.Uint64())
+		binary.BigEndian.PutUint64(b[8:], r.Uint64())
+		want := net.IP(b[:]).String()
+		name, err := dns.ReverseAddr(want)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := ExtractAddressFromReverse(name); got != want {
+			t.Fatalf("ExtractAddressFromReverse(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func BenchmarkExtractAddressFromReverse(b *testing.B) {
+	for _, bc := range []struct{ name, in string }{
+		{"v4", "54.119.58.176.in-addr.arpa."},
+		{"v6", "b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa."},
+	} {
+		b.Run(bc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				ExtractAddressFromReverse(bc.in)
+			}
+		})
 	}
 }
 
