@@ -43,7 +43,9 @@ type Etcd struct {
 	// NoApexFallback disables the legacy zone-root lookup when apex.dns records are absent.
 	NoApexFallback bool
 
-	endpoints []string // Stored here as well, to aid in testing.
+	endpoints    []string      // Stored here as well, to aid in testing.
+	syncInterval time.Duration // Stored here as well, to aid in testing.
+	dialTimeout  time.Duration // Stored here as well, to aid in testing.
 }
 
 // Services implements the ServiceBackend interface.

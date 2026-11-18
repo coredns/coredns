@@ -43,11 +43,13 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 		MaxLeaseTTL: defaultLeaseMaxTTL,
 	}
 	var (
-		tlsConfig *tls.Config
-		err       error
-		endpoints = []string{defaultEndpoint}
-		username  string
-		password  string
+		tlsConfig    *tls.Config
+		err          error
+		endpoints    = []string{defaultEndpoint}
+		username     string
+		password     string
+		syncInterval time.Duration
+		dialTimeout  time.Duration
 	)
 
 	etc.Upstream = upstream.New()
@@ -101,6 +103,22 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 					return &Etcd{}, c.Errf("credentials requires 2 arguments, username and password")
 				}
 				username, password = args[0], args[1]
+			case "sync_interval":
+				if !c.NextArg() {
+					return &Etcd{}, c.ArgErr()
+				}
+				syncInterval, err = parseNonZeroDuration(c.Val())
+				if err != nil {
+					return &Etcd{}, c.Errf("invalid sync_interval value: %v", err)
+				}
+			case "dial_timeout":
+				if !c.NextArg() {
+					return &Etcd{}, c.ArgErr()
+				}
+				dialTimeout, err = parseNonZeroDuration(c.Val())
+				if err != nil {
+					return &Etcd{}, c.Errf("invalid dial_timeout value: %v", err)
+				}
 			case "min-lease-ttl":
 				if !c.NextArg() {
 					return &Etcd{}, c.ArgErr()
@@ -125,23 +143,27 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 				}
 			}
 		}
-		client, err := newEtcdClient(endpoints, tlsConfig, username, password)
+		client, err := newEtcdClient(endpoints, tlsConfig, username, password, syncInterval, dialTimeout)
 		if err != nil {
 			return &Etcd{}, err
 		}
 		etc.Client = client
 		etc.endpoints = endpoints
+		etc.syncInterval = syncInterval
+		etc.dialTimeout = dialTimeout
 
 		return &etc, nil
 	}
 	return &Etcd{}, nil
 }
 
-func newEtcdClient(endpoints []string, cc *tls.Config, username, password string) (*etcdcv3.Client, error) {
+func newEtcdClient(endpoints []string, cc *tls.Config, username, password string, syncInterval, dialTimeout time.Duration) (*etcdcv3.Client, error) {
 	etcdCfg := etcdcv3.Config{
 		Endpoints:         endpoints,
 		TLS:               cc,
 		DialKeepAliveTime: etcdTimeout,
+		AutoSyncInterval:  syncInterval,
+		DialTimeout:       dialTimeout,
 	}
 	if username != "" && password != "" {
 		etcdCfg.Username = username
@@ -155,6 +177,23 @@ func newEtcdClient(endpoints []string, cc *tls.Config, username, password string
 }
 
 const defaultEndpoint = "http://localhost:2379"
+
+// parseNonZeroDuration parses a duration string using the same flexible
+// format accepted elsewhere in this plugin (a bare number is treated as
+// seconds), and requires the result to be a positive duration.
+func parseNonZeroDuration(s string) (time.Duration, error) {
+	if _, err := strconv.Atoi(s); err == nil {
+		s += "s"
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, err
+	}
+	if d <= 0 {
+		return 0, errors.New("duration must be greater than 0")
+	}
+	return d, nil
+}
 
 // parseTTL parses a TTL value with flexible time units using Go's standard duration parsing.
 // Supports formats like: "30", "30s", "5m", "1h", "90s", "2h30m", etc.
