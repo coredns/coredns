@@ -481,3 +481,84 @@ func TestCloseClosesConnection(t *testing.T) {
 		t.Fatal("connection was not closed on shutdown (fd leak)")
 	}
 }
+
+// closeRecorder wraps a real net.Conn and records whether Close was called. The
+// peer is gone in TestCloseClosesConnectionOnFramestreamError, so there is no
+// EOF to observe from the other side; this is how the close is detected.
+type closeRecorder struct {
+	net.Conn
+	mu     sync.Mutex
+	closed bool
+}
+
+func (c *closeRecorder) Close() error {
+	c.mu.Lock()
+	c.closed = true
+	c.mu.Unlock()
+	return c.Conn.Close()
+}
+
+func (c *closeRecorder) Closed() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.closed
+}
+
+func TestCloseClosesConnectionOnFramestreamError(t *testing.T) {
+	// The collector can disappear before the shutdown handshake completes, so
+	// framestream's Close returns an error: CONTROL_STOP never gets its
+	// CONTROL_FINISH. The socket must be closed anyway. A close() that returns
+	// on the first error instead leaks an fd on every reconnect or reload
+	// against a dead endpoint, and still passes every other test here.
+	noGC(t)
+
+	l, err := reuseport.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Cannot start listener: %s", err)
+	}
+	defer l.Close()
+
+	handshakeDone := make(chan struct{})
+	serverGone := make(chan struct{})
+	go func() {
+		server, err := l.Accept()
+		if err != nil {
+			return
+		}
+		if _, err := fs.NewDecoder(server, &fs.DecoderOptions{
+			ContentType:   []byte("protobuf:dnstap.Dnstap"),
+			Bidirectional: true,
+		}); err != nil {
+			server.Close()
+			return
+		}
+		// Drop the connection once the client is past the handshake, so its
+		// CONTROL_STOP is never answered.
+		<-handshakeDone
+		server.Close()
+		close(serverGone)
+	}()
+
+	conn, err := net.DialTimeout("tcp", l.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatalf("Cannot dial listener: %s", err)
+	}
+	rec := &closeRecorder{Conn: conn}
+
+	enc, err := newEncoder(rec, time.Second)
+	if err != nil {
+		rec.Close()
+		t.Fatalf("handshake failed: %s", err)
+	}
+	close(handshakeDone)
+	<-serverGone
+
+	cerr := enc.close()
+
+	if !rec.Closed() {
+		t.Fatal("connection was not closed after a failed framestream close (fd leak)")
+	}
+	if cerr == nil {
+		t.Fatal("framestream close was expected to fail against a dead peer; the test no longer exercises the error path")
+	}
+}
