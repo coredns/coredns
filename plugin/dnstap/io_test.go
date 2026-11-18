@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime/debug"
 	"sync"
 	"testing"
 	"time"
@@ -286,11 +287,22 @@ func TestFullQueueWriteFail(t *testing.T) {
 	require.Contains(t, logger.WarnLog(), "Dropped dnstap messages")
 }
 
+// noGC disables the garbage collector for the duration of the test. A socket
+// that nothing closes is still reclaimed by a finalizer once a GC runs, so
+// without this a well-timed collection can make these leaks look fixed.
+func noGC(t *testing.T) {
+	t.Helper()
+	old := debug.SetGCPercent(-1)
+	t.Cleanup(func() { debug.SetGCPercent(old) })
+}
+
 func TestFailedHandshakeClosesConnection(t *testing.T) {
 	// A dial that opens the socket but then fails the framestream handshake
 	// must close that socket before returning. Otherwise every redial against
 	// an endpoint that accepts but never completes the handshake leaks a
 	// connection until the runtime finalizes the fd.
+	noGC(t)
+
 	l, err := reuseport.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
@@ -331,6 +343,8 @@ func TestReconnectClosesPreviousConnection(t *testing.T) {
 	// A reconnect (a second dial after a write error) must flush and close the
 	// previous encoder and its connection before installing the new one.
 	// Otherwise the old socket leaks on every redial.
+	noGC(t)
+
 	l, err := reuseport.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
@@ -359,13 +373,17 @@ func TestReconnectClosesPreviousConnection(t *testing.T) {
 				}
 				accepted <- struct{}{}
 				if n == 1 {
-					// Block until the client closes this connection during the
-					// second dial; Decode then returns an error (framestream FINISH/EOF).
+					// Decode returns an error once the second dial sends
+					// CONTROL_STOP; the decoder answers CONTROL_FINISH.
 					for {
 						if _, err := dec.Decode(); err != nil {
 							break
 						}
 					}
+					// framestream's Close stops at FINISH and leaves the socket
+					// open, so this only reaches EOF once the encoder closes
+					// the connection itself.
+					io.Copy(io.Discard, server)
 					server.Close()
 					close(firstClosed)
 					return
@@ -403,5 +421,63 @@ func TestReconnectClosesPreviousConnection(t *testing.T) {
 	case <-firstClosed:
 	case <-time.After(2 * time.Second):
 		t.Fatal("previous connection was not closed on reconnect (fd/goroutine leak)")
+	}
+}
+
+func TestCloseClosesConnection(t *testing.T) {
+	// Shutting the tapper down must close the socket, not just the framestream
+	// layered on top of it. serve() runs this path on quit, which is what
+	// OnRestart and OnFinalShutdown trigger, so otherwise every reload leaves a
+	// connection behind.
+	noGC(t)
+
+	l, err := reuseport.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Cannot start listener: %s", err)
+	}
+	defer l.Close()
+
+	closed := make(chan struct{})
+	go func() {
+		server, err := l.Accept()
+		if err != nil {
+			return
+		}
+		dec, err := fs.NewDecoder(server, &fs.DecoderOptions{
+			ContentType:   []byte("protobuf:dnstap.Dnstap"),
+			Bidirectional: true,
+		})
+		if err != nil {
+			server.Close()
+			return
+		}
+		// Decode returns an error once the shutdown sends CONTROL_STOP; the
+		// decoder answers CONTROL_FINISH.
+		for {
+			if _, err := dec.Decode(); err != nil {
+				break
+			}
+		}
+		// framestream's Close stops at FINISH and leaves the socket open, so
+		// this only reaches EOF once the encoder closes the connection itself.
+		io.Copy(io.Discard, server)
+		server.Close()
+		close(closed)
+	}()
+
+	dio := newIO("tcp", l.Addr().String(), 1, 1)
+	dio.tcpTimeout = time.Second
+	dio.flushTimeout = 30 * time.Millisecond
+	dio.errorCheckInterval = 50 * time.Millisecond
+	if err := dio.connect(); err != nil {
+		t.Fatalf("connect failed: %s", err)
+	}
+
+	dio.close()
+
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("connection was not closed on shutdown (fd leak)")
 	}
 }
