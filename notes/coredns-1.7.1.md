@@ -48,6 +48,6 @@ Zou Nengren.
 * plugin/grpc: Improve gRPC Plugin when backend is not available (https://github.com/coredns/coredns/pull/3966)
 * plugins: Using promauto package to ensure all created metrics are properly registered (https://github.com/coredns/coredns/pull/4025).
 * plugin/template: Add client IP data (https://github.com/coredns/coredns/pull/4034)
-* plugin/trace: fix struct allignment (https://github.com/coredns/coredns/pull/4112)
+* plugin/trace: fix struct alignment (https://github.com/coredns/coredns/pull/4112)
 * plugin/trace: Only with *debug* active enable debug mode for tracing - removes extra logging (https://github.com/coredns/coredns/pull/4016)
 * project: Add DCO requirement in Contributing guidelines (https://github.com/coredns/coredns/pull/4008)

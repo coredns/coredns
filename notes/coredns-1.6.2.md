@@ -36,6 +36,6 @@ Miek Gieben.
 * plugin/azure: Add plugin for Azure DNS (https://github.com/coredns/coredns/pull/2945)
 * plugin/forward: Fix handling truncated responses in forward (https://github.com/coredns/coredns/pull/3110)
 * plugin/kubernetes: Don't do a zone transfer for NS requests (https://github.com/coredns/coredns/pull/3098)
-* plugin/kubernetes: fix NXDOMAIN/NODATA fallthough case (https://github.com/coredns/coredns/pull/3118)
+* plugin/kubernetes: fix NXDOMAIN/NODATA fallthrough case (https://github.com/coredns/coredns/pull/3118)
 * plugin/route53: make refresh frequency adjustable (https://github.com/coredns/coredns/pull/3083)
 * plugin/route53: Various updates (https://github.com/coredns/coredns/pull/3108)
