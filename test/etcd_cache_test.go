@@ -150,6 +150,8 @@ func TestEtcdCNAMECrossZoneLookupBudget(t *testing.T) {
 }
 
 func checkResponse(t *testing.T, resp *dns.Msg) {
+	t.Helper()
+
 	if len(resp.Answer) == 0 {
 		t.Fatal("Expected to at least one RR in the answer section, got none")
 	}
