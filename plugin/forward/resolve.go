@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -24,7 +25,8 @@ type hostEntry struct {
 // toEntry represents a single TO address from the config, preserving order.
 type toEntry struct {
 	static bool      // true for IP/file-based entries
-	addrs  []string  // for static: resolved by HostPortOrFile
+	file   string    // for file-based entries: the path of the resolv.conf like file
+	addrs  []string  // for static: resolved by HostPortOrFile, for dynamic: the last resolved addresses
 	entry  hostEntry // for dynamic: hostname to resolve
 }
 
@@ -36,12 +38,17 @@ func classifyToAddrs(toAddrs []string) ([]toEntry, error) {
 		// Try HostPortOrFile first - this handles IPs and files
 		hosts, parseErr := parse.HostPortOrFile(h)
 		if parseErr == nil {
-			entries = append(entries, toEntry{static: true, addrs: hosts})
+			e := toEntry{static: true, addrs: hosts}
+			if isFile(h) {
+				e.file = h
+			}
+			entries = append(entries, e)
 			continue
 		}
 
-		// Empty file are skip
+		// Empty files don't add upstreams, but are kept so they can be reloaded later.
 		if errors.Is(parseErr, parse.ErrNoNameservers) {
+			entries = append(entries, toEntry{static: true, file: h})
 			continue
 		}
 
@@ -60,6 +67,25 @@ func classifyToAddrs(toAddrs []string) ([]toEntry, error) {
 		entries = append(entries, toEntry{static: false, entry: entry})
 	}
 	return entries, nil
+}
+
+// isFile reports whether the TO address h refers to a (resolv.conf like) file
+// instead of an IP address.
+func isFile(h string) bool {
+	trans, h := parse.Transport(h)
+	if trans != transport.DNS {
+		return false
+	}
+	if host, _, _ := strings.Cut(strings.Trim(h, "[]"), "%"); net.ParseIP(host) != nil {
+		return false
+	}
+	if addr, _, err := net.SplitHostPort(h); err == nil {
+		if addr, _, _ = strings.Cut(addr, "%"); net.ParseIP(addr) != nil {
+			return false
+		}
+	}
+	fi, err := os.Stat(h)
+	return err == nil && !fi.IsDir()
 }
 
 // parseAsHostEntry attempts to parse a TO address as a hostname-based entry.
@@ -111,23 +137,29 @@ func parseAsHostEntry(h string) (hostEntry, bool) {
 
 // expandAndDedup resolves all toEntries in order, expands hostnames to IPs,
 // and deduplicates by first-seen address. Returns the deduplicated address list.
+// The resolved addresses of hostname entries are stored in the entries.
 func expandAndDedup(entries []toEntry, resolvers []string) ([]string, error) {
+	for i := range entries {
+		if entries[i].static {
+			continue
+		}
+		resolved, err := resolveHostEntry(entries[i].entry, resolvers)
+		if err != nil {
+			return nil, err
+		}
+		entries[i].addrs = resolved
+	}
+	return dedupAddrs(entries), nil
+}
+
+// dedupAddrs returns the addresses of all entries in order, deduplicated by
+// first-seen address.
+func dedupAddrs(entries []toEntry) []string {
 	seen := make(map[string]bool)
 	var result []string
 
 	for _, e := range entries {
-		var addrs []string
-		if e.static {
-			addrs = e.addrs
-		} else {
-			resolved, err := resolveHostEntry(e.entry, resolvers)
-			if err != nil {
-				return nil, err
-			}
-			addrs = resolved
-		}
-
-		for _, addr := range addrs {
+		for _, addr := range e.addrs {
 			key := dedupKey(addr)
 			if !seen[key] {
 				seen[key] = true
@@ -135,7 +167,7 @@ func expandAndDedup(entries []toEntry, resolvers []string) ([]string, error) {
 			}
 		}
 	}
-	return result, nil
+	return result
 }
 
 // dedupKey identifies an upstream endpoint without collapsing distinct
