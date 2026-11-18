@@ -60,7 +60,7 @@ Yong Tang.
 * core: Add server instance to the context in ServerTLS and ServerHTTPS (https://github.com/coredns/coredns/pull/2840)
 * plugin: Add any plugin (https://github.com/coredns/coredns/pull/2801)
 * plugin/cache: cache failures (https://github.com/coredns/coredns/pull/2720)
-* plugin/cache: remove item.Autoritative (https://github.com/coredns/coredns/pull/2885)
+* plugin/cache: remove item.Authoritative (https://github.com/coredns/coredns/pull/2885)
 * plugin/chaos: randomize author list (https://github.com/coredns/coredns/pull/2794)
 * plugin/health: add OnRestartFailed (https://github.com/coredns/coredns/pull/2812)
 * plugin/kubernetes: make ignore empty work with ext svc types (https://github.com/coredns/coredns/pull/2823)

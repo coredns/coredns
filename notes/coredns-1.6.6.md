@@ -25,7 +25,7 @@ for the DNS Flag Day 2020 and to deal with DNS vulnerabilities.
 
 * [*cache*](/plugins/cache) added a `serve_stale` option similar to `unbound`'s `serve_expired`.
 * [*sign*](/plugins/sign) fix signing of authoritative data that we are not authoritative for.
-* [*transfer*](/plugins/transfer) fixed calling wg.Add in main goroutine to avoid race conditons.
+* [*transfer*](/plugins/transfer) fixed calling wg.Add in main goroutine to avoid race conditions.
 
 ## Brought to You By
 
