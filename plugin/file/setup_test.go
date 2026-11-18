@@ -140,6 +140,54 @@ func TestFileParse(t *testing.T) {
 	}
 }
 
+func TestFileParseSerial(t *testing.T) {
+	for _, serial := range []uint32{0, 1, 4294967295} {
+		for _, mtime := range []bool{false, true} {
+			t.Run(fmt.Sprintf("serial=%d/mtime=%t", serial, mtime), func(t *testing.T) {
+				contents := strings.Replace(dbRelative, " 3 3600", fmt.Sprintf(" %d 3600", serial), 1)
+				fileName := filepath.Join(t.TempDir(), "db.example.org")
+				if err := os.WriteFile(fileName, []byte(contents), 0600); err != nil {
+					t.Fatal(err)
+				}
+				corefile := fmt.Sprintf("file %q example.org.", filepath.ToSlash(fileName))
+				if mtime {
+					corefile += " {\n reload_by_mtime\n}"
+				}
+				zones, _, err := fileParse(caddy.NewTestController("dns", corefile))
+				if err != nil {
+					t.Fatalf("initial zone with serial %d: %v", serial, err)
+				}
+				checkSerialZone(t, zones.Z["example.org."], serial, "192.0.2.1")
+			})
+		}
+	}
+}
+
+func checkSerialZone(t *testing.T, z *Zone, serial uint32, address string) {
+	t.Helper()
+	f := File{Zones: Zones{Z: map[string]*Zone{"example.org.": z}, Names: []string{"example.org."}}}
+	for _, tc := range []test.Case{
+		{
+			Qname: "example.org.", Qtype: dns.TypeSOA, Authoritative: true,
+			Answer: []dns.RR{test.SOA(fmt.Sprintf("example.org. 500 IN SOA ns.example. hostmaster.example. %d 3600 600 86400 300", serial))},
+			Ns:     []dns.RR{test.NS("example.org. 500 IN NS ns.example.")},
+		},
+		{
+			Qname: "foo.example.org.", Qtype: dns.TypeA, Authoritative: true,
+			Answer: []dns.RR{test.A("foo.example.org. 500 IN A " + address)},
+			Ns:     []dns.RR{test.NS("example.org. 500 IN NS ns.example.")},
+		},
+	} {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if rcode, err := f.ServeDNS(context.Background(), rec, tc.Msg()); err != nil || rcode != dns.RcodeSuccess {
+			t.Fatalf("lookup returned rcode %d, error %v", rcode, err)
+		}
+		if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+			t.Fatalf("unexpected reply: %v", err)
+		}
+	}
+}
+
 func TestParseReload(t *testing.T) {
 	name, rm, err := test.TempFile(".", dbRelative)
 	if err != nil {

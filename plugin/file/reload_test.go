@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
@@ -126,6 +128,66 @@ func TestZoneReloadSOAOrigin(t *testing.T) {
 			t.Fatalf("expected updated A record, got result %v, answer %v", result, answer)
 		}
 	})
+}
+
+func TestZoneReloadSerialZero(t *testing.T) {
+	for _, mtime := range []bool{false, true} {
+		t.Run(fmt.Sprintf("mtime=%t", mtime), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				fileName := filepath.Join(t.TempDir(), "db.example.org")
+				fileMtime := time.Now().Add(-time.Hour).Truncate(time.Second)
+				write := func(contents string) {
+					t.Helper()
+					if err := os.WriteFile(fileName, []byte(contents), 0600); err != nil {
+						t.Fatal(err)
+					}
+					fileMtime = fileMtime.Add(time.Second)
+					if err := os.Chtimes(fileName, fileMtime, fileMtime); err != nil {
+						t.Fatal(err)
+					}
+				}
+				initial := strings.Replace(dbRelative, " 3 3600", " 1 3600", 1)
+				zero := strings.Replace(dbRelative, " 3 3600", " 0 3600", 1)
+				zero = strings.Replace(zero, "192.0.2.1", "192.0.2.2", 1)
+				changed := strings.Replace(zero, "192.0.2.2", "192.0.2.3", 1)
+				write(initial)
+				corefile := fmt.Sprintf("file %q example.org. {\n reload 1s\n", filepath.ToSlash(fileName))
+				if mtime {
+					corefile += " reload_by_mtime\n"
+				}
+				zones, _, err := fileParse(caddy.NewTestController("dns", corefile+"}"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				z := zones.Z["example.org."]
+				if err := z.Reload(nil); err != nil {
+					t.Fatal(err)
+				}
+				defer z.OnShutdown()
+
+				unchangedAddress := "192.0.2.2"
+				if mtime {
+					unchangedAddress = "192.0.2.3"
+				}
+				for _, step := range []struct {
+					contents string
+					serial   uint32
+					address  string
+				}{
+					{zero + "bar IN A invalid\n", 1, "192.0.2.1"},
+					{zero, 0, "192.0.2.2"},
+					{changed + "bar IN A invalid\n", 0, "192.0.2.2"},
+					{changed, 0, unchangedAddress},
+					{strings.Replace(changed, " 0 3600", " 4294967295 3600", 1), 4294967295, "192.0.2.3"},
+				} {
+					write(step.contents)
+					time.Sleep(time.Second)
+					synctest.Wait()
+					checkSerialZone(t, z, step.serial, step.address)
+				}
+			})
+		})
+	}
 }
 
 func TestZoneReloadByMtime(t *testing.T) {
