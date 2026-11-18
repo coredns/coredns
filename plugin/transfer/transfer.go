@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/netip"
 
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -202,6 +203,9 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 }
 
 func (x xfr) allowed(state request.Request) bool {
+	// An IP can be written in more than one way (2001:DB8::1, 2001:db8:0::1), so compare
+	// parsed addresses instead of strings.
+	remote, _ := netip.ParseAddr(state.IP()) // the zero Addr, which matches nothing below, if not an IP
 	for _, h := range x.to {
 		if h == "*" {
 			return true
@@ -211,7 +215,7 @@ func (x xfr) allowed(state request.Request) bool {
 			return false
 		}
 		// If remote IP matches we accept. TODO(): make this works with ranges
-		if to == state.IP() {
+		if addr, err := netip.ParseAddr(to); err == nil && addr == remote {
 			return true
 		}
 	}

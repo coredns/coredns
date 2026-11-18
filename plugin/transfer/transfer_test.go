@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -276,6 +277,60 @@ func TestTransferNotAllowed(t *testing.T) {
 
 	if w.Msg.Rcode != dns.RcodeRefused {
 		t.Errorf("Expected REFUSED response code, got %s", dns.RcodeToString[w.Msg.Rcode])
+	}
+}
+
+// TestTransferToAddressForms checks that a client is matched against the "to" addresses by IP,
+// not by how the address is spelled in the Corefile.
+func TestTransferToAddressForms(t *testing.T) {
+	tests := []struct {
+		to      string // as written in the Corefile
+		remote  string // client address, as net.IP.String() prints it
+		zone    string // zone of the client address, if any
+		allowed bool
+	}{
+		{to: "10.240.0.1", remote: "10.240.0.1", allowed: true},
+		{to: "2001:db8::1", remote: "2001:db8::1", allowed: true},
+		{to: "[2001:db8::1]:53", remote: "2001:db8::1", allowed: true},
+		{to: "2001:DB8::1", remote: "2001:db8::1", allowed: true},
+		{to: "[2001:DB8::1]:5300", remote: "2001:db8::1", allowed: true},
+		{to: "2001:db8:0:0:0:0:0:1", remote: "2001:db8::1", allowed: true},
+		{to: "2001:0db8::0001", remote: "2001:db8::1", allowed: true},
+		{to: "fe80::1%eth0", remote: "fe80::1", zone: "eth0", allowed: true},
+		{to: "[FE80::1%eth0]:53", remote: "fe80::1", zone: "eth0", allowed: true},
+		{to: "10.240.0.2", remote: "10.240.0.1", allowed: false},
+		{to: "2001:DB8::1", remote: "2001:db8::2", allowed: false},
+		{to: "2001:db8:0:0:0:0:0:1", remote: "2001:db8::2", allowed: false},
+	}
+
+	for _, tc := range tests {
+		c := caddy.NewTestController("dns", "transfer example.org {\n to "+tc.to+"\n}")
+		tr, err := parseTransfer(c)
+		if err != nil {
+			t.Fatalf("to %s: unexpected error parsing config: %v", tc.to, err)
+		}
+		next := &transfererPlugin{Zone: "example.org.", Serial: 12345, Next: nopHandler{}}
+		tr.Transferers = []Transferer{next}
+		tr.Next = next
+
+		w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true, RemoteIP: tc.remote, Zone: tc.zone})
+		m := new(dns.Msg)
+		m.SetAxfr("example.org.")
+
+		if _, err := tr.ServeDNS(context.TODO(), w, m); err != nil {
+			t.Fatalf("to %s, client %s: unexpected error: %v", tc.to, tc.remote, err)
+		}
+		if len(w.Msgs) == 0 {
+			t.Fatalf("to %s, client %s: no response written", tc.to, tc.remote)
+		}
+
+		refused := w.Msgs[0].Rcode == dns.RcodeRefused
+		if tc.allowed && refused {
+			t.Errorf("to %s, client %s: transfer was refused, expected it to be allowed", tc.to, tc.remote)
+		}
+		if !tc.allowed && !refused {
+			t.Errorf("to %s, client %s: transfer was allowed, expected REFUSED", tc.to, tc.remote)
+		}
 	}
 }
 
