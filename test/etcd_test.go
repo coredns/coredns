@@ -121,7 +121,7 @@ func set(ctx context.Context, t *testing.T, e *etcd.Etcd, k string, ttl time.Dur
 		t.Fatal(err)
 	}
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.KV.Put(ctx, path, string(b))
+	e.Client.Put(ctx, path, string(b))
 }
 
 // Copied from plugin/etcd/setup_test.go

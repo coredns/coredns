@@ -324,7 +324,7 @@ func set(t *testing.T, e *Etcd, k string, ttl time.Duration, m *msg.Service) {
 		t.Fatal(err)
 	}
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.KV.Put(ctxt, path, string(b))
+	e.Client.Put(ctxt, path, string(b))
 }
 
 func delete(t *testing.T, e *Etcd, k string) {
