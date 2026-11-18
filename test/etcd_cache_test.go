@@ -129,7 +129,7 @@ func TestEtcdCNAMECrossZoneLookupBudget(t *testing.T) {
 
 	etc := etcdPlugin()
 	ctx := context.Background()
-	for i := 0; i < 33; i++ {
+	for i := range 33 {
 		serv := &msg.Service{
 			Host: fmt.Sprintf("target%d.example.net.", i),
 			Key:  fmt.Sprintf("x%d.limit.example.org.", i),
