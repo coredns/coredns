@@ -43,6 +43,8 @@ func TestZoneExternalCNAMELookupWithoutProxy(t *testing.T) {
 func TestZoneExternalCNAMELookupWithProxy(t *testing.T) {
 	t.Parallel()
 
+	testDNSServer := localGTLDARecordDNSServer(t)
+
 	name, rm, err := test.TempFile(".", exampleOrg)
 	if err != nil {
 		t.Fatalf("Failed to create zone: %s", err)
@@ -54,7 +56,7 @@ func TestZoneExternalCNAMELookupWithProxy(t *testing.T) {
 		file ` + name + ` example.org {
 			upstream
 		}
-		forward . 8.8.8.8 8.8.4.4
+		forward . ` + testDNSServer + `
 	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)

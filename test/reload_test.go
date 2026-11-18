@@ -257,10 +257,11 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	procMetric := "coredns_build_info"
 	procCache := "coredns_cache_entries"
 	procForward := "coredns_dns_request_duration_seconds"
+	testDNSServer := localEmptyReplyDNSServer(t)
 	corefileWithMetrics := `.:0 {
 		prometheus ` + promAddress + `
 		cache
-		forward . 8.8.8.8 {
+		forward . ` + testDNSServer + ` {
 			force_tcp
 		}
 	}`
@@ -302,17 +303,18 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	procMetric := "coredns_build_info"
 	procCache := "coredns_cache_entries"
 	procForward := "coredns_dns_request_duration_seconds"
+	testDNSServer := localEmptyReplyDNSServer(t)
 	corefileWithMetrics := `.:0 {
 		prometheus ` + promAddress + `
 		cache
-		forward . 8.8.8.8 {
+		forward . ` + testDNSServer + ` {
 			force_tcp
 		}
 	}`
 	invalidCorefileWithMetrics := `.:0 {
 		prometheus ` + promAddress + `
 		cache
-		forward . 8.8.8.8 {
+		forward . ` + testDNSServer + ` {
 			force_tcp
 		}
 		invalid

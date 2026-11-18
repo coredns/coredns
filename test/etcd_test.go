@@ -10,10 +10,33 @@ import (
 
 	"github.com/coredns/coredns/plugin/etcd"
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 	etcdcv3 "go.etcd.io/etcd/client/v3"
 )
+
+// localExampleComDNSServer runs a DNS server that knows a single A record, returning the addr as a string
+func localExampleComDNSServer(t *testing.T) string {
+	t.Helper()
+
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		response := new(dns.Msg)
+
+		response.SetReply(r)
+		if len(r.Question) > 0 && r.Question[0].Qtype == dns.TypeA && r.Question[0].Name == "example.com." {
+			response.Answer = []dns.RR{test.A("example.com. 1 IN A 192.0.2.99")}
+		}
+		// Callers of this function *do* care about results
+		if err := w.WriteMsg(response); err != nil {
+			t.Error(err)
+		}
+	})
+
+	t.Cleanup(s.Close)
+	return s.Addr
+}
 
 func etcdPlugin() *etcd.Etcd {
 	etcdCfg := etcdcv3.Config{
@@ -40,6 +63,7 @@ func TestEtcdStubLoop(t *testing.T) {
 }
 
 func TestEtcdStubAndProxyLookup(t *testing.T) {
+	testDNSServer := localExampleComDNSServer(t)
 	corefile := `.:0 {
 		etcd skydns.local {
 			stubzones
@@ -48,7 +72,7 @@ func TestEtcdStubAndProxyLookup(t *testing.T) {
 			upstream
 			fallthrough
 		}
-		forward . 8.8.8.8:53
+		forward . ` + testDNSServer + `
 	}`
 
 	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
@@ -77,8 +101,8 @@ func TestEtcdStubAndProxyLookup(t *testing.T) {
 	if resp.Answer[0].Header().Rrtype != dns.TypeA {
 		t.Errorf("Expected RR to A, got: %d", resp.Answer[0].Header().Rrtype)
 	}
-	if resp.Answer[0].(*dns.A).A.String() != "93.184.216.34" {
-		t.Errorf("Expected 93.184.216.34, got: %s", resp.Answer[0].(*dns.A).A.String())
+	if resp.Answer[0].(*dns.A).A.String() != "192.0.2.99" {
+		t.Errorf("Expected 192.0.2.99, got: %s", resp.Answer[0].(*dns.A).A.String())
 	}
 }
 
