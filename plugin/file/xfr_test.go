@@ -83,3 +83,23 @@ func TestTransferRequiresExactZone(t *testing.T) {
 		t.Fatalf("expected ErrNotAuthoritative for subdomain transfer, got %v", err)
 	}
 }
+
+func TestTransferExpired(t *testing.T) {
+	zone, err := Parse(strings.NewReader(dbMiekNL), testzone, "stdin", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zone.Expired = true
+	fm := File{Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}}
+	for _, serial := range []uint32{0, zone.SOA.Serial} {
+		ch, err := fm.Transfer(testzone, serial)
+		if ch != nil {
+			// Drain a wrongly admitted transfer so a failure does not leak its producer.
+			for range ch {
+			}
+		}
+		if ch != nil || err != transfer.ErrNotAuthoritative {
+			t.Errorf("expired transfer with serial %d: got channel %v, error %v; want nil channel and ErrNotAuthoritative", serial, ch != nil, err)
+		}
+	}
+}

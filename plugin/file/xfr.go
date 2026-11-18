@@ -17,9 +17,15 @@ func (f File) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 }
 
 // Transfer transfers a zone with serial in the returned channel and implements IXFR fallback, by just
-// sending a single SOA record.
+// sending a single SOA record. Expired zones return transfer.ErrNotAuthoritative.
 func (z *Zone) Transfer(serial uint32) (<-chan []dns.RR, error) {
-	ap, t := z.snapshot()
+	z.RLock()
+	if z.Expired {
+		z.RUnlock()
+		return nil, transfer.ErrNotAuthoritative
+	}
+	ap, t := z.Apex, z.Tree
+	z.RUnlock()
 	apex, err := ap.records()
 	if err != nil {
 		return nil, err
