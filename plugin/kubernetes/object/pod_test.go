@@ -37,3 +37,30 @@ func TestToPodTerminalPhaseDropsIPs(t *testing.T) {
 		})
 	}
 }
+
+func TestToPodDeletionTimestamp(t *testing.T) {
+	now := metav1.Now()
+	tests := []struct {
+		phase   api.PodPhase
+		wantErr error
+	}{
+		{api.PodRunning, errPodTerminating},
+		{api.PodSucceeded, nil},
+		{api.PodFailed, nil},
+	}
+	for _, tc := range tests {
+		t.Run(string(tc.phase), func(t *testing.T) {
+			apiPod := &api.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "ns", DeletionTimestamp: &now},
+				Status: api.PodStatus{
+					Phase:  tc.phase,
+					PodIPs: []api.PodIP{{IP: "10.0.0.1"}},
+				},
+			}
+			_, err := ToPod(apiPod)
+			if err != tc.wantErr {
+				t.Errorf("expected error %v, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}

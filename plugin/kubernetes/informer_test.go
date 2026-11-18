@@ -194,3 +194,93 @@ func testProcessorWithPod(t *testing.T, processor cache.ProcessFunc, idx cache.I
 		t.Fatal("deleted pod still exists in the index")
 	}
 }
+
+// A pod that finishes while it is already being deleted (a finalizer can hold
+// back the Deleted event) must drop out of the pod IP index on the terminal
+// update, so a pod that reuses the IP is the only match.
+func TestDefaultProcessorTerminatingPodTerminalPhase(t *testing.T) {
+	for _, phase := range []api.PodPhase{api.PodSucceeded, api.PodFailed} {
+		for _, ip := range []string{"10.244.0.5", "fd00::5"} {
+			t.Run(string(phase)+"/"+ip, func(t *testing.T) {
+				idx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{podIPIndex: podIPIndexFunc})
+				processor := object.DefaultProcessor(object.ToPod, nil)(idx, cache.ResourceEventHandlerFuncs{})
+				dns := &dnsControl{podLister: idx}
+
+				old := &api.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "old", Namespace: "old-ns", ResourceVersion: "1"},
+					Status:     api.PodStatus{Phase: api.PodRunning, PodIPs: []api.PodIP{{IP: ip}}},
+				}
+				if err := processor(cache.Deltas{{Type: cache.Added, Object: old.DeepCopy()}}, false); err != nil {
+					t.Fatalf("add pod failed: %v", err)
+				}
+				if pods := dns.PodIndex(ip); len(pods) != 1 || pods[0].Namespace != "old-ns" {
+					t.Fatalf("expected old pod in index, got %v", pods)
+				}
+
+				done := old.DeepCopy()
+				done.ResourceVersion = "2"
+				done.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				done.Status.Phase = phase
+				if err := processor(cache.Deltas{{Type: cache.Updated, Object: done.DeepCopy()}}, false); err != nil {
+					t.Fatalf("update pod failed: %v", err)
+				}
+				if pods := dns.PodIndex(ip); len(pods) != 0 {
+					t.Fatalf("expected no pods for %s after terminal update, got %v", ip, pods)
+				}
+				if _, exists, _ := idx.Get(done); !exists {
+					t.Fatal("terminal pod should stay in the store until it is deleted")
+				}
+
+				replacement := &api.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "new-ns", ResourceVersion: "3"},
+					Status:     api.PodStatus{Phase: api.PodRunning, PodIPs: []api.PodIP{{IP: ip}}},
+				}
+				if err := processor(cache.Deltas{{Type: cache.Added, Object: replacement.DeepCopy()}}, false); err != nil {
+					t.Fatalf("add replacement pod failed: %v", err)
+				}
+				if pods := dns.PodIndex(ip); len(pods) != 1 || pods[0].Namespace != "new-ns" {
+					t.Fatalf("expected only the replacement pod for %s, got %v", ip, pods)
+				}
+
+				if err := processor(cache.Deltas{{Type: cache.Deleted, Object: done.DeepCopy()}}, false); err != nil {
+					t.Fatalf("delete pod failed: %v", err)
+				}
+				if _, exists, _ := idx.Get(done); exists {
+					t.Fatal("deleted pod still in the store")
+				}
+			})
+		}
+	}
+}
+
+// A pod that is being deleted but still running keeps the current handling:
+// the update is skipped and the pod stays indexed until it is deleted.
+func TestDefaultProcessorTerminatingRunningPodSkipped(t *testing.T) {
+	idx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{podIPIndex: podIPIndexFunc})
+	processor := object.DefaultProcessor(object.ToPod, nil)(idx, cache.ResourceEventHandlerFuncs{})
+	dns := &dnsControl{podLister: idx}
+
+	pod := &api.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns", ResourceVersion: "1"},
+		Status:     api.PodStatus{Phase: api.PodRunning, PodIPs: []api.PodIP{{IP: "10.244.0.6"}}},
+	}
+	if err := processor(cache.Deltas{{Type: cache.Added, Object: pod.DeepCopy()}}, false); err != nil {
+		t.Fatalf("add pod failed: %v", err)
+	}
+	terminating := pod.DeepCopy()
+	terminating.ResourceVersion = "2"
+	terminating.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+	if err := processor(cache.Deltas{{Type: cache.Updated, Object: terminating}}, false); err != nil {
+		t.Fatalf("update pod failed: %v", err)
+	}
+	got, exists, _ := idx.Get(pod)
+	if !exists {
+		t.Fatal("pod missing from the store")
+	}
+	if v := got.(*object.Pod).Version; v != "1" {
+		t.Errorf("expected terminating running pod update to be skipped, got version %s", v)
+	}
+	if pods := dns.PodIndex("10.244.0.6"); len(pods) != 1 {
+		t.Errorf("expected pod to stay indexed, got %v", pods)
+	}
+}
