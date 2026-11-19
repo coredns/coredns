@@ -42,6 +42,9 @@ func TestMetadata(t *testing.T) {
 		// Test data from iptoasn.com where some IP ranges have no assigned ASN.
 		{"geoip/asn/number", "0", asnDBPath, "10.0.0.1"},
 		{"geoip/asn/org", "Not routed", asnDBPath, "10.0.0.1"},
+
+		// Domain database tests
+		{"geoip/domain", "example.com", domainDBPath, "81.2.69.142"},
 	}
 
 	for _, tc := range tests {

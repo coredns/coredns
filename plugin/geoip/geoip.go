@@ -35,6 +35,7 @@ type db struct {
 const (
 	city = 1 << iota
 	asn
+	domain
 )
 
 var probingIP = netip.MustParseAddr("127.0.0.1")
@@ -52,6 +53,7 @@ func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	}{
 		{name: "city", provides: city, validate: func() error { _, err := reader.City(probingIP); return err }},
 		{name: "asn", provides: asn, validate: func() error { _, err := reader.ASN(probingIP); return err }},
+		{name: "domain", provides: domain, validate: func() error { _, err := reader.Domain(probingIP); return err }},
 	}
 	// Query the database to figure out the database type.
 	for _, schema := range schemas {
@@ -66,7 +68,7 @@ func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	}
 
 	if db.provides == 0 {
-		return nil, fmt.Errorf("database does not provide any supported schema (city, asn)")
+		return nil, fmt.Errorf("database does not provide any supported schema (city, asn, domain)")
 	}
 
 	return &GeoIP{db: db, edns0: edns0}, nil
@@ -116,6 +118,14 @@ func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Cont
 			log.Debugf("Setting up asn metadata failed due to database lookup error: %v", err)
 		} else {
 			g.setASNMetadata(ctx, data)
+		}
+	}
+	if g.db.provides&domain != 0 {
+		data, err := g.db.Domain(srcIP)
+		if err != nil {
+			log.Debugf("Setting up domain metadata failed due to database lookup error: %v", err)
+		} else {
+			g.setDomainMetadata(ctx, data)
 		}
 	}
 	return ctx

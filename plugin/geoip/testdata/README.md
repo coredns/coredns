@@ -26,6 +26,8 @@ func main() {
 	createCityDB("GeoLite2-UnknownDbType.mmdb", "UnknownDbType")
 	// Create ASN database.
 	createASNDB("GeoLite2-ASN.mmdb", "GeoLite2-ASN")
+	// Create Domain database.
+	createDomainDB("GeoIP2-Domain.mmdb", "GeoIP2-Domain")
 }
 
 func createCityDB(dbName, dbType string) {
@@ -153,6 +155,35 @@ func createASNDB(dbName, dbType string) {
 	}
 
 	// Write the DB to the filesystem.
+	fh, err := os.Create(dbName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = writer.WriteTo(fh)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func createDomainDB(dbName, dbType string) {
+	writer, err := mmdbwriter.New(mmdbwriter.Options{DatabaseType: dbType})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, ip, err := net.ParseCIDR(cidr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	record := mmdbtype.Map{
+		"domain": mmdbtype.String("example.com"),
+	}
+
+	if err := writer.InsertFunc(ip, inserter.TopLevelMergeWith(record)); err != nil {
+		log.Fatal(err)
+	}
+
 	fh, err := os.Create(dbName)
 	if err != nil {
 		log.Fatal(err)
