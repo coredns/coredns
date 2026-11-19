@@ -59,6 +59,50 @@ func TestExternal(t *testing.T) {
 	}
 }
 
+// TestExternalTTL checks that the ttl option is applied to every record the plugin
+// returns, not only to the A, AAAA and PTR records. The records of the services
+// carry the TTL of the kubernetes plugin (5 seconds here), the ttl option must replace it.
+func TestExternalTTL(t *testing.T) {
+	k := kubernetes.New([]string{"cluster.local."})
+	k.Namespaces = map[string]struct{}{"testns": {}}
+	k.APIConn = &external{}
+
+	const ttl = 30
+
+	e := New()
+	e.ttl = ttl
+	e.Zones = []string{"example.com.", "in-addr.arpa."}
+	e.headless = true
+	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
+	e.externalFunc = k.External
+	e.externalAddrFunc = externalAddress
+	e.externalSerialFunc = externalSerial
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		if tc.Error != nil {
+			continue
+		}
+		r := tc.Msg()
+		w := dnstest.NewRecorder(&test.ResponseWriter{})
+
+		if _, err := e.ServeDNS(ctx, w, r); err != nil {
+			t.Fatalf("Test %d expected no error, got %v", i, err)
+		}
+		resp := w.Msg
+		if resp == nil {
+			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
+		}
+		for _, section := range [][]dns.RR{resp.Answer, resp.Ns, resp.Extra} {
+			for _, rr := range section {
+				if got := rr.Header().Ttl; got != ttl {
+					t.Errorf("Test %d: %s %s has TTL %d, expected %d", i, r.Question[0].Name, rr.String(), got, ttl)
+				}
+			}
+		}
+	}
+}
+
 // TestExternalCNAMENilUpstreamResponse checks that a CNAME-hosted service does not
 // panic when the internal upstream lookup returns no response, e.g. when a plugin
 // like acl's drop action returns success without writing.
