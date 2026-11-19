@@ -60,7 +60,7 @@ func etcdPluginWithCredentials(username, password string) *etcd.Etcd {
 // will then test if we detect this loop.
 func TestEtcdStubLoop(t *testing.T) {
 	// TODO(miek)
-	t.Helper()
+	t.Skip("stub-loop test is not implemented")
 }
 
 func TestEtcdStubAndProxyLookup(t *testing.T) {
