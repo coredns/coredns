@@ -2,6 +2,7 @@ package sign
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -144,13 +145,13 @@ func TestSignDS(t *testing.T) {
 		t.Error(err)
 	}
 
-	// dnssec-signzone outputs this for db.miek.nl_ns:
+	// Apart from the NSEC TTLs, which follow RFC 9077 here, dnssec-signzone outputs this for db.miek.nl_ns:
 	//
 	// child.miek.nl.	1800	IN	NS	ns.child.miek.nl.
 	// child.miek.nl.	1800	IN	DS	34385 13 2 fc7397c77afbccb6742fc....
 	// child.miek.nl.	1800	IN	RRSIG	DS 13 3 1800 20191223121229 20191123121229 59725 miek.nl. ZwptLzVVs....
-	// child.miek.nl.	14400	IN	NSEC	www.miek.nl. NS DS RRSIG NSEC
-	// child.miek.nl.	14400	IN	RRSIG	NSEC 13 3 14400 20191223121229 20191123121229 59725 miek.nl. w+CcA8...
+	// child.miek.nl.	1800	IN	NSEC	www.miek.nl. NS DS RRSIG NSEC
+	// child.miek.nl.	1800	IN	RRSIG	NSEC 13 3 1800 20191223121229 20191123121229 59725 miek.nl. w+CcA8...
 
 	name := "child.miek.nl."
 	e, _ := z.Search(name)
@@ -170,8 +171,61 @@ func TestSignDS(t *testing.T) {
 	if x := nsec[0].(*dns.NSEC).NextDomain; x != "www.miek.nl." {
 		t.Errorf("Expected no NSEC NextDomain to be %s for %s, got %s", "www.miek.nl.", name, x)
 	}
-	minttl := z.SOA.Minttl
-	if x := nsec[0].Header().Ttl; x != minttl {
-		t.Errorf("Expected no NSEC TTL to be %d for %s, got %d", minttl, "www.miek.nl.", x)
+	if x := nsec[0].Header().Ttl; x != 1800 {
+		t.Errorf("Expected NSEC TTL to be %d for %s, got %d", 1800, name, x)
+	}
+}
+
+func TestSignNSECTTL(t *testing.T) {
+	tests := []struct {
+		soaTTL string
+		minTTL string
+		want   uint32
+	}{
+		{"30M", "4H", 1800}, // SOA TTL is lower than the SOA MINIMUM field.
+		{"1D", "1H", 3600},  // SOA MINIMUM field is lower than the SOA TTL.
+		{"1H", "1H", 3600},  // Both are equal.
+	}
+
+	for i, tc := range tests {
+		zone := `$TTL    ` + tc.soaTTL + `
+$ORIGIN example.org.
+@       IN      SOA     linode miek.miek.nl. ( 1282630060 4H 1H 7D ` + tc.minTTL + ` )
+        IN      NS      linode
+www     IN      A       127.0.0.1
+`
+		dbfile := filepath.Join(t.TempDir(), "db.example.org")
+		if err := os.WriteFile(dbfile, []byte(zone), 0644); err != nil {
+			t.Fatal(err)
+		}
+		input := `sign ` + dbfile + ` example.org {
+			key file testdata/Kmiek.nl.+013+59725
+			directory testdata
+		}`
+		c := caddy.NewTestController("dns", input)
+		sign, err := parse(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		z, err := sign.signers[0].Sign(time.Now().UTC())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, name := range []string{"example.org.", "www.example.org."} {
+			e, _ := z.Search(name)
+			nsec := e.Type(dns.TypeNSEC)
+			if len(nsec) != 1 {
+				t.Fatalf("Test %d, expected 1 NSEC for %s, got %d", i, name, len(nsec))
+			}
+			if x := nsec[0].Header().Ttl; x != tc.want {
+				t.Errorf("Test %d, expected NSEC TTL to be %d for %s, got %d", i, tc.want, name, x)
+			}
+			for _, s := range e.Type(dns.TypeRRSIG) {
+				if sig := s.(*dns.RRSIG); sig.TypeCovered == dns.TypeNSEC && sig.OrigTtl != tc.want {
+					t.Errorf("Test %d, expected NSEC RRSIG original TTL to be %d for %s, got %d", i, tc.want, name, sig.OrigTtl)
+				}
+			}
+		}
 	}
 }

@@ -41,8 +41,9 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 		return nil, err
 	}
 
-	mttl := z.SOA.Minttl
 	ttl := z.SOA.Header().Ttl
+	// RFC 9077: the NSEC TTL is the lesser of the SOA MINIMUM field and the TTL of the SOA itself.
+	mttl := min(z.SOA.Minttl, ttl)
 	inception, expiration := lifetime(now, s.jitterIncep, s.jitterExpir)
 	z.SOA.Serial = uint32(now.Unix()) // #nosec G115 -- Unix time to SOA serial, Year 2106 problem accepted
 
