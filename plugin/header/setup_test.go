@@ -1,10 +1,13 @@
 package header
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
+
+	"github.com/miekg/dns"
 )
 
 func TestSetupHeader(t *testing.T) {
@@ -54,6 +57,68 @@ func TestSetupHeader(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErrContent) {
 				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
 			}
+		}
+	}
+}
+
+func TestParseMultipleBlocks(t *testing.T) {
+	input := `header {
+		query set rd
+	}
+	header {
+		response set aa
+		response clear ra
+	}`
+	c := caddy.NewTestController("dns", input)
+	queryRules, responseRules, err := parse(c)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	expectedQuery := []Rule{{Flag: recursionDesired, State: true}}
+	expectedResponse := []Rule{
+		{Flag: authoritative, State: true},
+		{Flag: recursionAvailable, State: false},
+	}
+	if !reflect.DeepEqual(queryRules, expectedQuery) {
+		t.Errorf("Expected query rules %v, got %v", expectedQuery, queryRules)
+	}
+	if !reflect.DeepEqual(responseRules, expectedResponse) {
+		t.Errorf("Expected response rules %v, got %v", expectedResponse, responseRules)
+	}
+}
+
+func TestParseMultipleBlocksSameFlag(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{`header {
+			response set aa
+		}
+		header {
+			response clear aa
+		}`, false},
+		{`header {
+			response clear aa
+		}
+		header {
+			response set aa
+		}`, true},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		_, responseRules, err := parse(c)
+		if err != nil {
+			t.Fatalf("Test %d: Expected no error, got: %v", i, err)
+		}
+
+		msg := new(dns.Msg)
+		msg.Authoritative = !test.expected
+		applyRules(msg, responseRules)
+		if msg.Authoritative != test.expected {
+			t.Errorf("Test %d: Expected aa to be %v, got %v", i, test.expected, msg.Authoritative)
 		}
 	}
 }
