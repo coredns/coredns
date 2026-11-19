@@ -10,6 +10,10 @@ With *dnssec*, any reply that doesn't (or can't) do DNSSEC will get signed on th
 denial of existence is implemented with NSEC black lies. Using ECDSA as an algorithm is preferred as
 this leads to smaller signatures (compared to RSA). NSEC3 is *not* supported.
 
+To generate an NSEC proof for an authoritative NODATA response (the name exists but has no records of
+the requested type), *dnssec* requires the zone's SOA to be the only record in the authority section.
+When using *forward*, the upstream server must supply that SOA.
+
 This plugin can only be used once per Server Block.
 
 ## Syntax
