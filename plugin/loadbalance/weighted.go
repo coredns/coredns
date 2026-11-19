@@ -6,11 +6,8 @@ import (
 	"crypto/md5" // #nosec G501 -- used only as a checksum for file change detection (not for security).
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +15,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/readfile"
 
 	"github.com/miekg/dns"
 )
@@ -232,26 +230,24 @@ func (w *weightedRR) periodicWeightUpdate(stopReload <-chan bool) {
 
 // Update weights from weight file
 func (w *weightedRR) updateWeights() error {
-	reader, err := os.Open(filepath.Clean(w.fileName))
+	content, err := readfile.Read(w.fileName, readfile.DefaultLimit)
 	if err != nil {
+		// A file that is too large is reported as is: retrying will not help and the
+		// operator has to shrink it. Anything else keeps the previous open-error
+		// handling, so a missing file is retried when reload is configured.
+		if errors.Is(err, readfile.ErrTooLarge) {
+			return err
+		}
 		return errOpen
 	}
-	defer reader.Close()
 
-	// check if the contents has changed
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
-	bytes, err := io.ReadAll(tee)
-	if err != nil {
-		return err
-	}
-	md5sum := md5.Sum(bytes) // #nosec G401 -- used only as a checksum for file change detection (not for security).
+	md5sum := md5.Sum(content) // #nosec G401 -- used only as a checksum for file change detection (not for security).
 	if md5sum == w.md5sum {
 		// file contents has not changed
 		return nil
 	}
 	w.md5sum = md5sum
-	scanner := bufio.NewScanner(&buf)
+	scanner := bufio.NewScanner(bytes.NewReader(content))
 
 	// Parse the weight file contents
 	domains, err := w.parseWeights(scanner)

@@ -2,12 +2,15 @@ package clouddns
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/readfile"
 
 	"google.golang.org/api/option"
 )
@@ -104,5 +107,18 @@ func TestSetupCloudDNS(t *testing.T) {
 		if err := setup(c); (err == nil) == test.expectedError {
 			t.Errorf("Unexpected errors: %v", err)
 		}
+	}
+}
+
+func TestGetCredTypeTooLarge(t *testing.T) {
+	// A credentials file above the documented cap is rejected before it is parsed.
+	path := filepath.Join(t.TempDir(), "too-large.json")
+	content := `{"type":"service_account","padding":"` + strings.Repeat("a", int(readfile.DefaultLimit)) + `"}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("writing %s: %v", path, err)
+	}
+
+	if _, err := getCredType(path); !errors.Is(err, readfile.ErrTooLarge) {
+		t.Fatalf("getCredType = %v, want ErrTooLarge", err)
 	}
 }

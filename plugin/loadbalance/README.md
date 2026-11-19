@@ -31,6 +31,7 @@ returned in the answer.
 Additionally, the plugin supports subnet-based ordering using the `prefer` directive, which reorders A/AAAA records so that IPs from preferred subnets appear first.
 
  * **WEIGHTFILE** is the file containing the weight values assigned to IPs for various domain names. If the path is relative, the path from the **root** plugin will be prepended to it. The format is explained below in the *Weightfile* section.
+   The file is read in full on startup and on every reload; a file larger than 8 MiB is rejected with an error instead of being parsed, and the previously loaded weights are kept.
 
  * **DURATION** interval to reload `WEIGHTFILE` and update weight assignments if there are changes in the file. The default value is `30s`. A value of `0s` means to not scan for changes and reload.
 
