@@ -34,38 +34,28 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 		args := c.RemainingArgs()
 		length := len(rules)
 
-		switch len(args) {
-		case 0:
-			// Nothing specified; use defaults
+		// The last argument is the format if it contains a placeholder. A name never
+		// contains '{', so a lone format is not mistaken for a name.
+		format := DefaultLogFormat
+
+		if len(args) > 0 && strings.Contains(args[len(args)-1], "{") {
+			format = args[len(args)-1]
+			format = strings.ReplaceAll(format, "{common}", CommonLogFormat)
+			format = strings.ReplaceAll(format, "{combined}", CombinedLogFormat)
+			args = args[:len(args)-1]
+		}
+
+		// No names specified; use the root zone, which matches everything.
+		if len(args) == 0 {
+			args = []string{"."}
+		}
+
+		for _, str := range args {
 			rules = append(rules, Rule{
-				NameScope: ".",
-				Format:    DefaultLogFormat,
+				NameScope: dns.Fqdn(str),
+				Format:    format,
 				Class:     make(map[response.Class]struct{}),
 			})
-		case 1:
-			rules = append(rules, Rule{
-				NameScope: dns.Fqdn(args[0]),
-				Format:    DefaultLogFormat,
-				Class:     make(map[response.Class]struct{}),
-			})
-		default:
-			// Name scopes, and maybe a format specified
-			format := DefaultLogFormat
-
-			if strings.Contains(args[len(args)-1], "{") {
-				format = args[len(args)-1]
-				format = strings.ReplaceAll(format, "{common}", CommonLogFormat)
-				format = strings.ReplaceAll(format, "{combined}", CombinedLogFormat)
-				args = args[:len(args)-1]
-			}
-
-			for _, str := range args {
-				rules = append(rules, Rule{
-					NameScope: dns.Fqdn(str),
-					Format:    format,
-					Class:     make(map[response.Class]struct{}),
-				})
-			}
 		}
 
 		// Class refinements in an extra block.

@@ -45,6 +45,34 @@ func TestLogParse(t *testing.T) {
 			Format:    CombinedLogFormat,
 			Class:     map[response.Class]struct{}{response.All: {}},
 		}}},
+		// A format without any names applies to all zones, same as `log . FORMAT`.
+		{`log {common}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CommonLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {combined}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CombinedLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log "{remote} {type} {name}"`, false, []Rule{{
+			NameScope: ".",
+			Format:    "{remote} {type} {name}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {combined} {
+			class denial
+		}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CombinedLogFormat,
+			Class:     map[response.Class]struct{}{response.Denial: {}},
+		}}},
+		{`log . {combined}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CombinedLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
 		{`log example.org {host}
 			  log example.org {when}`, false, []Rule{{
 			NameScope: "example.org.",
