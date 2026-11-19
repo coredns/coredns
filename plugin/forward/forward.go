@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -40,7 +41,9 @@ const (
 type Forward struct {
 	concurrent int64 // atomic counters need to be first in struct for proper alignment
 
+	mu          sync.RWMutex // protects proxies and hosts, they can change when TO files are reloaded
 	proxies     []*proxyPkg.Proxy
+	hosts       []string // upstream address of each proxy, as parsed from the configuration
 	p           Policy
 	hcInterval  time.Duration
 	startFailed bool
@@ -70,6 +73,11 @@ type Forward struct {
 	resolver  []string  // custom resolver IPs for hostname TO resolution
 	toEntries []toEntry // ordered TO entries preserving config order
 
+	// Reloading of file based TO entries
+	reloadInterval time.Duration
+	reloadStop     chan struct{}
+	reloadOnce     sync.Once
+
 	opts proxyPkg.Options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
@@ -89,7 +97,9 @@ func New() *Forward {
 
 // SetProxy appends p to the proxy list and starts healthchecking.
 func (f *Forward) SetProxy(p *proxyPkg.Proxy) {
+	f.mu.Lock()
 	f.proxies = append(f.proxies, p)
+	f.mu.Unlock()
 	p.Start(f.hcInterval)
 }
 
@@ -107,7 +117,14 @@ func (f *Forward) SetTapPlugin(tapPlugin *dnstap.Dnstap) {
 }
 
 // Len returns the number of configured proxies.
-func (f *Forward) Len() int { return len(f.proxies) }
+func (f *Forward) Len() int { return len(f.proxyList()) }
+
+// proxyList returns the current set of proxies. The returned slice must not be modified.
+func (f *Forward) proxyList() []*proxyPkg.Proxy {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.proxies
+}
 
 // Name implements plugin.Handler.
 func (f *Forward) Name() string { return "forward" }
@@ -134,7 +151,8 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	var upstreamErr error
 	span = ot.SpanFromContext(ctx)
 	i := 0
-	list := f.List()
+	proxies := f.proxyList()
+	list := f.p.List(proxies)
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
 	maxConnectAttempts := uint64(f.maxConnectAttempts)
@@ -163,7 +181,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		i++
 		if proxy.Down(f.maxfails) {
 			fails++
-			if fails < len(f.proxies) {
+			if fails < len(proxies) {
 				continue
 			}
 
@@ -175,7 +193,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			// assume healthcheck is completely broken and randomly
 			// select an upstream to connect to.
 			r := new(random)
-			proxy = r.List(f.proxies)[0]
+			proxy = r.List(proxies)[0]
 		}
 
 		if span != nil {
@@ -244,7 +262,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				}
 			}
 
-			if fails < len(f.proxies) {
+			if fails < len(proxies) {
 				continue
 			}
 			break
@@ -264,7 +282,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		tryNext := false
 		if slices.Contains(f.failoverRcodes, ret.Rcode) {
 			failoverAttempts++
-			tryNext = failoverAttempts < len(f.proxies)
+			tryNext = failoverAttempts < len(proxies)
 		}
 		if tryNext {
 			continue
@@ -339,7 +357,7 @@ func (f *Forward) ForceTCP() bool { return f.opts.ForceTCP }
 func (f *Forward) PreferUDP() bool { return f.opts.PreferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
-func (f *Forward) List() []*proxyPkg.Proxy { return f.p.List(f.proxies) }
+func (f *Forward) List() []*proxyPkg.Proxy { return f.p.List(f.proxyList()) }
 
 var (
 	// ErrNoHealthy means no healthy proxies left.
