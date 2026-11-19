@@ -60,6 +60,7 @@ func etcdPluginWithCredentials(username, password string) *etcd.Etcd {
 // will then test if we detect this loop.
 func TestEtcdStubLoop(t *testing.T) {
 	// TODO(miek)
+	t.Skip("stub-loop test is not implemented")
 }
 
 func TestEtcdStubAndProxyLookup(t *testing.T) {
@@ -115,17 +116,21 @@ var servicesStub = []*msg.Service{
 }
 
 // Copied from plugin/etcd/setup_test.go
-func set(ctx context.Context, t *testing.T, e *etcd.Etcd, k string, ttl time.Duration, m *msg.Service) {
+func set(ctx context.Context, t *testing.T, e *etcd.Etcd, k string, _ time.Duration, m *msg.Service) {
+	t.Helper()
+
 	b, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
 	}
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.KV.Put(ctx, path, string(b))
+	e.Client.Put(ctx, path, string(b))
 }
 
 // Copied from plugin/etcd/setup_test.go
 func delete(ctx context.Context, t *testing.T, e *etcd.Etcd, k string) {
+	t.Helper()
+
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
 	e.Client.Delete(ctx, path)
 }

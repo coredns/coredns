@@ -76,9 +76,9 @@ func TestEtcdCredentials(t *testing.T) {
 		t.Errorf("Too many response found: %+v", resp)
 		return
 	}
-	actual := resp.Kvs[0].Value
+	actual := resp.Kvs[0].GetValue()
 	expected := "bar"
-	if string(resp.Kvs[0].Value) != expected {
+	if string(resp.Kvs[0].GetValue()) != expected {
 		t.Errorf("Value doesn't match, expected:%s actual:%s", actual, expected)
 	}
 }

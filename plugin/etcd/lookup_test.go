@@ -318,16 +318,20 @@ func newEtcdPlugin() *Etcd {
 	}
 }
 
-func set(t *testing.T, e *Etcd, k string, ttl time.Duration, m *msg.Service) {
+func set(t *testing.T, e *Etcd, k string, _ time.Duration, m *msg.Service) {
+	t.Helper()
+
 	b, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
 	}
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.KV.Put(ctxt, path, string(b))
+	e.Client.Put(ctxt, path, string(b))
 }
 
 func delete(t *testing.T, e *Etcd, k string) {
+	t.Helper()
+
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
 	e.Client.Delete(ctxt, path)
 }

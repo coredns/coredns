@@ -129,7 +129,7 @@ func TestEtcdCNAMECrossZoneLookupBudget(t *testing.T) {
 
 	etc := etcdPlugin()
 	ctx := context.Background()
-	for i := 0; i < 33; i++ {
+	for i := range 33 {
 		serv := &msg.Service{
 			Host: fmt.Sprintf("target%d.example.net.", i),
 			Key:  fmt.Sprintf("x%d.limit.example.org.", i),
@@ -150,6 +150,8 @@ func TestEtcdCNAMECrossZoneLookupBudget(t *testing.T) {
 }
 
 func checkResponse(t *testing.T, resp *dns.Msg) {
+	t.Helper()
+
 	if len(resp.Answer) == 0 {
 		t.Fatal("Expected to at least one RR in the answer section, got none")
 	}
