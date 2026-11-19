@@ -1,7 +1,7 @@
 package dnstap
 
 import (
-	"io"
+	"net"
 	"time"
 
 	tap "github.com/dnstap/golang-dnstap"
@@ -9,13 +9,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// encoder wraps a golang-framestream.Encoder.
+// encoder wraps a golang-framestream.Encoder and owns the connection it writes
+// to, so that closing the encoder also releases the socket.
 type encoder struct {
-	fs *fs.Encoder
+	fs   *fs.Encoder
+	conn net.Conn
 }
 
-func newEncoder(w io.Writer, timeout time.Duration) (*encoder, error) {
-	fs, err := fs.NewEncoder(w, &fs.EncoderOptions{
+func newEncoder(c net.Conn, timeout time.Duration) (*encoder, error) {
+	fs, err := fs.NewEncoder(c, &fs.EncoderOptions{
 		ContentType:   []byte("protobuf:dnstap.Dnstap"),
 		Bidirectional: true,
 		Timeout:       timeout,
@@ -23,7 +25,7 @@ func newEncoder(w io.Writer, timeout time.Duration) (*encoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &encoder{fs}, nil
+	return &encoder{fs: fs, conn: c}, nil
 }
 
 func (e *encoder) writeMsg(msg *tap.Dnstap) error {
@@ -37,4 +39,15 @@ func (e *encoder) writeMsg(msg *tap.Dnstap) error {
 }
 
 func (e *encoder) flush() error { return e.fs.Flush() }
-func (e *encoder) close() error { return e.fs.Close() }
+
+// close shuts the framestream down and then closes the underlying connection.
+// framestream's Close only writes CONTROL_STOP and waits for the peer's
+// CONTROL_FINISH; it never touches the socket. Closing it here is what keeps a
+// reconnect or a shutdown from leaking the fd until the runtime finalizes it.
+func (e *encoder) close() error {
+	err := e.fs.Close()
+	if cerr := e.conn.Close(); err == nil {
+		err = cerr
+	}
+	return err
+}
