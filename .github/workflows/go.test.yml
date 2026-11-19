@@ -174,8 +174,8 @@ jobs:
 
       - name: Test etcd integration
         run: |
-          go test -race -tags=etcd ./plugin/etcd/...
-          go test -race -tags=etcd -run '^TestEtcd' ./test
+          go test -race -count=1 -tags=etcd ./plugin/etcd/...
+          go test -race -count=1 -tags=etcd -run '^TestEtcd' ./test
 
   test-udp-macos:
     name: Test UDP macOS
