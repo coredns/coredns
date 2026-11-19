@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -133,5 +134,52 @@ func TestErratic(t *testing.T) {
 
 	if rec.Msg.Answer[0].Header().Rrtype != dns.TypeA {
 		t.Errorf("Expected A response, got %d type", rec.Msg.Answer[0].Header().Rrtype)
+	}
+}
+
+func TestErraticLarge(t *testing.T) {
+	e := &Erratic{large: true}
+
+	// No EDNS0, so the client buffer is 512 octets. The server wraps every
+	// writer in a ScrubWriter; do the same here.
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := e.ServeDNS(context.TODO(), request.NewScrubWriter(req, rec), req); err != nil {
+		t.Fatalf("A: %v", err)
+	}
+	if got := len(rec.Msg.Answer); got != 30 {
+		t.Fatalf("A answers = %d, want 30", got)
+	}
+
+	uncompressed := rec.Msg.Copy()
+	uncompressed.Compress = false
+	packed, err := uncompressed.Pack()
+	if err != nil {
+		t.Fatalf("pack: %v", err)
+	}
+	if len(packed) <= 512 {
+		t.Fatalf("uncompressed A response = %d octets, want > 512", len(packed))
+	}
+
+	// Compression brings it back under the limit, so it is not truncated.
+	if !rec.Msg.Compress {
+		t.Error("expected ScrubWriter to enable compression")
+	}
+	if rec.Msg.Truncated {
+		t.Error("expected compressed A response not to be truncated")
+	}
+	if got := rec.Msg.Len(); got > 512 {
+		t.Errorf("compressed A response = %d octets, want <= 512", got)
+	}
+
+	req6 := new(dns.Msg)
+	req6.SetQuestion("example.org.", dns.TypeAAAA)
+	rec6 := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := e.ServeDNS(context.TODO(), rec6, req6); err != nil {
+		t.Fatalf("AAAA: %v", err)
+	}
+	if got := len(rec6.Msg.Answer); got != 1 {
+		t.Fatalf("AAAA answers = %d, want 1", got)
 	}
 }
