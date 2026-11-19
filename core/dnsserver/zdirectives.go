@@ -25,6 +25,7 @@ var Directives = []string{
 	"nsid",
 	"bufsize",
 	"bind",
+	"ecs",
 	"debug",
 	"trace",
 	"ready",
