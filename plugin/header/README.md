@@ -28,6 +28,8 @@ header {
     * `aa` - Authoritative(Answer)
     * `ra` - RecursionAvailable
     * `rd` - RecursionDesired
+    * `ad` - AuthenticatedData
+    * `cd` - CheckingDisabled
 
 ## Examples
 
