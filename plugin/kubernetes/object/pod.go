@@ -35,6 +35,13 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 	for i, pip := range apiPod.Status.PodIPs {
 		podIPs[i] = pip.IP
 	}
+	// A pod that has run to completion keeps its IPs in its status, but the
+	// IPs have been released and may already belong to another pod. Don't
+	// index them, so lookups by IP only find the pod that holds it now.
+	terminal := apiPod.Status.Phase == api.PodSucceeded || apiPod.Status.Phase == api.PodFailed
+	if terminal {
+		podIPs = []string{}
+	}
 	pod := &Pod{
 		Version:   apiPod.GetResourceVersion(),
 		PodIPs:    podIPs,
@@ -43,9 +50,11 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 		Labels:    apiPod.GetLabels(),
 	}
 	t := apiPod.DeletionTimestamp
-	if t != nil && !(*t).Time.IsZero() {
+	if !terminal && t != nil && !(*t).Time.IsZero() {
 		// if the pod is in the process of termination, return an error so it can be ignored
-		// during add/update event processing
+		// during add/update event processing. A terminal pod is let through even when it is
+		// being deleted, so its emptied IPs replace the old index entries right away instead
+		// of waiting for the Deleted event, which a finalizer can hold back.
 		return pod, errPodTerminating
 	}
 
