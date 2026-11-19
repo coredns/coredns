@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/pkg/readfile"
 	testutil "github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -428,5 +431,27 @@ func checkTopIP(t *testing.T, i, j int, result []dns.RR, expectedTopIP string) {
 			}
 			return
 		}
+	}
+}
+
+func TestUpdateWeightsTooLarge(t *testing.T) {
+	// A weight file above the documented cap is rejected instead of parsed, and the
+	// weights loaded earlier stay in place.
+	path := filepath.Join(t.TempDir(), "too-large.weights")
+	line := "w1,example.org\n192.168.1.15 10\n"
+	content := strings.Repeat(line, int(readfile.DefaultLimit/int64(len(line)))+1)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("writing %s: %v", path, err)
+	}
+
+	loaded := map[string]weights{"w1,example.org.": {{net.ParseIP("192.168.1.15"), uint8(10)}}}
+	weighted := &weightedRR{fileName: path, domains: loaded}
+
+	err := weighted.updateWeights()
+	if !errors.Is(err, readfile.ErrTooLarge) {
+		t.Fatalf("updateWeights = %v, want ErrTooLarge", err)
+	}
+	if len(weighted.domains) != len(loaded) {
+		t.Errorf("domains changed to %d entries, want the %d loaded earlier", len(weighted.domains), len(loaded))
 	}
 }

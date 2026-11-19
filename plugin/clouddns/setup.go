@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/readfile"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
 	gcp "google.golang.org/api/dns/v1"
@@ -132,7 +132,7 @@ func setup(c *caddy.Controller) error {
 }
 
 func getCredType(filename string) (option.CredentialsType, error) {
-	data, err := os.ReadFile(filename)
+	data, err := readfile.Read(filename, readfile.DefaultLimit)
 	if err != nil {
 		return "", err
 	}
