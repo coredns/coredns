@@ -931,6 +931,33 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 			}},
 			true,
 		},
+		// A link-local client address includes its zone: [fe80::42:ff:feca:4c65%eth0]:40212.
+		{
+			&test.ResponseWriter{RemoteIP: "fe80::42:ff:feca:4c65", Zone: "eth0"},
+			[]dns.EDNS0{},
+			[]string{"subnet", "set", "24", "56"},
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x2,
+				SourceNetmask: 0x38,
+				SourceScope:   0x0,
+				Address: []byte{0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+			}},
+			true,
+		},
+		{
+			&test.ResponseWriter{RemoteIP: "fe80::42:ff:feca:4c65", Zone: "eth0"},
+			[]dns.EDNS0{},
+			[]string{"subnet", "set", "24", "128"},
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x2,
+				SourceNetmask: 0x80,
+				SourceScope:   0x0,
+				Address: []byte{0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x42, 0x00, 0xff, 0xfe, 0xca, 0x4c, 0x65},
+			}},
+			false,
+		},
 	}
 
 	ctx := context.TODO()
@@ -960,6 +987,39 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 		if !optsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
 		}
+		// The rewritten query must still pack, or it cannot be sent upstream.
+		if _, err := resp.Pack(); err != nil {
+			t.Errorf("Test %d: Failed to pack rewritten message: %s", i, err)
+		}
+	}
+}
+
+func TestRewriteEDNS0LocalVariableZonedClient(t *testing.T) {
+	rw := Rewrite{
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NoRevertPolicy(),
+	}
+
+	r, err := newEdns0Rule("stop", "local", "set", "0xffee", "{client_ip}")
+	if err != nil {
+		t.Fatalf("Error creating test rule: %s", err)
+	}
+	rw.Rules = []Rule{r}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	// A link-local client address includes its zone: [fe80::42:ff:feca:4c65%eth0]:40212.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "fe80::42:ff:feca:4c65", Zone: "eth0"})
+	rw.ServeDNS(context.TODO(), rec, m)
+
+	o := rec.Msg.IsEdns0()
+	if o == nil {
+		t.Fatal("EDNS0 options not set")
+	}
+	want := []dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x42, 0x00, 0xff, 0xfe, 0xca, 0x4c, 0x65}}}
+	if !optsEqual(o.Option, want) {
+		t.Errorf("Expected %v but got %v", want, o)
 	}
 }
 
