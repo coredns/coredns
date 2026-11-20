@@ -27,6 +27,12 @@ func TestPProf(t *testing.T) {
                    block 20
                 }`, false},
 		{`pprof {
+                   block 0
+                }`, false},
+		{`pprof {
+                   block -1
+                }`, false},
+		{`pprof {
                    block 20 30
                 }`, true},
 		{`pprof {

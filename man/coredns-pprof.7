@@ -45,8 +45,9 @@ pprof [ADDRESS] {
 .RE
 
 .IP \(bu 4
-\fB\fCblock\fR option enables block profiling, \fBRATE\fP defaults to 1. \fBRATE\fP must be a positive value.
-See Diagnostics, chapter profiling
+\fB\fCblock\fR option enables block profiling, \fBRATE\fP defaults to 1. \fBRATE\fP is an integer that is
+passed to \fB\fCruntime.SetBlockProfileRate\fR, so \fB\fC0\fR or a negative value is accepted and turns block
+profiling off. See Diagnostics, chapter profiling
 \[la]https://golang.org/doc/diagnostics.html\[ra] and
 runtime.SetBlockProfileRate
 \[la]https://golang.org/pkg/runtime/#SetBlockProfileRate\[ra] for what block
