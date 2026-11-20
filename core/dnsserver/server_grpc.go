@@ -1,3 +1,5 @@
+//go:build !nogrpc
+
 package dnsserver
 
 import (
@@ -22,6 +24,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
+
+func init() { Register(transport.GRPC, NewServergRPC, transport.GRPCPort) }
 
 const (
 	// maxDNSMessageBytes is the maximum size of a DNS message on the wire.
