@@ -38,7 +38,7 @@ it do key or algorithm rollovers - it just signs.
     SOA record.
 
  *  Add or replace *all* apex CDS/CDNSKEY records with the ones derived from the given keys. For
-    each key two CDS are created one with SHA1 and another with SHA256.
+    each key a CDS is created with a SHA256 digest.
 
  *  Update the SOA's serial number to the *Unix epoch* of when the signing happens. This will
     overwrite *any* previous serial number.
