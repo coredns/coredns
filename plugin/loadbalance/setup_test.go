@@ -47,6 +47,12 @@ func TestSetup(t *testing.T) {
                                                    reload a
                                                  } `, true, "", "invalid reload duration", -1},
 		{`loadbalance weighted wfile {
+                                                   reload -1s
+                                                 } `, true, "", "invalid reload duration", -1},
+		{`loadbalance weighted wfile {
+                                                   reload -1ns
+                                                 } `, true, "", "invalid reload duration", -1},
+		{`loadbalance weighted wfile {
                                                     reload 30s  a
                                                  } `, true, "", "unexpected argument", -1},
 	}
