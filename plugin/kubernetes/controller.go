@@ -236,8 +236,8 @@ func newdnsController(_ context.Context, kubeClient kubernetes.Interface, mcsCli
 		dns.svcImportLister, dns.svcImportController = object.NewIndexerInformer(
 			cache.ToListWatcherWithWatchListSemantics(
 				&cache.ListWatch{
-					ListWithContextFunc:  serviceImportListFunc(dns.mcsClient, api.NamespaceAll, dns.namespaceSelector),
-					WatchFuncWithContext: serviceImportWatchFunc(dns.mcsClient, api.NamespaceAll, dns.namespaceSelector),
+					ListWithContextFunc:  serviceImportListFunc(dns.mcsClient, api.NamespaceAll, dns.selector),
+					WatchFuncWithContext: serviceImportWatchFunc(dns.mcsClient, api.NamespaceAll, dns.selector),
 				},
 				kubeClient,
 			),
