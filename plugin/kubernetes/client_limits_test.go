@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -120,5 +121,78 @@ func TestInitKubeCacheRequestLimits(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestInitKubeCacheWatchRateLimit(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		qps   float32
+		burst int
+	}{
+		{"defaults", 0, 0},
+		{"qps", 1, 0},
+		{"burst", 0, 1},
+		{"qps and burst", 1, 1},
+	} {
+		for _, resource := range []string{"services", "serviceimports"} {
+			t.Run(tc.name+"/"+resource, func(t *testing.T) {
+				var calls atomic.Int32
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					w.Header().Set("Content-Type", "application/json")
+					if r.URL.Query().Get("watch") == "true" {
+						return
+					}
+					kind, version := "ServiceList", "v1"
+					if resource == "serviceimports" {
+						kind, version = "ServiceImportList", "multicluster.x-k8s.io/v1alpha1"
+					}
+					fmt.Fprintf(w, `{"apiVersion":%q,"kind":%q,"items":[]}`, version, kind)
+				}))
+				defer server.Close()
+				k := New([]string{"cluster.local."})
+				k.APIServerList = []string{server.URL}
+				k.apiQPS, k.apiBurst = tc.qps, tc.burst
+				k.opts.multiclusterZones = []string{"clusterset.local."}
+				_, stop, err := k.InitKubeCache(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer stop()
+				d := k.APIConn.(*dnsControl)
+				list := serviceListFunc(d.client, "ns", nil)
+				watchRequest := serviceWatchFunc(d.client, "ns", nil)
+				if resource == "serviceimports" {
+					list = serviceImportListFunc(d.mcsClient, "ns", nil)
+					watchRequest = serviceImportWatchFunc(d.mcsClient, "ns", nil)
+				}
+				burst := tc.burst
+				if burst == 0 {
+					burst = rest.DefaultBurst
+				}
+				for range burst {
+					if _, err := list(t.Context(), meta.ListOptions{}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				before := calls.Load()
+				ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+				defer cancel()
+				w, err := watchRequest(ctx, meta.ListOptions{})
+				if w != nil {
+					w.Stop()
+				}
+				if tc.qps > 0 || tc.burst > 0 {
+					if err == nil || calls.Load() != before {
+						t.Errorf("watch rate limit: error = %v, dispatched = %d; want limiter rejection without dispatch", err, calls.Load()-before)
+					} else if !strings.Contains(err.Error(), "would exceed context deadline") && !errors.Is(err, context.DeadlineExceeded) {
+						t.Fatal(err)
+					}
+				} else if err != nil || calls.Load() != before+1 {
+					t.Errorf("default watch behavior: error = %v, dispatched = %d; want success and one dispatch", err, calls.Load()-before)
+				}
+			})
+		}
 	}
 }
