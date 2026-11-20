@@ -30,9 +30,9 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	switch state.QType() {
 	case dns.TypeA:
-		records, truncated, err = plugin.A(ctx, &k, zone, state, nil, plugin.Options{})
+		records, truncated, err = plugin.A(ctx, &k, zone, state, nil, plugin.Options{Fallthrough: k.Fall.Through})
 	case dns.TypeAAAA:
-		records, truncated, err = plugin.AAAA(ctx, &k, zone, state, nil, plugin.Options{})
+		records, truncated, err = plugin.AAAA(ctx, &k, zone, state, nil, plugin.Options{Fallthrough: k.Fall.Through})
 	case dns.TypeTXT:
 		records, truncated, err = plugin.TXT(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeCNAME:
