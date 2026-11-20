@@ -124,7 +124,7 @@ kubernetes [ZONES...] {
   label (the requested topology zone, empty for non-zonal queries) when the
   *metadata* plugin is enabled.
 * `startup_timeout` specifies the **DURATION** value that limits the time to wait for informer cache synced
-  when the kubernetes plugin starts. If not specified, the default timeout will be 5s.
+  when the kubernetes plugin starts. The duration must be greater than zero. If not specified, the default timeout will be 5s.
 
 Enabling zone transfer is done by using the *transfer* plugin.
 
