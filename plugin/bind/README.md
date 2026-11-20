@@ -13,6 +13,9 @@ If several addresses are provided, a listener will be open on each of the IP pro
 
 Each address has to be an IP or name of one of the interfaces of the host. Bind by interface name, binds to the IPs on that interface at the time of startup or reload (reload will happen with a SIGHUP or if the config file changes).
 
+IPv6 addresses may include a zone identifier, such as `fe80::1%eth0` or `fe80::1%2`.
+Hostnames are not supported; an argument that is not an interface name must be a literal IP address.
+
 If the given argument is an interface name, and that interface has several IP addresses, CoreDNS will listen on all of the interface IP addresses (including IPv4 and IPv6).
 
 ## Syntax
@@ -33,7 +36,7 @@ bind ADDRESS|IFACE ... {
 
 
 
-* **ADDRESS|IFACE** is an IP address or interface name to bind to.
+* **ADDRESS|IFACE** is an IP address (optionally including an IPv6 zone) or interface name to bind to.
 When several addresses are provided a listener will be opened on each of the addresses. Please read the *Description* for more details.
 * `except`, excludes interfaces or IP addresses to bind to. `except` option only excludes addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
 ## Examples
@@ -53,6 +56,17 @@ To allow processing DNS requests only local host on both IPv4 and IPv6 stacks, u
     bind 127.0.0.1 ::1
 }
 ~~~
+
+To bind to a particular IPv6 link-local address on `eth0`, include its zone:
+
+~~~ txt
+. {
+    bind fe80::1%eth0
+}
+~~~
+
+The address must be assigned to that interface. A zone can also be used with `except`,
+for example `except fe80::1%eth0` inside a `bind eth0` block.
 
 If the configuration comes up with several *bind* plugins, all addresses are consolidated together:
 The following sample is equivalent to the preceding:
