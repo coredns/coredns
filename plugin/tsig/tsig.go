@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/edns"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
@@ -61,7 +62,10 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	r.Extra = r.Extra[:len(r.Extra)-1]
 
 	// Wrap the response writer so the response will be TSIG signed.
-	w = &restoreTsigWriter{w, r, tsigRR}
+	w = &restoreTsigWriter{
+		ResponseWriter: w, req: r, reqTSIG: tsigRR,
+		clientSize: state.Size(), clientEDNS: r.IsEdns0() != nil,
+	}
 
 	if tsigStatus := w.TsigStatus(); tsigStatus != nil {
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
@@ -110,8 +114,10 @@ func (t *TSIGServer) tsigRequired(qtype uint16, opcode int) bool {
 // restoreTsigWriter implements [dns.ResponseWriter], and adds a [dns.TSIG] RR to a response.
 type restoreTsigWriter struct {
 	dns.ResponseWriter
-	req     *dns.Msg  // original request excluding TSIG
-	reqTSIG *dns.TSIG // original TSIG
+	req        *dns.Msg  // original request excluding TSIG
+	reqTSIG    *dns.TSIG // original TSIG
+	clientSize int       // buffer limit before downstream request rewrites
+	clientEDNS bool      // original EDNS presence
 }
 
 // WriteMsg adds a TSIG RR to the response
@@ -138,6 +144,26 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 			// truncate to 48 least significant bits (network order 6 rightmost bytes)
 			repTSIG.OtherData = hex.EncodeToString(b[2:])
 			repTSIG.OtherLen = 6
+		}
+		if r.clientEDNS && state.Proto() == "udp" {
+			// Trim options before signing, reserving space for the TSIG RR.
+			budget := r.clientSize - dns.Len(repTSIG)
+			edns.TruncateOptions(m, budget)
+			if m.Len() > budget {
+				m.Compress = true
+			}
+			if m.Len() > budget {
+				// dns.Msg.Truncate skips signed messages and rounds smaller
+				// budgets up to 512. Return the required header/question/OPT
+				// with TC so the client can retry over TCP before we sign it.
+				m.Answer, m.Ns = nil, nil
+				if opt := m.IsEdns0(); opt != nil {
+					m.Extra = []dns.RR{opt}
+				} else {
+					m.Extra = nil
+				}
+				m.Truncated = true
+			}
 		}
 		m.Extra = append(m.Extra, repTSIG)
 	}

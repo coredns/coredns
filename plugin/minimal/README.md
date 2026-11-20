@@ -11,7 +11,9 @@ removes resource records from the AUTHORITY and ADDITIONAL sections.
 
 Specifically this plugin looks at successful responses (this excludes negative responses, i.e.
 nodata or name error). If the successful response isn't a delegation only the RRs in the answer
-section are written to the client.
+section are written to the client. For EDNS-enabled requests, the response OPT record and its options
+are retained when they fit the client's UDP buffer. Oversized options may be omitted with the TC bit
+set so the client can retry over TCP.
 
 ## Syntax
 
