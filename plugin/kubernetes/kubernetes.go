@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/flowcontrol"
 	mcsClientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
@@ -268,14 +269,45 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 		config.Wrap(newMaxInflightRoundTripper(k.apiMaxInflight))
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(config)
+	rateLimitWatches := k.apiQPS > 0 || k.apiBurst > 0
+	newClientConfig := func() *rest.Config {
+		if !rateLimitWatches {
+			return config
+		}
+		clientConfig := rest.CopyConfig(config)
+		if clientConfig.RateLimiter == nil {
+			qps := clientConfig.QPS
+			if qps == 0 {
+				qps = rest.DefaultQPS
+			}
+			if qps > 0 && clientConfig.Burst > 0 {
+				clientConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(qps, clientConfig.Burst)
+			}
+		}
+		// Watch bypasses client-go's limiter. Use the same limiter as list requests.
+		if limiter := clientConfig.RateLimiter; limiter != nil {
+			clientConfig.Wrap(func(next http.RoundTripper) http.RoundTripper {
+				return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+					if r.URL.Query().Get("watch") == "true" {
+						if err := limiter.Wait(r.Context()); err != nil {
+							return nil, err
+						}
+					}
+					return next.RoundTrip(r)
+				})
+			})
+		}
+		return clientConfig
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(newClientConfig())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create kubernetes notification controller: %q", err)
 	}
 
 	var mcsClient mcsClientset.MulticlusterV1alpha1Interface
 	if len(k.opts.multiclusterZones) > 0 {
-		mcsClient, err = mcsClientset.NewForConfig(config)
+		mcsClient, err = mcsClientset.NewForConfig(newClientConfig())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create kubernetes multicluster notification controller: %q", err)
 		}
