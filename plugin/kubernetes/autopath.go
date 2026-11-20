@@ -1,9 +1,13 @@
 package kubernetes
 
 import (
+	"strings"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/request"
+
+	"github.com/miekg/dns"
 )
 
 // AutoPath implements the AutoPathFunc call from the autopath plugin.
@@ -28,20 +32,33 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 
 	ip := state.IP()
 
-	pod := k.podWithIP(ip)
-	if pod == nil {
+	var namespace string
+	pods := k.podsWithIP(ip)
+	if pods == nil {
 		return nil
+	}
+
+	if len(pods) == 1 {
+		namespace = pods[0].Namespace
+	} else {
+		matchedPods := k.matchQuery(pods, state.Name(), zone)
+		//If we can't find a match the namespace must be missing in the query, so this isn't the first query (searchpath <ns>.svc.<zone>)
+		//In this case we can return nil since autopath is only done on the first query.
+		if len(matchedPods) == 0 {
+			return nil
+		}
+		namespace = matchedPods[0].Namespace
 	}
 
 	totalSize := 4 + len(k.autoPathSearch)
 	search := make([]string, totalSize)
 	if zone == "." {
-		search[0] = pod.Namespace + ".svc."
+		search[0] = namespace + ".svc."
 		search[1] = "svc."
 		search[2] = "."
 	} else {
 		svcZone := "svc." + zone
-		search[0] = pod.Namespace + "." + svcZone
+		search[0] = namespace + "." + svcZone
 		search[1] = svcZone
 		search[2] = zone
 	}
@@ -51,8 +68,33 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 	return search
 }
 
-// podWithIP returns the api.Pod for source IP. It returns nil if nothing can be found.
-func (k *Kubernetes) podWithIP(ip string) *object.Pod {
+// matchQuery only returns pods where the pod namespace matches the query namespace (if the query is <ns>.svc.<zone>)
+func (k *Kubernetes) matchQuery(pods []*object.Pod, query string, zone string) []*object.Pod {
+	if zone == "" {
+		return nil
+	}
+
+	zoneLength := dns.CountLabel(zone)
+	queryParts := dns.SplitDomainName(query)
+	svcIndex := len(queryParts) - zoneLength - 1
+	if svcIndex < 1 || svcIndex >= len(queryParts) || !strings.EqualFold(queryParts[svcIndex], Svc) {
+		return nil
+	}
+
+	// The namespace is always at the position before "svc".
+	namespace := queryParts[svcIndex-1]
+	var matchedPods []*object.Pod
+	for _, pod := range pods {
+		if pod.Namespace == namespace {
+			matchedPods = append(matchedPods, pod)
+		}
+	}
+	return matchedPods
+}
+
+// podsWithIP returns the list of api.Pod for source IP. It returns nil if nothing can be found.
+// Return a list because there can be multiple host network pods with the same IP (node IP).
+func (k *Kubernetes) podsWithIP(ip string) []*object.Pod {
 	if k.podMode != podModeVerified {
 		return nil
 	}
@@ -60,5 +102,5 @@ func (k *Kubernetes) podWithIP(ip string) *object.Pod {
 	if len(ps) == 0 {
 		return nil
 	}
-	return ps[0]
+	return ps
 }
