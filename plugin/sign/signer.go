@@ -131,12 +131,14 @@ func resign(rd io.Reader, now time.Time) (why error) {
 	zp := dns.NewZoneParser(rd, ".", "resign")
 	zp.SetIncludeAllowed(true)
 	i := 0
+	soaSigSeen := false
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
 		if x, ok := rr.(*dns.RRSIG); ok {
 			if x.TypeCovered != dns.TypeSOA {
 				continue
 			}
+			soaSigSeen = true
 			incep, _ := time.Parse("20060102150405", dns.TimeToString(x.Inception))
 			// If too long ago, resign.
 			if now.Sub(incep) >= 0 && now.Sub(incep) > durationResignDays {
@@ -153,7 +155,7 @@ func resign(rd io.Reader, now time.Time) (why error) {
 			}
 		}
 		i++
-		if i > 100 {
+		if !soaSigSeen && i > 100 {
 			// 100 is a random number. A SOA record should be the first in the zonefile, but RFC 1035 doesn't actually mandate this. So it could
 			// be 3rd or even later. The number 100 looks crazy high enough that it will catch all weird zones, but not high enough to keep the CPU
 			// busy with parsing all the time.
