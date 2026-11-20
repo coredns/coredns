@@ -6,18 +6,23 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsClientsetFake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 	mcsClientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
@@ -411,5 +416,78 @@ func TestDetectChangesPodUpdate(t *testing.T) {
 	dns.detectChanges(p2, p3)
 	if dns.Modified(ModifiedInternal) == 0 {
 		t.Fatal("pod update with a changed IP should update the modified timestamp")
+	}
+}
+
+func TestServiceImportSelectors(t *testing.T) {
+	for _, tc := range []struct {
+		name                        string
+		namespaceSelector, selector labels.Selector
+		importLabels                map[string]string
+		wantRecords                 bool
+	}{
+		{name: "default", wantRecords: true},
+		{name: "namespace labels", namespaceSelector: labels.SelectorFromSet(labels.Set{"team": "one"}), wantRecords: true},
+		{name: "object labels", selector: labels.SelectorFromSet(labels.Set{"app": "dns"}), importLabels: map[string]string{"app": "dns"}, wantRecords: true},
+		{name: "both selectors", namespaceSelector: labels.SelectorFromSet(labels.Set{"team": "one"}), selector: labels.SelectorFromSet(labels.Set{"app": "dns"}), importLabels: map[string]string{"app": "dns"}, wantRecords: true},
+		{name: "excluded object", selector: labels.SelectorFromSet(labels.Set{"app": "dns"})},
+		{name: "excluded namespace", namespaceSelector: labels.SelectorFromSet(labels.Set{"team": "two"})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx := context.Background()
+				client := fake.NewClientset(&api.Namespace{ObjectMeta: meta.ObjectMeta{Name: "testns", Labels: map[string]string{"team": "one"}}})
+				si := &mcs.ServiceImport{
+					ObjectMeta: meta.ObjectMeta{Name: "svc", Namespace: "testns", Labels: tc.importLabels},
+					Spec:       mcs.ServiceImportSpec{Type: mcs.ClusterSetIP, IPs: []string{"10.0.0.1"}, Ports: []mcs.ServicePort{{Name: "http", Port: 80, Protocol: api.ProtocolTCP}}},
+				}
+				mcsClient := mcsClientsetFake.NewSimpleClientset(si)
+				// The fake tracker does not apply label selectors to watch events.
+				mcsClient.PrependWatchReactor("serviceimports", func(action k8stesting.Action) (bool, watch.Interface, error) {
+					w, err := mcsClient.Tracker().Watch(action.GetResource(), action.GetNamespace())
+					if err != nil {
+						return true, nil, err
+					}
+					selector := action.(k8stesting.WatchAction).GetWatchRestrictions().Labels
+					return true, watch.Filter(w, func(event watch.Event) (watch.Event, bool) {
+						return event, selector.Matches(labels.Set(event.Object.(*mcs.ServiceImport).Labels))
+					}), nil
+				})
+				k := New([]string{"clusterset.local."})
+				k.opts = dnsControlOpts{multiclusterZones: []string{"clusterset.local."}, namespaceSelector: tc.namespaceSelector, selector: tc.selector}
+				controller := newdnsController(ctx, client, mcsClient.MulticlusterV1alpha1(), k.opts)
+				k.APIConn = controller
+				go controller.Run()
+				defer controller.Stop()
+				for deadline := time.Now().Add(2 * time.Second); !controller.HasSynced(); {
+					if time.Now().After(deadline) {
+						t.Fatal("controller did not synchronize")
+					}
+					time.Sleep(time.Millisecond)
+				}
+				synctest.Wait()
+				m := new(dns.Msg)
+				m.SetQuestion("svc.testns.svc.clusterset.local.", dns.TypeA)
+				state := request.Request{Req: m, Zone: "clusterset.local."}
+				for _, ip := range []string{"10.0.0.1", "10.0.0.2"} {
+					if ip != si.Spec.IPs[0] {
+						si = si.DeepCopy()
+						si.Spec.IPs[0] = ip
+						if _, err := mcsClient.MulticlusterV1alpha1().ServiceImports("testns").Update(ctx, si, meta.UpdateOptions{}); err != nil {
+							t.Fatal(err)
+						}
+						synctest.Wait()
+					}
+					records, err := k.Records(ctx, state, false)
+					if tc.wantRecords {
+						if err != nil || len(records) != 1 || records[0].Host != ip {
+							t.Errorf("ServiceImport records for %s = %v, %v; want %s", tc.name, records, err, ip)
+						}
+					} else if len(records) != 0 || (err != errNoItems && err != errNsNotExposed) {
+						t.Errorf("ServiceImport records for %s = %v, %v; want no records", tc.name, records, err)
+					}
+				}
+			})
+		})
 	}
 }
