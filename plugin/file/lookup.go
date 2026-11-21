@@ -286,15 +286,20 @@ Out:
 	return nil, ret, nil, rcode
 }
 
-// closerENTExists reports whether there is an empty-non-terminal between the
-// wildcard's parent and qname. Per RFC 4592, such an ENT is the closest
-// encloser and the shallower wildcard does not apply to qname.
+// closerENTExists reports whether qname, or a name between the wildcard's parent
+// and qname, is an empty non-terminal. Such a name exists (RFC 4592 section
+// 2.2.2), so the wildcard applies neither to it nor to any name below it
+// (RFC 1034 section 4.3.3).
 func closerENTExists(tr *tree.Tree, qname, wildcardName string) bool {
 	// The wildcard owner is "*.<parent>"; anything with that exact prefix is not a closer encloser.
 	if len(wildcardName) < 2 || wildcardName[0] != '*' || wildcardName[1] != '.' {
 		return false
 	}
 	parent := wildcardName[2:]
+	// qname itself may be an empty non-terminal: it exists, so the wildcard does not apply to it.
+	if hasDescendant(tr, qname) {
+		return true
+	}
 	// Walk strict ancestors of qname that are strict descendants of parent.
 	// Each ancestor is an ENT if the tree contains any name strictly below it.
 	name := qname
