@@ -88,6 +88,20 @@ func TestExternal(t *testing.T) {
 	}
 }
 
+func TestExternalServicesNamespaceFilter(t *testing.T) {
+	k := New([]string{"cluster.local."})
+	k.APIConn = &external{}
+	k.Namespaces = map[string]struct{}{"otherns": {}}
+
+	services, headless := k.ExternalServices("example.org.", true)
+	if len(services) != 0 {
+		t.Errorf("Expected no services, got %d", len(services))
+	}
+	if len(headless) != 0 {
+		t.Errorf("Expected no headless services, got %d", len(headless))
+	}
+}
+
 type external struct{}
 
 func (external) HasSynced() bool                                  { return true }

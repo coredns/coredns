@@ -163,6 +163,10 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 	zonePath := msg.Path(zone, coredns)
 	headlessServices = make(map[string][]msg.Service)
 	for _, svc := range k.APIConn.ServiceList() {
+		if !k.namespaceExposed(svc.Namespace) {
+			continue
+		}
+
 		// Endpoints and headless services
 		if headless && len(svc.ExternalIPs) == 0 && svc.Headless() {
 			idx := object.ServiceKey(svc.Name, svc.Namespace)
