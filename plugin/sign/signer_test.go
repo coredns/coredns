@@ -32,8 +32,10 @@ func TestSign(t *testing.T) {
 	if x := apex.Type(dns.TypeDS); len(x) != 0 {
 		t.Errorf("Expected %d DS records, got %d", 0, len(x))
 	}
-	if x := apex.Type(dns.TypeCDS); len(x) != 2 {
-		t.Errorf("Expected %d CDS records, got %d", 2, len(x))
+	if x := apex.Type(dns.TypeCDS); len(x) != 1 {
+		t.Errorf("Expected %d CDS records, got %d", 1, len(x))
+	} else if cds := x[0].(*dns.CDS); cds.DigestType != dns.SHA256 {
+		t.Errorf("Expected CDS digest type %d (SHA256), got %d", dns.SHA256, cds.DigestType)
 	}
 	if x := apex.Type(dns.TypeCDNSKEY); len(x) != 1 {
 		t.Errorf("Expected %d CDNSKEY record, got %d", 1, len(x))
