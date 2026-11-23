@@ -208,7 +208,10 @@ func newdnsController(_ context.Context, kubeClient kubernetes.Interface, mcsCli
 			kubeClient,
 		),
 		&api.Namespace{},
-		cache.ResourceEventHandlerFuncs{},
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(any) { dns.updateExtModified() },
+			DeleteFunc: func(any) { dns.updateExtModified() },
+		},
 		cache.Indexers{},
 		object.DefaultProcessor(object.ToNamespace, nil),
 	)
