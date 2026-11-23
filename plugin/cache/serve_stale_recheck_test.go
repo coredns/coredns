@@ -313,7 +313,7 @@ func TestServeStaleVerifyTimeoutCoalescesWithoutFailureRecheck(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("cached.org.", dns.TypeA)
 	serveStaleRecheckRequest(t, c, req)
-	item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false, false)
+	item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, false)
 	clock.Set(2 * time.Second)
 
 	var calls atomic.Int32
