@@ -9,11 +9,13 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
+	"github.com/coredns/coredns/plugin/pkg/cache"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
+	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
 )
 
@@ -535,15 +537,15 @@ func TestCacheInsertion(t *testing.T) {
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 			mt, _ := response.Typify(m, utc)
-			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+			valid, k := key(state.Name(), &zeroSubnet, m, mt, state.Do(), state.Req.CheckingDisabled)
 
 			if valid {
 				// Insert cache entry
-				crr.set(m, k, mt, c.pttl)
+				crr.set(m, k, mt, &zeroSubnet, c.pttl)
 			}
 
 			// Attempt to retrieve cache entry
-			i := c.getIfNotStale(time.Now().UTC(), state, "dns://:53")
+			i := c.getIfNotStale(time.Now().UTC(), state, &zeroSubnet, &zeroSubnet, nil, "dns://:53")
 			found := i != nil
 
 			if !tc.shouldCache && found {
@@ -1227,7 +1229,7 @@ func TestNegativeStaleMaskingPositiveCache(t *testing.T) {
 	// Confirm that prefetch removes the negative cache item.
 	waitFor := 3
 	for i := 1; i <= waitFor; i++ {
-		if c.ncache.Len() != 0 {
+		if treeCacheLen(c.ncache) != 0 {
 			if i == waitFor {
 				t.Errorf("Test 2 NOERROR from Backend: item still exists in negative cache")
 			}
@@ -1417,8 +1419,11 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	if c.pcache.Len() != 1 {
 		t.Errorf("Msg should have been cached")
 	}
-	_, k := key(qname, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
-	i, _ := c.pcache.Get(k)
+	_, k := key(qname, &zeroSubnet, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
+	i, ok := lookup(c.pcache, k, zeroSubnet.IP)
+	if !ok {
+		t.Fatal("Msg should have been cached")
+	}
 	if i.wildcard != wildcard {
 		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.wildcard)
 	}
@@ -1574,11 +1579,11 @@ func TestCacheSeparation(t *testing.T) {
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 			mt, _ := response.Typify(m, utc)
-			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+			valid, k := key(state.Name(), &zeroSubnet, m, mt, state.Do(), state.Req.CheckingDisabled)
 
 			if valid {
 				// Insert cache entry
-				crr.set(m, k, mt, c.pttl)
+				crr.set(m, k, mt, &zeroSubnet, c.pttl)
 			}
 
 			// Attempt to retrieve cache entry
@@ -1586,7 +1591,7 @@ func TestCacheSeparation(t *testing.T) {
 			m = cacheMsg(m, tc.query)
 			state = request.Request{W: &test.ResponseWriter{}, Req: m}
 
-			item := c.getIfNotStale(time.Now().UTC(), state, "dns://:53")
+			item := c.getIfNotStale(time.Now().UTC(), state, &zeroSubnet, &zeroSubnet, nil, "dns://:53")
 			found := item != nil
 
 			if !tc.expectCached && found {
@@ -1629,8 +1634,8 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	posMsg.Response = true
 	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
 	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
-	k := hash("example.org.", dns.TypeA, dns.ClassINET, false, false)
-	c.pcache.Add(k, posItem)
+	k := hash("example.org.", dns.TypeA, dns.ClassINET, false, false, &zeroSubnet)
+	addItem(c.pcache, k, posItem)
 
 	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).
 	failMsg := new(dns.Msg)
@@ -1639,14 +1644,14 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	failMsg.Rcode = dns.RcodeServerFailure
 	failMsg.Ns = []dns.RR{test.SOA("example.org. 5 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600")}
 	failItem := newItem(failMsg, now, 5*time.Second)
-	c.ncache.Add(k, failItem)
+	addItem(c.ncache, k, failItem)
 
 	// Lookup should prefer the positive entry over the SERVFAIL.
 	req := new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
 
-	got := c.getIfNotStale(now.Add(time.Second), state, "test")
+	got := c.getIfNotStale(now.Add(time.Second), state, &zeroSubnet, &zeroSubnet, nil, "test")
 	if got == nil {
 		t.Fatal("expected a cached item, got nil")
 	}
@@ -1664,24 +1669,24 @@ func TestPreferPositiveCachePolicy(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled, &zeroSubnet)
 
 	positive := new(dns.Msg)
 	positive.SetReply(req)
 	positive.Answer = []dns.RR{test.A("example.org. 60 IN A 192.0.2.1")}
-	c.pcache.Add(k, newItem(positive, now.Add(-2*time.Minute), time.Minute))
+	addItem(c.pcache, k, newItem(positive, now.Add(-2*time.Minute), time.Minute))
 
 	negative := new(dns.Msg)
 	negative.SetRcode(req, dns.RcodeNameError)
 	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
-	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+	addItem(c.ncache, k, newItem(negative, now, 5*time.Minute))
 
-	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+	if got := c.getIfNotStale(now, state, &zeroSubnet, &zeroSubnet, nil, "test"); got == nil || got.Rcode != dns.RcodeNameError {
 		t.Fatalf("default policy should prefer ncache NXDOMAIN, got %+v", got)
 	}
 
 	c.preferPositive = true
-	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeSuccess {
+	if got := c.getIfNotStale(now, state, &zeroSubnet, &zeroSubnet, nil, "test"); got == nil || got.Rcode != dns.RcodeSuccess {
 		t.Fatalf("prefer_positive should prefer eligible pcache answer, got %+v", got)
 	}
 }
@@ -1695,19 +1700,19 @@ func TestPreferPositiveRejectsNonAnswer(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("alias.example.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled, &zeroSubnet)
 
 	incomplete := new(dns.Msg)
 	incomplete.SetReply(req)
 	incomplete.Answer = []dns.RR{test.CNAME("alias.example.org. 60 IN CNAME missing.example.org.")}
-	c.pcache.Add(k, newItem(incomplete, now, time.Minute))
+	addItem(c.pcache, k, newItem(incomplete, now, time.Minute))
 
 	negative := new(dns.Msg)
 	negative.SetRcode(req, dns.RcodeNameError)
 	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
-	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+	addItem(c.ncache, k, newItem(negative, now, 5*time.Minute))
 
-	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+	if got := c.getIfNotStale(now, state, &zeroSubnet, &zeroSubnet, nil, "test"); got == nil || got.Rcode != dns.RcodeNameError {
 		t.Fatalf("non-answer pcache item must not shadow ncache, got %+v", got)
 	}
 }
@@ -1834,7 +1839,7 @@ func TestPreferPositiveRetainsLKGAcrossNonAnswerSuccessRefreshes(t *testing.T) {
 		if err := writer.WriteMsg(refresh); err != nil {
 			t.Fatal(err)
 		}
-		got := c.getIfNotStale(now, state, "test")
+		got := c.getIfNotStale(now, state, &zeroSubnet, &zeroSubnet, nil, "test")
 		if got == nil || !got.answersQuestion(state) {
 			t.Fatalf("refresh %d lost last-known-good answer: %+v", i, got)
 		}
@@ -1853,7 +1858,7 @@ func TestPreferPositiveDoesNotServeLKGOutsideStaleWindow(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("cached.org.", dns.TypeA)
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled, &zeroSubnet)
 
 	positive := new(dns.Msg)
 	positive.SetReply(req)
@@ -1864,14 +1869,14 @@ func TestPreferPositiveDoesNotServeLKGOutsideStaleWindow(t *testing.T) {
 	empty.SetReply(req)
 	current := newItem(empty, now, time.Minute)
 	current.lastKnownGood = lastKnownGood
-	c.pcache.Add(k, current)
+	addItem(c.pcache, k, current)
 
 	negative := new(dns.Msg)
 	negative.SetRcode(req, dns.RcodeNameError)
 	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
-	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+	addItem(c.ncache, k, newItem(negative, now, 5*time.Minute))
 
-	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+	if got := c.getIfNotStale(now, state, &zeroSubnet, &zeroSubnet, nil, "test"); got == nil || got.Rcode != dns.RcodeNameError {
 		t.Fatalf("expected current NXDOMAIN after LKG stale window, got %+v", got)
 	}
 }
@@ -2203,7 +2208,30 @@ func TestKeyEmptyQuestion(t *testing.T) {
 	m.Response = true
 	m.Rcode = dns.RcodeSuccess
 
-	if ok, _ := key("example.org.", m, response.NoError, false, false); ok {
+	if ok, _ := key("example.org.", &zeroSubnet, m, response.NoError, false, false); ok {
 		t.Fatal("expected a response with an empty question section to be non-cacheable")
 	}
+}
+
+// addItem stores i in c under key k for the global (no ECS) subnet.
+func addItem(c *cache.Cache[*iptree.Tree], k uint64, i *item) {
+	tree, ok := c.Get(k)
+	if !ok {
+		tree = iptree.NewTree()
+	}
+	c.Add(k, tree.InsertNet(&zeroSubnet, i))
+}
+
+// treeCacheLen returns the number of items stored in c across all keys and subnets.
+func treeCacheLen(c *cache.Cache[*iptree.Tree]) int {
+	n := 0
+	c.Walk(func(items map[uint64]*iptree.Tree, _ uint64) bool {
+		for _, tree := range items {
+			for range tree.Enumerate() {
+				n++
+			}
+		}
+		return true
+	})
+	return n
 }

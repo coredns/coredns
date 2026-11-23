@@ -12,6 +12,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+
+	"github.com/infobloxopen/go-trees/iptree"
 )
 
 var log = clog.NewWithPlugin("cache")
@@ -276,6 +278,32 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					return nil, errors.New("caching SERVFAIL responses over 5 minutes is not permitted")
 				}
 				ca.failttl = d
+			case "mask_v4":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				d, err := strconv.Atoi(args[0])
+				if err != nil {
+					return nil, err
+				}
+				if d < 0 || d > 32 {
+					return nil, errors.New("invalid IPv4 mask size")
+				}
+				ca.mask_v4_size = uint8(d)
+			case "mask_v6":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				d, err := strconv.Atoi(args[0])
+				if err != nil {
+					return nil, err
+				}
+				if d < 0 || d > 128 {
+					return nil, errors.New("invalid IPv6 mask size")
+				}
+				ca.mask_v6_size = uint8(d)
 			case "disable":
 				// disable [success|denial] [zones]...
 				args := c.RemainingArgs()
@@ -321,8 +349,8 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 		ca.Zones = origins
 		ca.zonesMetricLabel = strings.Join(origins, ",")
-		ca.pcache = cache.New[*item](ca.pcap)
-		ca.ncache = cache.New[*item](ca.ncap)
+		ca.pcache = cache.New[*iptree.Tree](ca.pcap)
+		ca.ncache = cache.New[*iptree.Tree](ca.ncap)
 	}
 
 	return ca, nil
