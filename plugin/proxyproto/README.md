@@ -21,9 +21,9 @@ proxyproto {
 }
 ~~~
 
-If `allow` is unspecified, PROXY protocol headers are accepted from all IP addresses.
+If `allow` is unspecified, PROXY protocol headers are ignored.
 The `default` option controls how connections from sources not listed in `allow` are handled.
-If `default` is unspecified, it defaults to `ignore`.
+If `default` is unspecified, it defaults to `ignore`. Use `default use` to explicitly accept headers from all sources.
 The possible values are:
 
 - `use`: accept and use PROXY protocol headers from these sources
@@ -67,11 +67,13 @@ label is made available:
 
 ## Examples
 
-In this configuration, we allow PROXY protocol connections from all IP addresses:
+In this configuration, we ignore PROXY protocol headers unless they come from an explicitly allowed source:
 
 ~~~ corefile
 . {
-    proxyproto
+    proxyproto {
+        allow 192.168.1.1/32 192.168.0.1/32
+    }
     forward . /etc/resolv.conf
 }
 ~~~

@@ -122,6 +122,46 @@ func TestTLVMetadataFlag(t *testing.T) {
 	}
 }
 
+func TestUnsafeDefaultIsIgnored(t *testing.T) {
+	for _, input := range []string{
+		"proxyproto",
+		"proxyproto {\nallow\n}",
+	} {
+		c := caddy.NewTestController("dns", input)
+		if err := setup(c); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := dnsserver.GetConfig(c)
+		policy, err := cfg.ProxyProtoConnPolicy(proxyprotoLib.ConnPolicyOptions{
+			Upstream: &net.TCPAddr{IP: net.ParseIP("192.0.2.1"), Port: 53},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if policy != proxyprotoLib.IGNORE {
+			t.Fatalf("Expected IGNORE for %q, got %v", input, policy)
+		}
+	}
+}
+
+func TestExplicitUseWithoutAllow(t *testing.T) {
+	c := caddy.NewTestController("dns", "proxyproto {\ndefault use\n}")
+	if err := setup(c); err != nil {
+		t.Fatal(err)
+	}
+
+	policy, err := dnsserver.GetConfig(c).ProxyProtoConnPolicy(proxyprotoLib.ConnPolicyOptions{
+		Upstream: &net.TCPAddr{IP: net.ParseIP("192.0.2.1"), Port: 53},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if policy != proxyprotoLib.USE {
+		t.Fatalf("Expected USE, got %v", policy)
+	}
+}
+
 func TestDefaultPolicyWithoutAllow(t *testing.T) {
 	c := caddy.NewTestController(
 		"dns",
