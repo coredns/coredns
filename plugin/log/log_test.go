@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -237,6 +238,50 @@ func TestLoggedClassNameErrorWithoutSOA(t *testing.T) {
 				t.Errorf("Expected it to be logged as NXDOMAIN. Logged string: %s", logged)
 			}
 		})
+	}
+}
+
+// TestLoggedNameWithBraces checks that a name with braces, which is valid in a
+// DNS name, only logs the queries in its scope when it is the only argument.
+func TestLoggedNameWithBraces(t *testing.T) {
+	tests := []struct {
+		corefile  string
+		domain    string
+		shouldLog bool
+	}{
+		{`log svc{blue}.example.`, "svc{blue}.example.", true},
+		{`log svc{blue}.example.`, "other.example.net.", false},
+		{`log svc{name}.example.`, "svc{name}.example.", true},
+		{`log svc{name}.example.`, "other.example.net.", false},
+	}
+
+	for _, tc := range tests {
+		rules, err := logParse(caddy.NewTestController("dns", tc.corefile))
+		if err != nil {
+			t.Fatalf("%q: unexpected parse error: %v", tc.corefile, err)
+		}
+
+		var f bytes.Buffer
+		log.SetOutput(&f)
+
+		logger := Logger{
+			Rules: rules,
+			Next:  test.ErrorHandler(),
+			repl:  replacer.New(),
+		}
+
+		r := new(dns.Msg)
+		r.SetQuestion(tc.domain, dns.TypeA)
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		logger.ServeDNS(context.TODO(), rec, r)
+
+		logged := f.String()
+		if tc.shouldLog && !strings.Contains(logged, "A IN "+tc.domain) {
+			t.Errorf("%q: expected the query for %q to be logged, got %q", tc.corefile, tc.domain, logged)
+		}
+		if !tc.shouldLog && logged != "" {
+			t.Errorf("%q: expected the query for %q not to be logged, got %q", tc.corefile, tc.domain, logged)
+		}
 	}
 }
 
