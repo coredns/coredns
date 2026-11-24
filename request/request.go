@@ -3,6 +3,7 @@ package request
 
 import (
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/edns"
@@ -116,25 +117,19 @@ func (r *Request) Proto() string {
 }
 
 // Family returns the family of the transport, 1 for IPv4 and 2 for IPv6.
+// Note: no error handling? What if RemoteAddr() does not return an IP?
 func (r *Request) Family() int {
 	if r.family != 0 {
 		return int(r.family)
 	}
 
-	var a net.IP
-	ip := r.W.RemoteAddr()
-	if i, ok := ip.(*net.UDPAddr); ok {
-		a = i.IP
-	}
-	if i, ok := ip.(*net.TCPAddr); ok {
-		a = i.IP
-	}
-
-	if a.To4() != nil {
-		r.family = 1
+	// instead of checking if net.Addr is UDP or TCP, just try to parse the raw string
+	addr := r.W.RemoteAddr()
+	if ap, err := netip.ParseAddrPort(addr.String()); err == nil && ap.Addr().Is4() {
+		return 1
+	} else if a, err := netip.ParseAddr(addr.String()); err == nil && a.Is4() {
 		return 1
 	}
-	r.family = 2
 	return 2
 }
 

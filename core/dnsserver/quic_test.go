@@ -3,6 +3,9 @@ package dnsserver
 import (
 	"net"
 	"testing"
+
+	"github.com/coredns/coredns/request"
+	"github.com/miekg/dns"
 )
 
 func TestDoQWriterAddPrefix(t *testing.T) {
@@ -54,5 +57,23 @@ func TestDoQWriter_ConnectionStateNilConn(t *testing.T) {
 
 	if state := writer.ConnectionState(); state != nil {
 		t.Errorf("ConnectionState() = %v, want nil when conn is unset", state)
+	}
+}
+
+// TestDoQWriterFamily is a regression test for the PR #8590 review comment:
+// "I think quicAddr makes IPv4 DoQ look like IPv6 in Family() due to the wrapper? Wondering if we can preserve the underlying address type?"
+// quicAddr must not make an IPv4 DoQ client look like IPv6 in Family().
+func TestDoQWriterFamily(t *testing.T) {
+	ipv4 := &DoQWriter{remoteAddr: quicAddr{&net.UDPAddr{IP: net.ParseIP("8.8.8.8"), Port: 53}}}
+	ipv6 := &DoQWriter{remoteAddr: quicAddr{&net.UDPAddr{IP: net.ParseIP("2001:db8::1"), Port: 53}}}
+
+	if n := ipv4.RemoteAddr().Network(); n != "quic" {
+		t.Errorf("expected Network() == quic, got %s", n)
+	}
+	if fam := (&request.Request{W: ipv4, Req: new(dns.Msg)}).Family(); fam != 1 {
+		t.Errorf("expected Family() == 1 (IPv4) for DoQ client, got %d", fam)
+	}
+	if fam := (&request.Request{W: ipv6, Req: new(dns.Msg)}).Family(); fam != 2 {
+		t.Errorf("expected Family() == 2 (IPv6) for DoQ client, got %d", fam)
 	}
 }
