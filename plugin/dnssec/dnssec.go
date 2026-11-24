@@ -80,14 +80,13 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 		if sigs, err := d.sign(req.Ns, state.Zone, ttl, incep, expir, server); err == nil {
 			req.Ns = append(req.Ns, sigs...)
 		}
-		if sigs, err := d.nsec(state, mt, ttl, incep, expir, server); err == nil {
-			req.Ns = append(req.Ns, sigs...)
-		}
-		if len(req.Ns) > 1 { // actually added nsec and sigs, reset the rcode
+		if nsecRRs, err := d.nsec(state, mt, ttl, incep, expir, server); err == nil {
 			req.Rcode = dns.RcodeSuccess
-			if state.QType() == dns.TypeNSEC { // If original query was NSEC move Ns to Answer without SOA
-				req.Answer = req.Ns[len(req.Ns)-2 : len(req.Ns)]
+			if state.QType() == dns.TypeNSEC { // If original query was NSEC move NSEC and its sigs to Answer without SOA
+				req.Answer = nsecRRs
 				req.Ns = nil
+			} else {
+				req.Ns = append(req.Ns, nsecRRs...)
 			}
 		}
 		return req
