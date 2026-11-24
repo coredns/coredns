@@ -2,6 +2,7 @@ package view
 
 import (
 	"context"
+	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/expression"
@@ -68,4 +69,32 @@ func makeState(t *testing.T, qname string) *request.Request {
 	m.SetQuestion(dns.Fqdn(qname), dns.TypeA)
 	w := &ptest.ResponseWriter{}
 	return &request.Request{W: w, Req: m}
+}
+
+type scopedAddrResponseWriter struct {
+	ptest.ResponseWriter
+	remote net.Addr
+}
+
+func (w *scopedAddrResponseWriter) RemoteAddr() net.Addr { return w.remote }
+
+func TestFilter_InCidrLinkLocalClient(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	st := &request.Request{
+		W: &scopedAddrResponseWriter{
+			remote: &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: 53000, Zone: "eth0"},
+		},
+		Req: m,
+	}
+
+	matchView := &View{progs: []*vm.Program{compileExpr(t, "incidr(client_ip(), 'fe80::/10')")}}
+	if !matchView.Filter(context.Background(), st) {
+		t.Fatalf("expected view to match link-local client %q", st.IP())
+	}
+
+	missView := &View{progs: []*vm.Program{compileExpr(t, "incidr(client_ip(), '2001:db8::/32')")}}
+	if missView.Filter(context.Background(), st) {
+		t.Fatalf("expected view not to match link-local client %q", st.IP())
+	}
 }
