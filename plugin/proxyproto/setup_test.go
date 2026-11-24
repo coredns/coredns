@@ -190,3 +190,26 @@ func TestDefaultPolicyWithoutAllow(t *testing.T) {
 		t.Fatalf("Expected REJECT, got %v", policy)
 	}
 }
+
+func TestAllowLinkLocalIPv6WithZone(t *testing.T) {
+	upstreams := map[string]net.Addr{
+		"tcp": &net.TCPAddr{IP: net.ParseIP("fe80::1"), Port: 53, Zone: "eth0"},
+		"udp": &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: 53, Zone: "eth0"},
+	}
+	for name, upstream := range upstreams {
+		t.Run(name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", "proxyproto {\nallow fe80::/10\n}")
+			if err := setup(c); err != nil {
+				t.Fatal(err)
+			}
+
+			policy, err := dnsserver.GetConfig(c).ProxyProtoConnPolicy(proxyprotoLib.ConnPolicyOptions{Upstream: upstream})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if policy != proxyprotoLib.USE {
+				t.Fatalf("Expected USE for %s, got %v", upstream, policy)
+			}
+		})
+	}
+}

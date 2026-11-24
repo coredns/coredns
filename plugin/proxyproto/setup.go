@@ -93,6 +93,9 @@ func setup(c *caddy.Controller) error {
 			return policy, nil
 		}
 		h, _, _ := net.SplitHostPort(connPolicyOptions.Upstream.String())
+		if i := strings.LastIndex(h, "%"); i >= 0 {
+			h = h[:i]
+		}
 		ip := net.ParseIP(h)
 		if ip == nil {
 			return proxyproto.REJECT, nil

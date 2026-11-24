@@ -21,9 +21,13 @@ proxyproto {
 }
 ~~~
 
-If `allow` is unspecified, PROXY protocol headers are ignored.
-The `default` option controls how connections from sources not listed in `allow` are handled.
-If `default` is unspecified, it defaults to `ignore`. Use `default use` to explicitly accept headers from all sources.
+If `allow` is empty or omitted, every peer follows `default`. Because `default` is `ignore`
+unless explicitly set, a bare `proxyproto` ignores PROXY protocol headers. An explicit
+`default use`, `default reject`, or `default skip` still applies without `allow`. If `allow`
+contains CIDRs, peers in those ranges use PROXY protocol headers and all other peers follow
+`default`. Address-based rules and logs see the immediate peer unless the header is used; this
+also applies to configurations that only enable `udp_session_tracking` or `tlv_metadata`.
+
 The possible values are:
 
 - `use`: accept and use PROXY protocol headers from these sources
@@ -67,24 +71,25 @@ label is made available:
 
 ## Examples
 
-In this configuration, we ignore PROXY protocol headers unless they come from an explicitly allowed source:
+A bare `proxyproto` now ignores PROXY protocol headers. To migrate a listener behind a trusted
+load balancer, add the load balancer's CIDR:
 
 ~~~ corefile
 . {
     proxyproto {
-        allow 192.168.1.1/32 192.168.0.1/32
+        allow 192.168.1.0/24
     }
     forward . /etc/resolv.conf
 }
 ~~~
 
-In this configuration, we only allow PROXY protocol connections from the specified CIDR ranges
-and ignore proxy protocol headers from other sources:
+A listener reachable exclusively by trusted proxies can preserve the old behavior by using
+`default use`:
 
 ~~~ corefile
 . {
     proxyproto {
-        allow 192.168.1.1/32 192.168.0.1/32
+        default use
     }
     forward . /etc/resolv.conf
 }
