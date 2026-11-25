@@ -143,3 +143,33 @@ func TestPropagateConfigParamsAllowedOpcodes(t *testing.T) {
 		t.Fatal("expected UPDATE admission to propagate to every zone in the server block")
 	}
 }
+
+func TestPropagateConfigParamsTransportLimits(t *testing.T) {
+	n := 7
+	for _, tc := range []struct {
+		name string
+		set  func(*Config)
+		get  func(*Config) *int
+	}{
+		{"MaxGRPCStreams", func(c *Config) { c.MaxGRPCStreams = &n }, func(c *Config) *int { return c.MaxGRPCStreams }},
+		{"MaxGRPCConnections", func(c *Config) { c.MaxGRPCConnections = &n }, func(c *Config) *int { return c.MaxGRPCConnections }},
+		{"MaxHTTPSConnections", func(c *Config) { c.MaxHTTPSConnections = &n }, func(c *Config) *int { return c.MaxHTTPSConnections }},
+		{"MaxHTTPS3Streams", func(c *Config) { c.MaxHTTPS3Streams = &n }, func(c *Config) *int { return c.MaxHTTPS3Streams }},
+		{"MaxHTTPS3Connections", func(c *Config) { c.MaxHTTPS3Connections = &n }, func(c *Config) *int { return c.MaxHTTPS3Connections }},
+		{"MaxQUICStreams", func(c *Config) { c.MaxQUICStreams = &n }, func(c *Config) *int { return c.MaxQUICStreams }},
+		{"MaxQUICWorkerPoolSize", func(c *Config) { c.MaxQUICWorkerPoolSize = &n }, func(c *Config) *int { return c.MaxQUICWorkerPoolSize }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first := &Config{}
+			tc.set(first)
+			first.firstConfigInBlock = first
+			second := &Config{firstConfigInBlock: first}
+
+			propagateConfigParams([]*Config{first, second})
+
+			if got := tc.get(second); got == nil || *got != n {
+				t.Fatalf("expected %s to propagate to second config as %d, got %v", tc.name, n, got)
+			}
+		})
+	}
+}

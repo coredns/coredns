@@ -329,13 +329,21 @@ func propagateConfigParams(configs []*Config) {
 		// server block applies to the block's UDP listener(s).
 		c.UDPDecorateWriterFunc = c.firstConfigInBlock.UDPDecorateWriterFunc
 
-		// Propagate MaxHTTPSStreams so a `https { max_streams N }` set once in a
-		// server block applies to the block's HTTPS key regardless of key order.
+		// Propagate the per-transport limits. A directive is set up only for the
+		// first key in a server block, so without this a `grpc`, `https`, `https3`
+		// or `quic` block written next to another transport's key records its
+		// limits on a config that transport's server never reads, and the server
+		// silently falls back to the default. Propagating makes the limits apply
+		// to the block's matching key regardless of key order.
+		c.MaxGRPCStreams = c.firstConfigInBlock.MaxGRPCStreams
+		c.MaxGRPCConnections = c.firstConfigInBlock.MaxGRPCConnections
+		c.MaxHTTPSConnections = c.firstConfigInBlock.MaxHTTPSConnections
 		c.MaxHTTPSStreams = c.firstConfigInBlock.MaxHTTPSStreams
-
-		// Propagate MaxQUICConnections so a `quic { max_connections N }` set once
-		// in a server block applies to the block's QUIC key regardless of key order.
+		c.MaxHTTPS3Streams = c.firstConfigInBlock.MaxHTTPS3Streams
+		c.MaxHTTPS3Connections = c.firstConfigInBlock.MaxHTTPS3Connections
+		c.MaxQUICStreams = c.firstConfigInBlock.MaxQUICStreams
 		c.MaxQUICConnections = c.firstConfigInBlock.MaxQUICConnections
+		c.MaxQUICWorkerPoolSize = c.firstConfigInBlock.MaxQUICWorkerPoolSize
 	}
 }
 

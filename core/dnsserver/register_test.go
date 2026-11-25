@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"crypto/tls"
 	"testing"
 
 	"github.com/coredns/caddy/caddyfile"
@@ -343,5 +344,57 @@ func TestInspectServerBlocks(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestMultiKeyBlockTransportLimitsReachServer walks the path MakeServers takes,
+// propagateConfigParams then groupConfigsByListenAddr then the per-transport
+// constructor, for a block whose HTTPS3 key is not the first key. Caddy runs a
+// directive only for the first key in a server block, so `https3 { max_streams }`
+// lands on the dns:// config and has to be propagated to reach the HTTPS3 server.
+func TestMultiKeyBlockTransportLimitsReachServer(t *testing.T) {
+	maxStreams := 50
+
+	// Both `tls` and `https3` are directives in the same block, so both write to
+	// the block's first config.
+	first := &Config{
+		Zone:        ".",
+		Transport:   "dns",
+		Port:        "1053",
+		ListenHosts: []string{"127.0.0.1"},
+		TLSConfig:   &tls.Config{},
+	}
+	first.firstConfigInBlock = first
+	first.MaxHTTPS3Streams = &maxStreams
+
+	second := &Config{
+		Zone:               ".",
+		Transport:          "https3",
+		Port:               "1443",
+		ListenHosts:        []string{"127.0.0.1"},
+		firstConfigInBlock: first,
+	}
+
+	configs := []*Config{first, second}
+	propagateConfigParams(configs)
+
+	groups, err := groupConfigsByListenAddr(configs)
+	if err != nil {
+		t.Fatalf("groupConfigsByListenAddr() failed: %v", err)
+	}
+	group, ok := groups["https3://127.0.0.1:1443"]
+	if !ok {
+		t.Fatalf("no group for the https3 listener, got groups %v", groups)
+	}
+
+	srv, err := NewServerHTTPS3("127.0.0.1:1443", group)
+	if err != nil {
+		t.Fatalf("NewServerHTTPS3() failed: %v", err)
+	}
+	if srv.maxStreams != maxStreams {
+		t.Errorf("maxStreams = %d, want %d", srv.maxStreams, maxStreams)
+	}
+	if srv.quicConfig.MaxIncomingStreams != int64(maxStreams) {
+		t.Errorf("quicConfig.MaxIncomingStreams = %d, want %d", srv.quicConfig.MaxIncomingStreams, int64(maxStreams))
 	}
 }
