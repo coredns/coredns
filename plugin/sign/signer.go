@@ -119,44 +119,58 @@ func (s *Signer) resign() error {
 	return resign(rd, now)
 }
 
-// resign will scan rd and check the signature on the SOA record. We will resign on the basis
+// resign will scan rd and check the signatures on the SOA record. We will resign on the basis
 // of 2 conditions:
 // * either the inception is more than 6 days ago, or
 // * we only have 1 week left on the signature
 //
-// All SOA signatures will be checked. If the SOA isn't found in the first 100
-// records, we will resign the zone.
+// All SOA signatures are checked. The SOA RRSIG must appear within the first
+// 100 records; if it doesn't, we resign the zone. write emits all of the SOA
+// RRSIGs together, right after the SOA, so once they have been seen and checked
+// the scan stops at the next record instead of reading the whole (possibly
+// large) zone on every refresh check.
 func resign(rd io.Reader, now time.Time) (why error) {
 	zp := dns.NewZoneParser(rd, ".", "resign")
 	zp.SetIncludeAllowed(true)
 	i := 0
+	soaSigSeen := false
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if x, ok := rr.(*dns.RRSIG); ok {
-			if x.TypeCovered != dns.TypeSOA {
-				continue
-			}
-			incep, _ := time.Parse("20060102150405", dns.TimeToString(x.Inception))
-			// If too long ago, resign.
-			if now.Sub(incep) >= 0 && now.Sub(incep) > durationResignDays {
-				return fmt.Errorf("inception %q was more than: %s ago from %s: %s", incep.Format(timeFmt), durationResignDays, now.Format(timeFmt), now.Sub(incep))
-			}
-			// Inception hasn't even start yet.
-			if now.Sub(incep) < 0 {
-				return fmt.Errorf("inception %q date is in the future: %s", incep.Format(timeFmt), now.Sub(incep))
-			}
-
-			expire, _ := time.Parse("20060102150405", dns.TimeToString(x.Expiration))
-			if expire.Sub(now) < durationExpireDays {
-				return fmt.Errorf("expiration %q is less than: %s away from %s: %s", expire.Format(timeFmt), durationExpireDays, now.Format(timeFmt), expire.Sub(now))
-			}
-		}
+		// Count every record, including RRSIGs covering other types, so the
+		// search window below reflects the SOA RRSIG's real position.
 		i++
-		if i > 100 {
+		if !soaSigSeen && i > 100 {
 			// 100 is a random number. A SOA record should be the first in the zonefile, but RFC 1035 doesn't actually mandate this. So it could
 			// be 3rd or even later. The number 100 looks crazy high enough that it will catch all weird zones, but not high enough to keep the CPU
 			// busy with parsing all the time.
 			return fmt.Errorf("no SOA RRSIG found in first 100 records")
+		}
+
+		x, ok := rr.(*dns.RRSIG)
+		if !ok || x.TypeCovered != dns.TypeSOA {
+			// The SOA RRSIGs are written as one contiguous block right after the
+			// SOA, so the first record that isn't one marks the end of that block
+			// and every SOA signature has been checked.
+			if soaSigSeen {
+				break
+			}
+			continue
+		}
+
+		soaSigSeen = true
+		incep, _ := time.Parse("20060102150405", dns.TimeToString(x.Inception))
+		// If too long ago, resign.
+		if now.Sub(incep) >= 0 && now.Sub(incep) > durationResignDays {
+			return fmt.Errorf("inception %q was more than: %s ago from %s: %s", incep.Format(timeFmt), durationResignDays, now.Format(timeFmt), now.Sub(incep))
+		}
+		// Inception hasn't even start yet.
+		if now.Sub(incep) < 0 {
+			return fmt.Errorf("inception %q date is in the future: %s", incep.Format(timeFmt), now.Sub(incep))
+		}
+
+		expire, _ := time.Parse("20060102150405", dns.TimeToString(x.Expiration))
+		if expire.Sub(now) < durationExpireDays {
+			return fmt.Errorf("expiration %q is less than: %s away from %s: %s", expire.Format(timeFmt), durationExpireDays, now.Format(timeFmt), expire.Sub(now))
 		}
 	}
 
