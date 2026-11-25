@@ -2,7 +2,6 @@ package view
 
 import (
 	"context"
-	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/expression"
@@ -33,6 +32,7 @@ func TestFilter_ErrorPaths(t *testing.T) {
 		{"name() == 'notexample.com.'", false},
 		{"1", false},
 		{"incidr('invalid', '1.2.3.0/24')", false},
+		{"incidr('fe80::%2/64', 'fe80::/10')", false},
 	}
 
 	for i, tc := range tests {
@@ -71,20 +71,11 @@ func makeState(t *testing.T, qname string) *request.Request {
 	return &request.Request{W: w, Req: m}
 }
 
-type scopedAddrResponseWriter struct {
-	ptest.ResponseWriter
-	remote net.Addr
-}
-
-func (w *scopedAddrResponseWriter) RemoteAddr() net.Addr { return w.remote }
-
 func TestFilter_InCidrLinkLocalClient(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
 	st := &request.Request{
-		W: &scopedAddrResponseWriter{
-			remote: &net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: 53000, Zone: "eth0"},
-		},
+		W:   &ptest.ResponseWriter{RemoteIP: "fe80::1", Zone: "eth0"},
 		Req: m,
 	}
 

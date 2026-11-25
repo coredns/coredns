@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/request"
@@ -15,7 +16,7 @@ func DefaultEnv(ctx context.Context, state *request.Request) map[string]any {
 	return map[string]any{
 		"incidr": func(ipStr, cidrStr string) (bool, error) {
 			addr, err := netip.ParseAddr(ipStr)
-			if err != nil {
+			if err != nil || strings.Contains(addr.Zone(), "/") {
 				return false, errors.New("first argument is not an IP address")
 			}
 			_, cidr, err := net.ParseCIDR(cidrStr)
