@@ -22,9 +22,18 @@ func TestInCidr(t *testing.T) {
 		{ip: "10.2.3.4", cidr: "1.2.0.0/16", expected: false, shouldErr: false},
 		{ip: "1:2::3:4", cidr: "1:2::/64", expected: true, shouldErr: false},
 		{ip: "A:2::3:4", cidr: "1:2::/64", expected: false, shouldErr: false},
+		{ip: "fe80::1%eth0", cidr: "fe80::/10", expected: true, shouldErr: false},
+		{ip: "fe80::1%2", cidr: "fe80::/10", expected: true, shouldErr: false},
+		{ip: "fe80::1%eth0", cidr: "2001:db8::/32", expected: false, shouldErr: false},
+		{ip: "::ffff:192.0.2.1", cidr: "192.0.2.0/24", expected: true, shouldErr: false},
 		// negative
 		{ip: "1.2.3.4", cidr: "invalid", shouldErr: true},
 		{ip: "invalid", cidr: "1.2.0.0/16", shouldErr: true},
+		{ip: "1.2.3.4%eth0", cidr: "1.2.0.0/16", shouldErr: true},
+		{ip: "fe80::1%", cidr: "fe80::/10", shouldErr: true},
+		{ip: "fe80::%2/64", cidr: "fe80::/10", shouldErr: true},
+		{ip: "fe80::1%eth0/64", cidr: "fe80::/10", shouldErr: true},
+		{ip: "fe80::/64", cidr: "fe80::/10", shouldErr: true},
 	}
 
 	for i, c := range cases {

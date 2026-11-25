@@ -32,6 +32,7 @@ func TestFilter_ErrorPaths(t *testing.T) {
 		{"name() == 'notexample.com.'", false},
 		{"1", false},
 		{"incidr('invalid', '1.2.3.0/24')", false},
+		{"incidr('fe80::%2/64', 'fe80::/10')", false},
 	}
 
 	for i, tc := range tests {
@@ -68,4 +69,23 @@ func makeState(t *testing.T, qname string) *request.Request {
 	m.SetQuestion(dns.Fqdn(qname), dns.TypeA)
 	w := &ptest.ResponseWriter{}
 	return &request.Request{W: w, Req: m}
+}
+
+func TestFilter_InCidrLinkLocalClient(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	st := &request.Request{
+		W:   &ptest.ResponseWriter{RemoteIP: "fe80::1", Zone: "eth0"},
+		Req: m,
+	}
+
+	matchView := &View{progs: []*vm.Program{compileExpr(t, "incidr(client_ip(), 'fe80::/10')")}}
+	if !matchView.Filter(context.Background(), st) {
+		t.Fatalf("expected view to match link-local client %q", st.IP())
+	}
+
+	missView := &View{progs: []*vm.Program{compileExpr(t, "incidr(client_ip(), '2001:db8::/32')")}}
+	if missView.Filter(context.Background(), st) {
+		t.Fatalf("expected view not to match link-local client %q", st.IP())
+	}
 }

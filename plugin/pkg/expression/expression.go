@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/netip"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/request"
@@ -13,15 +15,15 @@ import (
 func DefaultEnv(ctx context.Context, state *request.Request) map[string]any {
 	return map[string]any{
 		"incidr": func(ipStr, cidrStr string) (bool, error) {
-			ip := net.ParseIP(ipStr)
-			if ip == nil {
+			addr, err := netip.ParseAddr(ipStr)
+			if err != nil || strings.Contains(addr.Zone(), "/") {
 				return false, errors.New("first argument is not an IP address")
 			}
 			_, cidr, err := net.ParseCIDR(cidrStr)
 			if err != nil {
 				return false, err
 			}
-			return cidr.Contains(ip), nil
+			return cidr.Contains(net.IP(addr.AsSlice())), nil
 		},
 		"metadata": func(label string) string {
 			f := metadata.ValueFunc(ctx, label)
