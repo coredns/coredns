@@ -45,7 +45,11 @@ func (l Local) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		// Intercept special localhost subdomain queries and return loopback addresses for A/AAAA queries.
 		log.Debugf("Intercepting localhost query for %q %s, from %s", state.Name(), state.Type(), state.IP())
 		LocalhostCount.Inc()
-		reply := doLocalhost(state)
+		origin := qname
+		if matchesRFCSubdomain {
+			origin = qname[len(qname)-lc:]
+		}
+		reply := doLocalhost(state, origin)
 		w.WriteMsg(reply)
 		return 0, nil
 	}
@@ -97,6 +101,10 @@ func (l Local) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			// nodata
 			m.Ns = soaFromOrigin(zone)
 		}
+	case "0.0.127.in-addr.arpa.", "0.127.in-addr.arpa.":
+		// These are empty non-terminals above 1.0.0.127.in-addr.arpa.; they exist, so reply with
+		// NODATA instead of NXDOMAIN. See RFC 8020.
+		m.Ns = soaFromOrigin(zone)
 	}
 
 	if len(m.Answer) == 0 && len(m.Ns) == 0 {
@@ -111,7 +119,9 @@ func (l Local) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // Name implements the plugin.Handler interface.
 func (l Local) Name() string { return "local" }
 
-func doLocalhost(state request.Request) *dns.Msg {
+// doLocalhost answers a localhost special-case query, origin is the owner name of the SOA record
+// that is returned for NODATA replies.
+func doLocalhost(state request.Request, origin string) *dns.Msg {
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
 	switch state.QType() {
@@ -123,7 +133,7 @@ func doLocalhost(state request.Request) *dns.Msg {
 		m.Answer = []dns.RR{&dns.AAAA{Hdr: hdr, AAAA: net.ParseIP("::1")}}
 	default:
 		// nodata
-		m.Ns = soaFromOrigin(state.QName())
+		m.Ns = soaFromOrigin(origin)
 	}
 	return m
 }
