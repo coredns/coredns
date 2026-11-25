@@ -25,7 +25,6 @@ func setup(c *caddy.Controller) error {
 	var (
 		allowedIPNets              []*net.IPNet
 		policy                     = proxyproto.IGNORE
-		defaultSet                 bool
 		sessionTrackingTTL         time.Duration
 		sessionTrackingMaxSessions int
 		tlvMetadata                bool
@@ -46,7 +45,6 @@ func setup(c *caddy.Controller) error {
 					allowedIPNets = append(allowedIPNets, ipnet)
 				}
 			case "default":
-				defaultSet = true
 				v := c.RemainingArgs()
 				if len(v) != 1 {
 					return plugin.Error("proxyproto", c.ArgErr())
@@ -92,12 +90,12 @@ func setup(c *caddy.Controller) error {
 	}
 	config.ProxyProtoConnPolicy = func(connPolicyOptions proxyproto.ConnPolicyOptions) (proxyproto.Policy, error) {
 		if len(allowedIPNets) == 0 {
-			if defaultSet {
-				return policy, nil
-			}
-			return proxyproto.USE, nil
+			return policy, nil
 		}
 		h, _, _ := net.SplitHostPort(connPolicyOptions.Upstream.String())
+		if i := strings.LastIndex(h, "%"); i >= 0 {
+			h = h[:i]
+		}
 		ip := net.ParseIP(h)
 		if ip == nil {
 			return proxyproto.REJECT, nil
