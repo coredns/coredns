@@ -61,6 +61,17 @@ func TestLogParse(t *testing.T) {
 			Format:    "{remote} {type} {name}",
 			Class:     map[response.Class]struct{}{response.All: {}},
 		}}},
+		// A quoted format keeps a line break or other Unicode white space between placeholders.
+		{"log \"{type}\n{name}\"", false, []Rule{{
+			NameScope: ".",
+			Format:    "{type}\n{name}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{"log \"{type}\u00a0{name}\"", false, []Rule{{
+			NameScope: ".",
+			Format:    "{type}\u00a0{name}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
 		{`log {combined} {
 			class denial
 		}`, false, []Rule{{

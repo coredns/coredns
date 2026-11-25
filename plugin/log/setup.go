@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"strings"
+	"unicode"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -35,8 +36,8 @@ func setup(c *caddy.Controller) error {
 //
 //   - {common} or {combined}
 //   - a single placeholder, such as {remote}
-//   - a template with white space that contains a placeholder, such as
-//     "{remote} {type} {name}"
+//   - a template with white space (any Unicode white space, including a line
+//     break) that contains a placeholder, such as "{remote} {type} {name}"
 //
 // Anything else, for example svc{name}.example., stays a name. To use such an
 // argument as a format, put a name in front of it: log . FORMAT.
@@ -53,7 +54,9 @@ func isLoneFormat(arg string) bool {
 	case replacer.EmptyValue:
 		return true // a single placeholder
 	default:
-		return strings.ContainsAny(arg, " \t")
+		// A name has no white space. A quoted argument may hold any white space the
+		// Caddyfile lexer keeps, such as a line break, so check for all of it.
+		return strings.IndexFunc(arg, unicode.IsSpace) >= 0
 	}
 }
 
