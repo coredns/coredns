@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	// RequestsTranslatedCount is the number of DNS requests translated by dns64.
-	RequestsTranslatedCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	// requestsTranslatedCount is the number of DNS requests translated by dns64.
+	requestsTranslatedCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: pluginName,
 		Name:      "requests_translated_total",

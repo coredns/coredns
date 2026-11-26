@@ -985,7 +985,7 @@ func TestServeDNSTruncatedInitialResponseNotSynthesized(t *testing.T) {
 	}
 }
 
-// TestServeDNSMetricCounting verifies RequestsTranslatedCount is
+// TestServeDNSMetricCounting verifies requestsTranslatedCount is
 // incremented exactly when a synthetic A record was actually produced, and
 // left untouched for the secondary-failure and unmapped-only cases that
 // previously overcounted.
@@ -1052,14 +1052,14 @@ func TestServeDNSMetricCounting(t *testing.T) {
 			ctx := context.Background()
 
 			label := metrics.WithServer(ctx)
-			before := testutil.ToFloat64(RequestsTranslatedCount.WithLabelValues(label))
+			before := testutil.ToFloat64(requestsTranslatedCount.WithLabelValues(label))
 
 			rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
 			if _, err := d.ServeDNS(ctx, rec, r); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			after := testutil.ToFloat64(RequestsTranslatedCount.WithLabelValues(label))
+			after := testutil.ToFloat64(requestsTranslatedCount.WithLabelValues(label))
 			if got := after - before; got != tc.wantIncrease {
 				t.Errorf("expected counter to increase by %v, got %v (before=%v after=%v)", tc.wantIncrease, got, before, after)
 			}

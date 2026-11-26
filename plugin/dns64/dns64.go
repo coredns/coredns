@@ -61,7 +61,7 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return dns.RcodeServerFailure, err
 	}
 
-	RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+	requestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	w.WriteMsg(msg)
 	return dns.RcodeSuccess, nil
 }

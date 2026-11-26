@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	// LocalhostCount reports the number of times we've seen a non-apex localhost special-case query.
-	LocalhostCount = promauto.NewCounter(prometheus.CounterOpts{
+	// localhostCount reports the number of times we've seen a non-apex localhost special-case query.
+	localhostCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "local",
 		Name:      "localhost_requests_total",
