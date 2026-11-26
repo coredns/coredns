@@ -20,6 +20,8 @@ bufsize [SIZE]
 The default value is 1232, and the value must be within 512 - 4096.
 Only one argument is acceptable, and it covers both IPv4 and IPv6.
 
+*bufsize* may only be used once per server block.
+
 ## Examples
 Enable limiting the buffer size of outgoing query to the resolver (172.31.0.10):
 ```corefile
