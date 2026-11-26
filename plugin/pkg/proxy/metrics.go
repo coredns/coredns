@@ -9,14 +9,7 @@ import (
 
 // Variables declared for monitoring.
 var (
-	requestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace:                   plugin.Namespace,
-		Subsystem:                   "proxy",
-		Name:                        "request_duration_seconds",
-		Buckets:                     plugin.TimeBuckets,
-		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
-		Help:                        "Histogram of the time each request took.",
-	}, []string{"proxy_name", "to", "rcode"})
+	requestDuration = newRequestDurationMetrics()
 
 	healthcheckFailureCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
@@ -39,3 +32,7 @@ var (
 		Help:      "Counter of connection cache misses per upstream and protocol.",
 	}, []string{"proxy_name", "to", "proto"})
 )
+
+func init() {
+	prometheus.MustRegister(requestDuration)
+}

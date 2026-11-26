@@ -261,6 +261,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		f.proxies[i].SetMaxAge(f.maxAge)
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
 		f.proxies[i].SetReadTimeout(f.readTimeout)
+		f.proxies[i].SetQueryTypesForMetrics(f.qtypesForMetrics)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
 		// DoT and DoQ health checkers already use their configured transport.
 		if f.opts.ForceTCP && transports[i] != transport.TLS && transports[i] != transport.QUIC {
@@ -279,6 +280,26 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 func parseBlock(c *caddy.Controller, f *Forward) error {
 	config := dnsserver.GetConfig(c)
 	switch c.Val() {
+	case "qtype_for_metrics":
+		if len(f.qtypesForMetrics) != 0 {
+			return c.Err("qtype_for_metrics already specified")
+		}
+		args := c.RemainingArgs()
+		if len(args) == 0 {
+			return c.ArgErr()
+		}
+		for _, arg := range args {
+			name := strings.ToUpper(arg)
+			qtype, ok := dns.StringToType[name]
+			if !ok && strings.HasPrefix(name, "TYPE") {
+				number, err := strconv.ParseUint(strings.TrimPrefix(name, "TYPE"), 10, 16)
+				qtype, ok = uint16(number), err == nil
+			}
+			if !ok {
+				return c.Errf("invalid qtype_for_metrics query type: %s", arg)
+			}
+			f.qtypesForMetrics = append(f.qtypesForMetrics, qtype)
+		}
 	case "except":
 		ignore := c.RemainingArgs()
 		if len(ignore) == 0 {
