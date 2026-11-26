@@ -28,21 +28,24 @@ func TestSetupDns64PrefixLengths(t *testing.T) {
 
 func TestSetupDns64(t *testing.T) {
 	tests := []struct {
-		inputUpstreams string
-		shouldErr      bool
-		wantPrefix     string
-		wantAllowIpv4  bool
+		inputUpstreams   string
+		shouldErr        bool
+		wantPrefix       string
+		wantAllowIpv4    bool
+		wantTranslateAll bool
 	}{
 		{
 			`dns64`,
 			false,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 64:dead::/96`,
 			false,
 			"64:dead::/96",
+			false,
 			false,
 		},
 		{
@@ -52,11 +55,13 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"64:ff9b::/96",
 			false,
+			true,
 		},
 		{
 			`dns64`,
 			false,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -65,6 +70,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -74,6 +80,7 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"64:ff9b::/32",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -81,6 +88,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			true,
 			"64:ff9b::/52",
+			false,
 			false,
 		},
 		{
@@ -90,6 +98,7 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"64:ff9b::/104",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -98,6 +107,7 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"8.8.9.9/24",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -105,6 +115,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -114,6 +125,7 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"2002:ac12:b083::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -121,6 +133,7 @@ func TestSetupDns64(t *testing.T) {
 			}`,
 			false,
 			"2002:c0a8:a88a::/48",
+			false,
 			false,
 		},
 		{
@@ -130,11 +143,13 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 foobar`,
 			true,
 			"64:ff9b::/96",
+			false,
 			false,
 		},
 		{
@@ -144,6 +159,7 @@ func TestSetupDns64(t *testing.T) {
 			true,
 			"64:ff9b::/96",
 			false,
+			false,
 		},
 		{
 			`dns64 {
@@ -152,6 +168,78 @@ func TestSetupDns64(t *testing.T) {
 			false,
 			"64:ff9b::/96",
 			true,
+			false,
+		},
+		{
+			`dns64 64:dead::/96 {
+				allow_ipv4
+			}`,
+			false,
+			"64:dead::/96",
+			true,
+			false,
+		},
+		{
+			`dns64 64:dead::/96 {
+				translate_all
+			}`,
+			false,
+			"64:dead::/96",
+			false,
+			true,
+		},
+		{
+			`dns64 64:dead::/96 {
+				allow_ipv4
+				translate_all
+			}`,
+			false,
+			"64:dead::/96",
+			true,
+			true,
+		},
+		{
+			`dns64 64:dead::/96 {
+				prefix 2001:db8::/96
+			}`,
+			false,
+			"2001:db8::/96",
+			false,
+			false,
+		},
+		{
+			`dns64 64:dead::/96 {
+				foobar
+			}`,
+			true,
+			"",
+			false,
+			false,
+		},
+		{
+			`dns64 64:dead::/96 {
+				prefix foobar
+			}`,
+			true,
+			"",
+			false,
+			false,
+		},
+		{
+			`dns64 64:dead::/96 {
+				prefix
+			}`,
+			true,
+			"",
+			false,
+			false,
+		},
+		{
+			`dns64 64:dead::/96 2001:db8::/96`,
+			true,
+			"",
+			false,
+			false,
 		},
 	}
 
@@ -167,6 +255,9 @@ func TestSetupDns64(t *testing.T) {
 			}
 			if dns64.AllowIPv4 != test.wantAllowIpv4 {
 				t.Errorf("Test %d expected prefix %v, got %v", i+1, test.wantAllowIpv4, dns64.AllowIPv4)
+			}
+			if dns64.TranslateAll != test.wantTranslateAll {
+				t.Errorf("Test %d expected TranslateAll %v, got %v", i+1, test.wantTranslateAll, dns64.TranslateAll)
 			}
 		}
 	}

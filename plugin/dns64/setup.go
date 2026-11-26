@@ -36,6 +36,9 @@ func dns64Parse(c *caddy.Controller) (*DNS64, error) {
 
 	for c.Next() {
 		args := c.RemainingArgs()
+		if len(args) > 1 {
+			return nil, c.ArgErr()
+		}
 		if len(args) == 1 {
 			pref, err := parsePrefix(c, args[0])
 
@@ -43,10 +46,6 @@ func dns64Parse(c *caddy.Controller) (*DNS64, error) {
 				return nil, err
 			}
 			dns64.Prefix = pref
-			continue
-		}
-		if len(args) > 0 {
-			return nil, c.ArgErr()
 		}
 
 		for c.NextBlock() {
