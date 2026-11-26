@@ -2,6 +2,7 @@ package file
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/coredns/coredns/request"
 
@@ -19,13 +20,21 @@ func (z *Zone) isNotify(state request.Request) bool {
 		return false
 	}
 	// If remote IP matches we accept.
-	remote := state.IP()
+	remote, err := netip.ParseAddr(state.IP())
+	if err != nil {
+		return false
+	}
+	remote = remote.Unmap()
 	for _, f := range z.TransferFrom {
 		from, _, err := net.SplitHostPort(f)
 		if err != nil {
 			continue
 		}
-		if from == remote {
+		addr, err := netip.ParseAddr(from)
+		if err != nil {
+			continue
+		}
+		if addr.Unmap() == remote {
 			return true
 		}
 	}
