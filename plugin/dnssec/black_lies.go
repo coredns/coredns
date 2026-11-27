@@ -43,7 +43,10 @@ func (d Dnssec) nsec(state request.Request, mt response.Type, ttl, incep, expir 
 		return nil, err
 	}
 
-	return append(sigs, nsec), nil
+	res := make([]dns.RR, len(sigs)+1)
+	copy(res, sigs)
+	res[len(sigs)] = nsec
+	return res, nil
 }
 
 // The NSEC bit maps we return.
