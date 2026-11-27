@@ -14,6 +14,7 @@ var (
 	fixturesDir   = "./testdata"
 	cityDBPath    = filepath.Join(fixturesDir, "GeoLite2-City.mmdb")
 	asnDBPath     = filepath.Join(fixturesDir, "GeoLite2-ASN.mmdb")
+	domainDBPath  = filepath.Join(fixturesDir, "GeoIP2-Domain.mmdb")
 	unknownDBPath = filepath.Join(fixturesDir, "GeoLite2-UnknownDbType.mmdb")
 )
 
@@ -56,6 +57,9 @@ func TestGeoIPParse(t *testing.T) {
 		// Valid - ASN database
 		{false, fmt.Sprintf("%s %s\n", pluginName, asnDBPath), "", asn},
 		{false, fmt.Sprintf("%s %s { edns-subnet }", pluginName, asnDBPath), "", asn},
+		// Valid - Domain database
+		{false, fmt.Sprintf("%s %s\n", pluginName, domainDBPath), "", domain},
+		{false, fmt.Sprintf("%s %s { edns-subnet }", pluginName, domainDBPath), "", domain},
 
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
