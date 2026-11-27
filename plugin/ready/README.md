@@ -10,10 +10,9 @@ By enabling *ready* an HTTP endpoint on port 8181 will return 200 OK, when all p
 to signal readiness have done so. If some are not ready yet the endpoint will return a 503 with the
 body containing the list of plugins that are not ready.
 
-Each Server Block that enables the *ready* plugin will have the plugins *in that server block*
-report readiness into the /ready endpoint that runs on the same port. This also means that the
-*same* plugin with different configurations (in potentially *different* Server Blocks) will have
-their readiness reported as the union of their respective readinesses.
+Each server block that enables *ready* reports its plugins' readiness to the endpoint at the
+configured address. Server blocks that share an address report readiness through the same
+endpoint, which checks every plugin instance in those blocks.
 
 ## Syntax
 
