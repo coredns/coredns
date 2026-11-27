@@ -59,6 +59,11 @@ func TestHostPortOrFile(t *testing.T) {
 			true,
 		},
 		{
+			"https3://8.8.8.8",
+			"https3://8.8.8.8:443",
+			false,
+		},
+		{
 			"unix:///var/run/g.sock",
 			"unix:///var/run/g.sock",
 			false,
