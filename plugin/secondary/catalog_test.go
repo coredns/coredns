@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -739,4 +741,122 @@ func mustRR(t *testing.T, s string) dns.RR {
 		t.Fatalf("failed to parse RR %q: %v", s, err)
 	}
 	return rr
+}
+
+func TestCatalogRefreshFailures(t *testing.T) {
+	const origin = "catalog.example."
+	modes := []string{"same", "newer", "closed", "refused", "servfail", "empty"}
+	for _, first := range modes {
+		for _, second := range append([]string{""}, modes...) {
+			primaries := []string{first}
+			if second != "" {
+				primaries = append(primaries, second)
+			}
+			t.Run(strings.Join(primaries, "/"), func(t *testing.T) {
+				rrs := catalogZoneRecordsForMembers(t, origin, nil, 100)
+				soa := rrs[0].(*dns.SOA)
+				// Leave time between retries for a pending expiration tick to be
+				// handled, even if a retry first sleeps for its full 2s jitter.
+				soa.Refresh, soa.Retry, soa.Expire = 100, 10, 120
+				newer := dns.Copy(soa).(*dns.SOA)
+				newer.Serial++
+				var transfers atomic.Int32
+				checks := make([]atomic.Int32, len(primaries))
+				z := file.NewZone(origin, "stdin")
+				wantSerial, usable := uint32(100), -1
+				for i, mode := range primaries {
+					if usable < 0 && (mode == "same" || mode == "newer") {
+						usable = i
+						if mode == "newer" {
+							wantSerial = 101
+						}
+					}
+					server := dnstest.NewMultipleServer(func(w dns.ResponseWriter, req *dns.Msg) {
+						m := new(dns.Msg)
+						m.SetReply(req)
+						if req.Question[0].Qtype == dns.TypeAXFR {
+							if transfers.Add(1) == 1 || mode == "same" {
+								m.Answer = rrs
+							} else if mode == "newer" {
+								m.Answer = append([]dns.RR{newer}, rrs[1:len(rrs)-1]...)
+								m.Answer = append(m.Answer, newer)
+							} else {
+								m.Rcode = dns.RcodeRefused
+							}
+						} else {
+							checks[i].Add(1)
+							switch mode {
+							case "same":
+								m.Answer = []dns.RR{soa}
+							case "newer":
+								m.Answer = []dns.RR{newer}
+							case "closed":
+								w.Close()
+								return
+							case "refused":
+								m.Rcode = dns.RcodeRefused
+							case "servfail":
+								m.Rcode = dns.RcodeServerFailure
+							}
+						}
+						w.WriteMsg(m)
+					})
+					t.Cleanup(server.Close)
+					z.TransferFrom = append(z.TransferFrom, server.Addr)
+				}
+				s := newTestSecondary(origin, z, true)
+				// Keep the TCP servers outside the fake-clock bubble: their accept
+				// loops must not prevent the update timers from advancing.
+				synctest.Test(t, func(t *testing.T) {
+					shutdown := make(chan bool)
+					go s.transferAndUpdate(origin, z, nil, shutdown)
+					defer func() { close(shutdown); synctest.Wait() }()
+					synctest.Wait()
+					s.catalogMu.RLock()
+					accepted := s.catalogs[origin] != nil
+					s.catalogMu.RUnlock()
+					if !accepted {
+						t.Fatal("initial catalog transfer was not accepted")
+					}
+					// Past expiration, but before a second refresh. More than one
+					// SOA check here can only have come from the retry path.
+					time.Sleep(125 * time.Second)
+					synctest.Wait()
+					z.RLock()
+					expired, serial := z.Expired, z.SOA.Serial
+					z.RUnlock()
+					if expired != (usable < 0) || serial != wantSerial {
+						t.Errorf("catalog freshness: expired=%v serial=%d, want expired=%v serial=%d", expired, serial, usable < 0, wantSerial)
+					}
+					for i := range checks {
+						n := checks[i].Load()
+						if usable < 0 && n < 2 || usable >= 0 && ((i <= usable && n != 1) || (i > usable && n != 0)) {
+							t.Errorf("SOA attempts for primary %d: got %d, first usable primary %d", i, n, usable)
+						}
+					}
+					req := new(dns.Msg)
+					req.SetQuestion(origin, dns.TypeSOA)
+					rec := dnstest.NewRecorder(&plugintest.ResponseWriter{})
+					code, err := s.ServeDNS(context.Background(), rec, req)
+					wantCode := dns.RcodeSuccess
+					if usable < 0 {
+						wantCode = dns.RcodeServerFailure
+					}
+					if err != nil || code != wantCode {
+						t.Errorf("catalog query: code=%d err=%v, want code=%d", code, err, wantCode)
+					}
+					if usable >= 0 && (rec.Msg == nil || len(rec.Msg.Answer) != 1 || rec.Msg.Answer[0].(*dns.SOA).Serial != wantSerial) {
+						t.Errorf("catalog SOA answer: got %v, want serial %d", rec.Msg, wantSerial)
+					}
+					wantTransfers := int32(1)
+					if wantSerial == 101 {
+						wantTransfers += int32(usable + 1)
+					}
+					if n := transfers.Load(); n != wantTransfers {
+						t.Errorf("AXFR attempts: got %d, want %d", n, wantTransfers)
+					}
+				})
+			})
+		}
+	}
 }
