@@ -26,27 +26,36 @@ func setup(c *caddy.Controller) error {
 func parse(c *caddy.Controller) (int, error) {
 	// value from http://www.dnsflagday.net/2020/
 	const defaultBufSize = 1232
+	bufsize := -1
+	i := 0
 	for c.Next() {
+		if i > 0 {
+			return -1, plugin.ErrOnce
+		}
+		i++
 		args := c.RemainingArgs()
 		switch len(args) {
 		case 0:
 			// Nothing specified; use defaultBufSize
-			return defaultBufSize, nil
+			bufsize = defaultBufSize
 		case 1:
 			// Specified value is needed to verify
-			bufsize, err := strconv.Atoi(args[0])
+			size, err := strconv.Atoi(args[0])
 			if err != nil {
 				return -1, plugin.Error("bufsize", c.ArgErr())
 			}
 			// Follows RFC 6891
-			if bufsize < 512 || bufsize > 4096 {
+			if size < 512 || size > 4096 {
 				return -1, plugin.Error("bufsize", c.ArgErr())
 			}
-			return bufsize, nil
+			bufsize = size
 		default:
 			// Only 1 argument is acceptable
 			return -1, plugin.Error("bufsize", c.ArgErr())
 		}
 	}
-	return -1, plugin.Error("bufsize", c.ArgErr())
+	if bufsize < 0 {
+		return -1, plugin.Error("bufsize", c.ArgErr())
+	}
+	return bufsize, nil
 }

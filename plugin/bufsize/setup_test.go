@@ -20,6 +20,8 @@ func TestSetupBufsize(t *testing.T) {
 		{`bufsize "512 512"`, true, -1, "plugin"},
 		{`bufsize "511"`, true, -1, "plugin"},
 		{`bufsize "abc123"`, true, -1, "plugin"},
+		{"bufsize 4096\nbufsize 512", true, -1, "once per Server Block"},
+		{"bufsize\nbufsize 512", true, -1, "once per Server Block"},
 	}
 
 	for i, test := range tests {
