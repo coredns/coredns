@@ -21,11 +21,23 @@ for these clients automatically.
 siit {
     ipv6_prefix IPV6PREFIX
     eam IPV4 IPV6
+    exclude_aaaa
 }
 ~~~
 
 * `ipv6_prefix` specifies any local IPv6 prefix to use, instead of the well known prefix (64:ff9b::/96)
 * `eam` translates the ipv6 to the corresponding ipv4, it can be set multiple times
+* `exclude_aaaa` removes from AAAA answers the addresses that SIIT translates to IPv4: explicit `eam`
+  entries, and addresses inside `ipv6_prefix` that RFC 6052 translation can handle. Other addresses
+  in the prefix are kept, for example one whose reserved "u" octet (bits 64-71) is nonzero with a
+  prefix shorter than /96. This is useful when the translated addresses are only reachable through
+  the SIIT translator and must not be handed out to IPv6 clients. If no AAAA record is left, the
+  client receives a NODATA answer with the zone SOA in the authority section, with its TTL
+  limited to the SOA MINIMUM field (RFC 2308). RRSIG records covering
+  a modified AAAA RRset are removed as well. A and other query types are not affected, and siit's own
+  internal AAAA lookup is never filtered. When combined with *dns64*, dns64 does not re-synthesize
+  the excluded addresses, not even from a native A record; names without a mapped AAAA
+  are still synthesized.
 
 ## Examples
 
@@ -37,11 +49,24 @@ siit {
 }
 ~~~
 
+Hide the SIIT-mapped addresses from AAAA answers:
+
+~~~ corefile
+. {
+    siit {
+        ipv6_prefix 64:1337::/96
+        eam 192.0.2.1 2001:db8::1
+        exclude_aaaa
+    }
+}
+~~~
+
 ## Metrics
 
 If monitoring is enabled (via the _prometheus_ plugin) then the following metrics are exported:
 
 - `coredns_siit_requests_translated_total{server}` - counter of DNS requests translated
+- `coredns_siit_aaaa_records_excluded_total{server}` - counter of AAAA records removed because of `exclude_aaaa`
 
 The `server` label is explained in the _prometheus_ plugin documentation.
 

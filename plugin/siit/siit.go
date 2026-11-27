@@ -8,9 +8,11 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/dns64"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 	"github.com/coredns/coredns/plugin/pkg/response"
@@ -30,6 +32,12 @@ type SIIT struct {
 	IPv6Prefix *net.IPNet
 	Eam4       map[string]net.IP
 	Upstream   UpstreamInt
+
+	// ExcludeAAAA removes from AAAA answers every address that is part of the
+	// SIIT mapping (an explicit eam entry, or an address inside ipv6_prefix).
+	// Such addresses are only meaningful to the SIIT translator, so IPv6
+	// clients are not meant to connect to them directly.
+	ExcludeAAAA bool
 }
 
 // synthesisCtxKey marks a context as belonging to a translation plugin's own
@@ -67,6 +75,18 @@ func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
 	}
 
+	// Optionally hide SIIT-mapped addresses from AAAA answers.
+	if d.ExcludeAAAA && d.requestIsAAAA(&request.Request{W: w, Req: r}) {
+		return d.serveExcludeAAAA(ctx, w, r)
+	}
+
+	// dns64's nested A lookup (issued while it answers an AAAA query) must not
+	// be translated back from the AAAA records we hide, or dns64 would
+	// re-synthesize the very addresses exclude_aaaa removed.
+	if d.ExcludeAAAA && dns64.IsSynthesisLookup(ctx) {
+		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
+	}
+
 	// Don't proxy if we don't need to.
 	if !d.requestShouldIntercept(&request.Request{W: w, Req: r}) {
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
@@ -100,8 +120,170 @@ func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	return msg.Rcode, nil
 }
 
+// serveExcludeAAAA passes an AAAA request down the chain and strips the
+// answers that belong to the SIIT mapping from the response. If nothing is
+// left the client sees a NODATA response (NOERROR, no answer), which is how
+// an absent AAAA RRset is normally signalled.
+func (d *SIIT) serveExcludeAAAA(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	nw := nonwriter.New(w)
+	rc, err := plugin.NextOrFailure(d.Name(), d.Next, ctx, nw, r)
+	if nw.Msg == nil { // somehow we didn't get a response (or raw bytes were written)
+		return rc, err
+	}
+
+	out, removed := d.excludeMappedAAAA(nw.Msg)
+	if len(removed) > 0 {
+		excludedAAAACount.WithLabelValues(metrics.WithServer(ctx)).Add(float64(len(removed)))
+		// Tell dns64 (if it is serving this query) so that it does not
+		// synthesize the same addresses back from a native A record.
+		ex := dns64.ExcludedFromContext(ctx)
+		for _, ip := range removed {
+			ex.Add(ip)
+		}
+		if !hasType(out.Answer, dns.TypeAAAA) {
+			d.setNegativeAuthority(ctx, w, r, out) // out is our own shallow copy
+		}
+	}
+	w.WriteMsg(out)
+	return rc, err
+}
+
+func hasType(rrs []dns.RR, t uint16) bool {
+	for _, rr := range rrs {
+		if rr.Header().Rrtype == t {
+			return true
+		}
+	}
+	return false
+}
+
+// setNegativeAuthority makes out a proper NODATA response (RFC 2308): the
+// authority section carries the zone SOA instead of the NS set of a positive
+// authoritative answer, which would otherwise read as a referral. The SOA TTL is
+// min(SOA TTL, SOA MINIMUM) (RFC 2308 section 3). An SOA already present is
+// used; otherwise it is looked up for the owner name the answer ends at. If none
+// can be found the authority section is left without SOA.
+func (d *SIIT) setNegativeAuthority(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, out *dns.Msg) {
+	var soa *dns.SOA
+	rest := make([]dns.RR, 0, len(out.Ns))
+	for _, rr := range out.Ns {
+		switch v := rr.(type) {
+		case *dns.SOA:
+			if soa == nil {
+				soa = v
+			}
+		case *dns.NS: // dropped: would read as a delegation
+		default:
+			rest = append(rest, rr)
+		}
+	}
+	if soa == nil {
+		soa = d.lookupSOA(ctx, w, r, out)
+	}
+
+	out.Ns = rest
+	if soa != nil {
+		neg := dns.Copy(soa).(*dns.SOA) // never alter the upstream's (possibly cached) record
+		neg.Hdr.Ttl = min(neg.Hdr.Ttl, neg.Minttl)
+		out.Ns = append([]dns.RR{neg}, rest...)
+	}
+}
+
+// lookupSOA finds the SOA that applies to the name at which out's answer ends.
+// For an alias that is the end of the CNAME chain, not the queried name, whose
+// own SOA query would return the CNAME (RFC 2308 section 2.2).
+func (d *SIIT) lookupSOA(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, out *dns.Msg) *dns.SOA {
+	if d.Upstream == nil || len(r.Question) == 0 {
+		return nil
+	}
+	name := terminalName(r.Question[0].Name, out.Answer)
+	resp, err := d.Upstream.Lookup(markSynthesisLookup(ctx), request.Request{W: w, Req: r}, name, dns.TypeSOA)
+	if err != nil || resp == nil {
+		return nil
+	}
+	for _, sec := range [][]dns.RR{resp.Answer, resp.Ns} { // apex: Answer, elsewhere: NODATA authority
+		for _, rr := range sec {
+			if soa, ok := rr.(*dns.SOA); ok {
+				return soa
+			}
+		}
+	}
+	return nil
+}
+
+// terminalName follows the CNAME chain in answer, starting at name, and returns
+// the name it ends at.
+func terminalName(name string, answer []dns.RR) string {
+	for range answer { // a chain cannot be longer than the answer; also stops loops
+		next := ""
+		for _, rr := range answer {
+			if c, ok := rr.(*dns.CNAME); ok && strings.EqualFold(c.Hdr.Name, name) {
+				next = c.Target
+				break
+			}
+		}
+		if next == "" {
+			break
+		}
+		name = next
+	}
+	return name
+}
+
+// excludeMappedAAAA returns resp without the AAAA records whose address is
+// part of the SIIT mapping, together with the addresses removed. When nothing
+// is removed, resp itself is returned. resp is never modified.
+//
+// RRSIGs covering the AAAA RRset of an owner name that was modified are dropped
+// too: they can no longer validate, and keeping them would only confuse
+// validating resolvers. The AD bit is cleared for the same reason.
+func (d *SIIT) excludeMappedAAAA(resp *dns.Msg) (*dns.Msg, []net.IP) {
+	var removed []net.IP
+	var touched map[string]struct{}
+	kept := make([]dns.RR, 0, len(resp.Answer))
+
+	for _, rr := range resp.Answer {
+		if aaaa, ok := rr.(*dns.AAAA); ok {
+			if _, mapped := to4(d.Eam4, d.IPv6Prefix, aaaa.AAAA); mapped {
+				if touched == nil {
+					touched = make(map[string]struct{})
+				}
+				touched[strings.ToLower(aaaa.Hdr.Name)] = struct{}{}
+				removed = append(removed, aaaa.AAAA)
+				continue
+			}
+		}
+		kept = append(kept, rr)
+	}
+
+	if len(removed) == 0 {
+		return resp, nil
+	}
+
+	answer := kept[:0]
+	for _, rr := range kept {
+		if sig, ok := rr.(*dns.RRSIG); ok && sig.TypeCovered == dns.TypeAAAA {
+			if _, ok := touched[strings.ToLower(sig.Hdr.Name)]; ok {
+				continue
+			}
+		}
+		answer = append(answer, rr)
+	}
+
+	out := *resp // shallow copy; only Answer is replaced
+	out.Answer = answer
+	out.AuthenticatedData = false
+	return &out, removed
+}
+
 // Name implements the Handler interface.
 func (d *SIIT) Name() string { return "siit" }
+
+// requestIsAAAA returns true if the request is an AAAA query of class INET,
+// i.e. one whose answer may have to be filtered when ExcludeAAAA is set.
+func (d *SIIT) requestIsAAAA(req *request.Request) bool {
+	return req.QType() == dns.TypeAAAA && req.QClass() == dns.ClassINET
+}
 
 // requestShouldIntercept returns true if the request represents one that is eligible
 // for SIIT rewriting:
