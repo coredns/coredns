@@ -17,11 +17,9 @@ var log = clog.NewWithPlugin("hosts")
 
 func init() { plugin.Register("hosts", setup) }
 
-func periodicHostsUpdate(h *Hosts) chan bool {
-	parseChan := make(chan bool)
-
+func periodicHostsUpdate(h *Hosts, stop <-chan struct{}) {
 	if h.options.reload == 0 {
-		return parseChan
+		return
 	}
 
 	go func() {
@@ -29,14 +27,13 @@ func periodicHostsUpdate(h *Hosts) chan bool {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-parseChan:
+			case <-stop:
 				return
 			case <-ticker.C:
 				h.readHosts()
 			}
 		}
 	}()
-	return parseChan
 }
 
 func setup(c *caddy.Controller) error {
@@ -45,15 +42,15 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("hosts", err)
 	}
 
-	parseChan := periodicHostsUpdate(&h)
-
+	stop := make(chan struct{})
 	c.OnStartup(func() error {
 		h.readHosts()
+		periodicHostsUpdate(&h, stop)
 		return nil
 	})
 
 	c.OnShutdown(func() error {
-		close(parseChan)
+		close(stop)
 		return nil
 	})
 

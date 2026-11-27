@@ -124,6 +124,16 @@ type Hostsfile struct {
 func (h *Hostsfile) readHosts() {
 	file, err := os.Open(h.path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			h.Lock()
+			if !h.mtime.IsZero() {
+				h.hmap = &Map{}
+				h.mtime = time.Time{}
+				h.size = 0
+				hostsEntries.WithLabelValues(h.path).Set(float64(h.inline.Len()))
+			}
+			h.Unlock()
+		}
 		// We already log a warning if the file doesn't exist or can't be opened on setup. No need to return the error here.
 		return
 	}
