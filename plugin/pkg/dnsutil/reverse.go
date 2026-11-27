@@ -11,20 +11,13 @@ import (
 // 54.119.58.176.in-addr.arpa. becomes 176.58.119.54. If the conversion
 // fails the empty string is returned.
 func ExtractAddressFromReverse(reverseName string) string {
-	f := reverse
-	var search string
-	switch {
-	case strings.HasSuffix(reverseName, IP4arpa):
-		search = strings.TrimSuffix(reverseName, IP4arpa)
-	case strings.HasSuffix(reverseName, IP6arpa):
-		search = strings.TrimSuffix(reverseName, IP6arpa)
-		f = reverse6
-	default:
-		return ""
+	if s, ok := strings.CutSuffix(reverseName, IP4arpa); ok {
+		return reverse(strings.Split(s, "."))
 	}
-
-	// Reverse the segments and then combine them.
-	return f(strings.Split(search, "."))
+	if s, ok := strings.CutSuffix(reverseName, IP6arpa); ok {
+		return reverse6(s)
+	}
+	return ""
 }
 
 // IsReverse returns 0 is name is not in a reverse zone. Anything > 0 indicates
@@ -52,40 +45,41 @@ func reverse(slice []string) string {
 	return ip.String()
 }
 
-// reverse6 reverse the segments and combine them according to RFC3596:
+// reverse6 turns the labels of a reverse IPv6 name into an address, as in RFC 3596:
 // b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2
-// is reversed to 2001:db8::567:89ab
-func reverse6(slice []string) string {
-	// A reverse IPv6 name carries exactly 32 single-hex-digit labels. Anything
-	// else must be rejected: the grouping below reads len(slice)/4 groups, so a
-	// longer name silently loses its tail labels, and a shorter or multi-character
-	// label shifts the nibbles into a group that net.ParseIP still accepts. Both
-	// answer with the address of a different host.
-	if len(slice) != 32 {
+// becomes 2001:db8::567:89ab.
+func reverse6(s string) string {
+	// 32 one-digit labels, least significant first:
+	// digits at even offsets, dots at odd ones.
+	if len(s) != 63 {
 		return ""
 	}
-	for _, nibble := range slice {
-		if len(nibble) != 1 || !isHexDigit(nibble[0]) {
+	for i := range 31 {
+		if s[2*i+1] != '.' {
 			return ""
 		}
 	}
-	for i := range len(slice) / 2 {
-		j := len(slice) - i - 1
-		slice[i], slice[j] = slice[j], slice[i]
+	var ip [16]byte
+	for i := range ip {
+		lo, hi := unhex(s[4*i]), unhex(s[4*i+2])
+		if lo|hi > 0xf {
+			return ""
+		}
+		ip[15-i] = hi<<4 | lo
 	}
-	slice6 := make([]string, 0, len(slice)/4)
-	for i := range len(slice) / 4 {
-		slice6 = append(slice6, strings.Join(slice[i*4:i*4+4], ""))
-	}
-	ip := net.ParseIP(strings.Join(slice6, ":")).To16()
-	if ip == nil {
-		return ""
-	}
-	return ip.String()
+	return net.IP(ip[:]).String()
 }
 
-func isHexDigit(c byte) bool {
-	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+// unhex returns the value of the hex digit c, or 0xff if c is not one.
+func unhex(c byte) byte {
+	if d := c - '0'; d < 10 {
+		return d
+	}
+	// c|0x20 maps 'A'-'F' to 'a'-'f', and no other byte into that range.
+	if d := (c | 0x20) - 'a'; d < 6 {
+		return d + 10
+	}
+	return 0xff
 }
 
 const (
