@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dns64"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -145,8 +146,8 @@ func TestExcludeAAAADoesNotMutateInput(t *testing.T) {
 	d := newExcludeSIIT(reply, true)
 
 	out, removed := d.excludeMappedAAAA(reply)
-	if removed != 1 || len(out.Answer) != 1 {
-		t.Fatalf("expected 1 record removed and 1 left, got removed=%d left=%d", removed, len(out.Answer))
+	if len(removed) != 1 || len(out.Answer) != 1 {
+		t.Fatalf("expected 1 record removed and 1 left, got removed=%d left=%d", len(removed), len(out.Answer))
 	}
 	if len(reply.Answer) != 2 {
 		t.Errorf("input message was modified: %v", reply.Answer)
@@ -332,4 +333,212 @@ func TestExcludeAAAAWithDNS64SamePrefix(t *testing.T) {
 	if len(rec.Msg.Answer) != 1 {
 		t.Fatalf("expected the A record, got %v", rec.Msg.Answer)
 	}
+}
+
+const zoneSOA = "example.org. 3600 IN SOA ns1.example.org. hostmaster.example.org. 1 7200 3600 1209600 60"
+
+// zoneBackend mimics a file-backed zone: positive answers carry the NS set in
+// authority, negative ones (and SOA queries below the apex) carry the SOA.
+type zoneBackend struct{ aaaa, a []dns.RR }
+
+func (zoneBackend) Name() string { return "zone" }
+func (z zoneBackend) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Authoritative = true
+	switch r.Question[0].Qtype {
+	case dns.TypeAAAA:
+		m.Answer = z.aaaa
+	case dns.TypeA:
+		m.Answer = z.a
+	}
+	if len(m.Answer) > 0 {
+		m.Ns = []dns.RR{test.NS("example.org. 3600 IN NS ns1.example.org.")}
+	} else {
+		m.Ns = []dns.RR{test.SOA(zoneSOA)}
+	}
+	w.WriteMsg(m)
+	return dns.RcodeSuccess, nil
+}
+
+func dns64Chain(t *testing.T, dns64Prefix string, backend plugin.Handler) *dns64.DNS64 {
+	t.Helper()
+	_, siitPrefix, _ := net.ParseCIDR("64:ff9b::/96")
+	_, d64Prefix, _ := net.ParseCIDR(dns64Prefix)
+	calls := 0
+	s := &SIIT{IPv6Prefix: siitPrefix, ExcludeAAAA: true, Next: backend}
+	d := &dns64.DNS64{Prefix: d64Prefix, Next: s}
+	up := reentrantUpstream{t: t, top: d, calls: &calls, maxOK: 6}
+	s.Upstream, d.Upstream = up, up
+	return d
+}
+
+func aaaaAnswers(m *dns.Msg) []string {
+	var out []string
+	for _, rr := range m.Answer {
+		if a, ok := rr.(*dns.AAAA); ok {
+			out = append(out, a.AAAA.String())
+		}
+	}
+	return out
+}
+
+// A name with a native A record and the matching mapped AAAA: dns64 would
+// derive the excluded address from the A record. It must not come back.
+func TestExcludeAAAAWithDNS64NativeA(t *testing.T) {
+	b := zoneBackend{
+		aaaa: []dns.RR{test.AAAA("example.org. 60 IN AAAA 64:ff9b::192.0.2.42")},
+		a:    []dns.RR{test.A("example.org. 60 IN A 192.0.2.42")},
+	}
+	d := dns64Chain(t, "64:ff9b::/96", b)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter6{})
+	if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery("example.org.")); err != nil {
+		t.Fatal(err)
+	}
+	if got := aaaaAnswers(rec.Msg); len(got) != 0 {
+		t.Fatalf("excluded address came back through dns64: %v", got)
+	}
+	if len(rec.Msg.Ns) != 1 {
+		t.Fatalf("expected only the SOA in authority, got %v", rec.Msg.Ns)
+	}
+	soa, ok := rec.Msg.Ns[0].(*dns.SOA)
+	if !ok || soa.Hdr.Ttl != 60 {
+		t.Fatalf("expected SOA with negative TTL 60, got %v", rec.Msg.Ns[0])
+	}
+}
+
+// A name with only an A record still gets normal dns64 synthesis.
+func TestExcludeAAAAWithDNS64AOnly(t *testing.T) {
+	b := zoneBackend{a: []dns.RR{test.A("example.org. 60 IN A 192.0.2.42")}}
+	d := dns64Chain(t, "64:ff9b::/96", b)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter6{})
+	if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery("example.org.")); err != nil {
+		t.Fatal(err)
+	}
+	got := aaaaAnswers(rec.Msg)
+	if len(got) != 1 || got[0] != "64:ff9b::c000:22a" {
+		t.Fatalf("expected dns64 synthesis for an A-only name, got %v", got)
+	}
+}
+
+// With a distinct dns64 prefix the synthesized address differs from the
+// excluded one, so it is kept.
+func TestExcludeAAAAWithDNS64DifferentPrefix(t *testing.T) {
+	b := zoneBackend{
+		aaaa: []dns.RR{test.AAAA("example.org. 60 IN AAAA 64:ff9b::192.0.2.42")},
+		a:    []dns.RR{test.A("example.org. 60 IN A 192.0.2.42")},
+	}
+	d := dns64Chain(t, "64:dead::/96", b)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter6{})
+	if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery("example.org.")); err != nil {
+		t.Fatal(err)
+	}
+	got := aaaaAnswers(rec.Msg)
+	if len(got) != 1 || got[0] != "64:dead::c000:22a" {
+		t.Fatalf("expected the address under the dns64 prefix, got %v", got)
+	}
+}
+
+// upstream recording which name the SOA was asked for.
+type namedSOAUpstream struct {
+	soa  dns.RR
+	name *string
+}
+
+func (u namedSOAUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+	if typ != dns.TypeSOA {
+		return nil, fmt.Errorf("unexpected lookup type %d", typ)
+	}
+	*u.name = name
+	m := new(dns.Msg)
+	m.SetQuestion(name, typ)
+	if name == "mapped.example.org." { // the alias itself would answer with its CNAME
+		m.Ns = []dns.RR{u.soa}
+	} else {
+		m.Answer = []dns.RR{test.CNAME("alias.example.org. 60 IN CNAME mapped.example.org.")}
+	}
+	return m, nil
+}
+
+// The SOA of a negative answer behind a CNAME comes from the end of the chain.
+func TestExcludeAAAANegativeAuthorityCNAME(t *testing.T) {
+	const alias = "alias.example.org."
+	reply := aaaaReply(alias,
+		test.CNAME(alias+" 60 IN CNAME mapped.example.org."),
+		test.AAAA("mapped.example.org. 60 IN AAAA 2001:db8::1"),
+	)
+	reply.Ns = []dns.RR{test.NS("example.org. 3600 IN NS ns1.example.org.")}
+
+	var asked string
+	d := newExcludeSIIT(reply, true)
+	d.Upstream = namedSOAUpstream{test.SOA(zoneSOA), &asked}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery(alias)); err != nil {
+		t.Fatal(err)
+	}
+	if asked != "mapped.example.org." {
+		t.Errorf("SOA must be looked up for the CNAME target, asked for %q", asked)
+	}
+	if len(rec.Msg.Answer) != 1 || rec.Msg.Answer[0].Header().Rrtype != dns.TypeCNAME {
+		t.Errorf("expected the CNAME to be kept, got %v", rec.Msg.Answer)
+	}
+	if len(rec.Msg.Ns) != 1 || rec.Msg.Ns[0].Header().Rrtype != dns.TypeSOA {
+		t.Errorf("expected the zone SOA in authority, got %v", rec.Msg.Ns)
+	}
+}
+
+func TestTerminalNameLoop(t *testing.T) {
+	loop := []dns.RR{
+		test.CNAME("a.example.org. 60 IN CNAME b.example.org."),
+		test.CNAME("b.example.org. 60 IN CNAME a.example.org."),
+	}
+	terminalName("a.example.org.", loop) // must terminate
+}
+
+// Negative answers advertise min(SOA TTL, SOA MINIMUM) (RFC 2308 section 3),
+// whether the SOA was looked up or already in the response, and the record the
+// upstream handed out is not altered.
+func TestExcludeAAAANegativeSOATTL(t *testing.T) {
+	const name = "example.org."
+
+	t.Run("looked up", func(t *testing.T) {
+		upstreamSOA := test.SOA(zoneSOA)
+		reply := aaaaReply(name, test.AAAA(name+" 60 IN AAAA 2001:db8::1"))
+		reply.Ns = []dns.RR{test.NS("example.org. 3600 IN NS ns1.example.org.")}
+		d := newExcludeSIIT(reply, true)
+		d.Upstream = soaUpstream{upstreamSOA}
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+		if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery(name)); err != nil {
+			t.Fatal(err)
+		}
+		if ttl := rec.Msg.Ns[0].Header().Ttl; ttl != 60 {
+			t.Errorf("expected negative SOA TTL 60, got %d", ttl)
+		}
+		if ttl := upstreamSOA.Header().Ttl; ttl != 3600 {
+			t.Errorf("upstream SOA must keep TTL 3600, got %d", ttl)
+		}
+	})
+
+	t.Run("already in response", func(t *testing.T) {
+		inResp := test.SOA(zoneSOA)
+		reply := aaaaReply(name, test.AAAA(name+" 60 IN AAAA 2001:db8::1"))
+		reply.Ns = []dns.RR{inResp}
+		d := newExcludeSIIT(reply, true)
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+		if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery(name)); err != nil {
+			t.Fatal(err)
+		}
+		if ttl := rec.Msg.Ns[0].Header().Ttl; ttl != 60 {
+			t.Errorf("expected negative SOA TTL 60, got %d", ttl)
+		}
+		if ttl := inResp.Header().Ttl; ttl != 3600 {
+			t.Errorf("the original response must not be altered, TTL is now %d", ttl)
+		}
+	})
 }

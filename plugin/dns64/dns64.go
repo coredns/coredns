@@ -39,6 +39,69 @@ func IsSynthesisLookup(ctx context.Context) bool {
 	return v
 }
 
+type excludedCtxKey struct{}
+
+// Excluded collects AAAA addresses that a plugin further down the chain (siit)
+// removed from the response to an AAAA query. dns64 never synthesizes these
+// addresses, even when it would derive them from a native A record.
+type Excluded struct{ addrs []net.IP }
+
+// Add records ip as excluded. It is a no-op on a nil receiver.
+func (e *Excluded) Add(ip net.IP) {
+	if e != nil {
+		e.addrs = append(e.addrs, ip)
+	}
+}
+
+func (e *Excluded) contains(ip net.IP) bool {
+	if e == nil {
+		return false
+	}
+	for _, a := range e.addrs {
+		if a.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// ExcludedFromContext returns the collector dns64 installed for the AAAA query
+// being served, or nil when dns64 is not handling this query.
+func ExcludedFromContext(ctx context.Context) *Excluded {
+	e, _ := ctx.Value(excludedCtxKey{}).(*Excluded)
+	return e
+}
+
+// dropExcluded removes from msg the synthesized AAAA records that are in ex. If
+// that leaves no AAAA, the response is a negative one and takes its authority
+// section (the SOA) from the response to the original AAAA query, not from the
+// positive A answer, whose NS set would read as a referral.
+func dropExcluded(msg, orig *dns.Msg, ex *Excluded) {
+	if len(ex.addrs) == 0 {
+		return
+	}
+	kept := msg.Answer[:0]
+	removed, aaaa := 0, 0
+	for _, rr := range msg.Answer {
+		if a, ok := rr.(*dns.AAAA); ok {
+			if ex.contains(a.AAAA) {
+				removed++
+				continue
+			}
+			aaaa++
+		}
+		kept = append(kept, rr)
+	}
+	if removed == 0 {
+		return
+	}
+	msg.Answer = kept
+	msg.AuthenticatedData = false
+	if aaaa == 0 {
+		msg.Ns = orig.Ns
+	}
+}
+
 // DNS64 performs DNS64.
 type DNS64 struct {
 	Next         plugin.Handler
@@ -54,6 +117,10 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if !d.requestShouldIntercept(&request.Request{W: w, Req: r}) {
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
 	}
+
+	// Plugins below us (siit) report here the AAAA addresses they removed.
+	ex := &Excluded{}
+	ctx = context.WithValue(ctx, excludedCtxKey{}, ex)
 
 	// Pass the request to the next plugin in the chain, but intercept the response.
 	nw := nonwriter.New(w)
@@ -75,6 +142,8 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// to CoreDNS upstream
 		return dns.RcodeServerFailure, err
 	}
+
+	dropExcluded(msg, nw.Msg, ex)
 
 	requestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	w.WriteMsg(msg)

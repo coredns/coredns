@@ -32,10 +32,12 @@ siit {
   in the prefix are kept, for example one whose reserved "u" octet (bits 64-71) is nonzero with a
   prefix shorter than /96. This is useful when the translated addresses are only reachable through
   the SIIT translator and must not be handed out to IPv6 clients. If no AAAA record is left, the
-  client receives a NODATA answer with the zone SOA in the authority section. RRSIG records covering
+  client receives a NODATA answer with the zone SOA in the authority section, with its TTL
+  limited to the SOA MINIMUM field (RFC 2308). RRSIG records covering
   a modified AAAA RRset are removed as well. A and other query types are not affected, and siit's own
   internal AAAA lookup is never filtered. When combined with *dns64*, dns64 does not re-synthesize
-  the excluded addresses.
+  the excluded addresses, not even from a native A record; names without a mapped AAAA
+  are still synthesized.
 
 ## Examples
 

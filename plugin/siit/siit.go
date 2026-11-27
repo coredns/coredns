@@ -132,8 +132,14 @@ func (d *SIIT) serveExcludeAAAA(ctx context.Context, w dns.ResponseWriter, r *dn
 	}
 
 	out, removed := d.excludeMappedAAAA(nw.Msg)
-	if removed > 0 {
-		excludedAAAACount.WithLabelValues(metrics.WithServer(ctx)).Add(float64(removed))
+	if len(removed) > 0 {
+		excludedAAAACount.WithLabelValues(metrics.WithServer(ctx)).Add(float64(len(removed)))
+		// Tell dns64 (if it is serving this query) so that it does not
+		// synthesize the same addresses back from a native A record.
+		ex := dns64.ExcludedFromContext(ctx)
+		for _, ip := range removed {
+			ex.Add(ip)
+		}
 		if !hasType(out.Answer, dns.TypeAAAA) {
 			d.setNegativeAuthority(ctx, w, r, out) // out is our own shallow copy
 		}
@@ -151,42 +157,88 @@ func hasType(rrs []dns.RR, t uint16) bool {
 	return false
 }
 
-// setNegativeAuthority makes out a proper NODATA response: the authority
-// section carries the zone SOA (RFC 2308) instead of the NS set that comes with
-// a positive authoritative answer, which would otherwise look like a referral.
-// An SOA already present is kept; otherwise it is looked up. If none can be
-// found the authority section is left empty.
+// setNegativeAuthority makes out a proper NODATA response (RFC 2308): the
+// authority section carries the zone SOA instead of the NS set of a positive
+// authoritative answer, which would otherwise read as a referral. The SOA TTL is
+// min(SOA TTL, SOA MINIMUM) (RFC 2308 section 3). An SOA already present is
+// used; otherwise it is looked up for the owner name the answer ends at. If none
+// can be found the authority section is left without SOA.
 func (d *SIIT) setNegativeAuthority(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, out *dns.Msg) {
-	if hasType(out.Ns, dns.TypeSOA) {
-		return
-	}
-	out.Ns = nil
-	if d.Upstream == nil || len(r.Question) == 0 {
-		return
-	}
-	resp, err := d.Upstream.Lookup(markSynthesisLookup(ctx), request.Request{W: w, Req: r}, r.Question[0].Name, dns.TypeSOA)
-	if err != nil || resp == nil {
-		return
-	}
-	for _, sec := range [][]dns.RR{resp.Answer, resp.Ns} { // apex: Answer, elsewhere: NODATA authority
-		for _, rr := range sec {
-			if rr.Header().Rrtype == dns.TypeSOA {
-				out.Ns = []dns.RR{rr}
-				return
+	var soa *dns.SOA
+	rest := make([]dns.RR, 0, len(out.Ns))
+	for _, rr := range out.Ns {
+		switch v := rr.(type) {
+		case *dns.SOA:
+			if soa == nil {
+				soa = v
 			}
+		case *dns.NS: // dropped: would read as a delegation
+		default:
+			rest = append(rest, rr)
 		}
+	}
+	if soa == nil {
+		soa = d.lookupSOA(ctx, w, r, out)
+	}
+
+	out.Ns = rest
+	if soa != nil {
+		neg := dns.Copy(soa).(*dns.SOA) // never alter the upstream's (possibly cached) record
+		neg.Hdr.Ttl = min(neg.Hdr.Ttl, neg.Minttl)
+		out.Ns = append([]dns.RR{neg}, rest...)
 	}
 }
 
+// lookupSOA finds the SOA that applies to the name at which out's answer ends.
+// For an alias that is the end of the CNAME chain, not the queried name, whose
+// own SOA query would return the CNAME (RFC 2308 section 2.2).
+func (d *SIIT) lookupSOA(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, out *dns.Msg) *dns.SOA {
+	if d.Upstream == nil || len(r.Question) == 0 {
+		return nil
+	}
+	name := terminalName(r.Question[0].Name, out.Answer)
+	resp, err := d.Upstream.Lookup(markSynthesisLookup(ctx), request.Request{W: w, Req: r}, name, dns.TypeSOA)
+	if err != nil || resp == nil {
+		return nil
+	}
+	for _, sec := range [][]dns.RR{resp.Answer, resp.Ns} { // apex: Answer, elsewhere: NODATA authority
+		for _, rr := range sec {
+			if soa, ok := rr.(*dns.SOA); ok {
+				return soa
+			}
+		}
+	}
+	return nil
+}
+
+// terminalName follows the CNAME chain in answer, starting at name, and returns
+// the name it ends at.
+func terminalName(name string, answer []dns.RR) string {
+	for range answer { // a chain cannot be longer than the answer; also stops loops
+		next := ""
+		for _, rr := range answer {
+			if c, ok := rr.(*dns.CNAME); ok && strings.EqualFold(c.Hdr.Name, name) {
+				next = c.Target
+				break
+			}
+		}
+		if next == "" {
+			break
+		}
+		name = next
+	}
+	return name
+}
+
 // excludeMappedAAAA returns resp without the AAAA records whose address is
-// part of the SIIT mapping, together with the number of records removed. When
-// nothing is removed, resp itself is returned. resp is never modified.
+// part of the SIIT mapping, together with the addresses removed. When nothing
+// is removed, resp itself is returned. resp is never modified.
 //
 // RRSIGs covering the AAAA RRset of an owner name that was modified are dropped
 // too: they can no longer validate, and keeping them would only confuse
 // validating resolvers. The AD bit is cleared for the same reason.
-func (d *SIIT) excludeMappedAAAA(resp *dns.Msg) (*dns.Msg, int) {
-	removed := 0
+func (d *SIIT) excludeMappedAAAA(resp *dns.Msg) (*dns.Msg, []net.IP) {
+	var removed []net.IP
 	var touched map[string]struct{}
 	kept := make([]dns.RR, 0, len(resp.Answer))
 
@@ -197,15 +249,15 @@ func (d *SIIT) excludeMappedAAAA(resp *dns.Msg) (*dns.Msg, int) {
 					touched = make(map[string]struct{})
 				}
 				touched[strings.ToLower(aaaa.Hdr.Name)] = struct{}{}
-				removed++
+				removed = append(removed, aaaa.AAAA)
 				continue
 			}
 		}
 		kept = append(kept, rr)
 	}
 
-	if removed == 0 {
-		return resp, 0
+	if len(removed) == 0 {
+		return resp, nil
 	}
 
 	answer := kept[:0]
