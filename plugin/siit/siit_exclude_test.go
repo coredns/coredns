@@ -496,7 +496,10 @@ func TestTerminalNameLoop(t *testing.T) {
 		test.CNAME("a.example.org. 60 IN CNAME b.example.org."),
 		test.CNAME("b.example.org. 60 IN CNAME a.example.org."),
 	}
-	terminalName("a.example.org.", loop) // must terminate
+	// must terminate, and end at a name that is part of the loop
+	if got := terminalName("a.example.org.", loop); got != "a.example.org." && got != "b.example.org." {
+		t.Errorf("unexpected terminal name %q for a CNAME loop", got)
+	}
 }
 
 // Negative answers advertise min(SOA TTL, SOA MINIMUM) (RFC 2308 section 3),
