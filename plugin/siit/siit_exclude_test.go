@@ -2,12 +2,15 @@ package siit
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/dns64"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -235,5 +238,98 @@ func TestSetupExcludeAAAA(t *testing.T) {
 		if err == nil && s.ExcludeAAAA != tc.want {
 			t.Errorf("test %d: expected ExcludeAAAA=%v, got %v", i, tc.want, s.ExcludeAAAA)
 		}
+	}
+}
+
+type soaUpstream struct{ soa dns.RR }
+
+func (u soaUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
+	if typ != dns.TypeSOA {
+		return nil, fmt.Errorf("unexpected lookup type %d", typ)
+	}
+	m := new(dns.Msg)
+	m.SetQuestion(name, typ)
+	m.Ns = []dns.RR{u.soa} // what a non-apex NODATA looks like
+	return m, nil
+}
+
+// A positive authoritative answer carries NS (not SOA) in authority. Once all
+// AAAA are removed, the response must be a proper NODATA with the SOA, not
+// something that reads as a delegation (RFC 2308).
+func TestExcludeAAAANegativeAuthority(t *testing.T) {
+	const name = "www.example.com."
+	reply := aaaaReply(name, test.AAAA(name+" 60 IN AAAA 2001:db8::1"))
+	reply.Authoritative = true
+	reply.Ns = []dns.RR{test.NS("example.com. 3600 IN NS ns1.example.com.")} // positive file response
+
+	d := newExcludeSIIT(reply, true)
+	d.Upstream = soaUpstream{test.SOA("example.com. 70 IN SOA ns1 hostmaster 1 1 1 1 1")}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	if _, err := d.ServeDNS(context.Background(), rec, aaaaQuery(name)); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.Msg.Answer) != 0 {
+		t.Fatalf("expected NODATA, got %v", rec.Msg.Answer)
+	}
+	if len(rec.Msg.Ns) != 1 || rec.Msg.Ns[0].Header().Rrtype != dns.TypeSOA {
+		t.Fatalf("expected only an SOA in authority, got %v", rec.Msg.Ns)
+	}
+}
+
+// The siit plugin can end the chain (README example), so Next may be nil.
+func TestExcludeAAAANilNext(t *testing.T) {
+	d := &SIIT{ExcludeAAAA: true}
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	rc, err := d.ServeDNS(context.Background(), rec, aaaaQuery("example.com."))
+	if err == nil || rc != dns.RcodeServerFailure {
+		t.Fatalf("expected the missing-backend error, got rc=%d err=%v", rc, err)
+	}
+}
+
+// aaaaOnlyBackend answers AAAA with a SIIT-mapped address, everything else NODATA.
+type aaaaOnlyBackend struct{}
+
+func (aaaaOnlyBackend) Name() string { return "aaaaonly" }
+func (aaaaOnlyBackend) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	if r.Question[0].Qtype == dns.TypeAAAA {
+		m.Answer = []dns.RR{test.AAAA("example.org. 60 IN AAAA 64:ff9b::192.0.2.1")}
+	}
+	w.WriteMsg(m)
+	return dns.RcodeSuccess, nil
+}
+
+// With dns64 and siit sharing the default prefix, the excluded address must not
+// come back through dns64's synthesis from the translated A record.
+func TestExcludeAAAAWithDNS64SamePrefix(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+	calls := 0
+	s := &SIIT{IPv6Prefix: prefix, ExcludeAAAA: true, Next: aaaaOnlyBackend{}}
+	d := &dns64.DNS64{Prefix: prefix, Next: s}
+	up := reentrantUpstream{t: t, top: d, calls: &calls, maxOK: 4}
+	s.Upstream, d.Upstream = up, up
+
+	q := new(dns.Msg)
+	q.SetQuestion("example.org.", dns.TypeAAAA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter6{})
+	if _, err := d.ServeDNS(context.Background(), rec, q); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.Msg.Answer) != 0 {
+		t.Fatalf("mapped AAAA leaked through dns64: %v", rec.Msg.Answer)
+	}
+
+	// A direct A query still gets the synthesized A record.
+	s.Upstream = &fakeUpstream{t, "example.org.", aaaaReply("example.org.", test.AAAA("example.org. 60 IN AAAA 64:ff9b::192.0.2.1"))}
+	qa := new(dns.Msg)
+	qa.SetQuestion("example.org.", dns.TypeA)
+	rec = dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	if _, err := s.ServeDNS(context.Background(), rec, qa); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.Msg.Answer) != 1 {
+		t.Fatalf("expected the A record, got %v", rec.Msg.Answer)
 	}
 }

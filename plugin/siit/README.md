@@ -27,12 +27,15 @@ siit {
 
 * `ipv6_prefix` specifies any local IPv6 prefix to use, instead of the well known prefix (64:ff9b::/96)
 * `eam` translates the ipv6 to the corresponding ipv4, it can be set multiple times
-* `exclude_aaaa` removes from AAAA answers every address that is part of the SIIT mapping, i.e. an
-  address configured with `eam` or located inside `ipv6_prefix`. This is useful when those addresses
-  are only reachable through the SIIT translator and must not be handed out to IPv6 clients.
-  If no AAAA record is left, the client receives an empty (NODATA) answer. RRSIG records covering a
-  modified AAAA RRset are removed as well. A and other query types are not affected, and the
-  internal AAAA lookup used to synthesize A records is never filtered.
+* `exclude_aaaa` removes from AAAA answers the addresses that SIIT translates to IPv4: explicit `eam`
+  entries, and addresses inside `ipv6_prefix` that RFC 6052 translation can handle. Other addresses
+  in the prefix are kept, for example one whose reserved "u" octet (bits 64-71) is nonzero with a
+  prefix shorter than /96. This is useful when the translated addresses are only reachable through
+  the SIIT translator and must not be handed out to IPv6 clients. If no AAAA record is left, the
+  client receives a NODATA answer with the zone SOA in the authority section. RRSIG records covering
+  a modified AAAA RRset are removed as well. A and other query types are not affected, and siit's own
+  internal AAAA lookup is never filtered. When combined with *dns64*, dns64 does not re-synthesize
+  the excluded addresses.
 
 ## Examples
 

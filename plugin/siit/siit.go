@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/dns64"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 	"github.com/coredns/coredns/plugin/pkg/response"
@@ -79,6 +80,13 @@ func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		return d.serveExcludeAAAA(ctx, w, r)
 	}
 
+	// dns64's nested A lookup (issued while it answers an AAAA query) must not
+	// be translated back from the AAAA records we hide, or dns64 would
+	// re-synthesize the very addresses exclude_aaaa removed.
+	if d.ExcludeAAAA && dns64.IsSynthesisLookup(ctx) {
+		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
+	}
+
 	// Don't proxy if we don't need to.
 	if !d.requestShouldIntercept(&request.Request{W: w, Req: r}) {
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
@@ -118,7 +126,7 @@ func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // an absent AAAA RRset is normally signalled.
 func (d *SIIT) serveExcludeAAAA(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	nw := nonwriter.New(w)
-	rc, err := d.Next.ServeDNS(ctx, nw, r)
+	rc, err := plugin.NextOrFailure(d.Name(), d.Next, ctx, nw, r)
 	if nw.Msg == nil { // somehow we didn't get a response (or raw bytes were written)
 		return rc, err
 	}
@@ -126,9 +134,48 @@ func (d *SIIT) serveExcludeAAAA(ctx context.Context, w dns.ResponseWriter, r *dn
 	out, removed := d.excludeMappedAAAA(nw.Msg)
 	if removed > 0 {
 		excludedAAAACount.WithLabelValues(metrics.WithServer(ctx)).Add(float64(removed))
+		if !hasType(out.Answer, dns.TypeAAAA) {
+			d.setNegativeAuthority(ctx, w, r, out) // out is our own shallow copy
+		}
 	}
 	w.WriteMsg(out)
 	return rc, err
+}
+
+func hasType(rrs []dns.RR, t uint16) bool {
+	for _, rr := range rrs {
+		if rr.Header().Rrtype == t {
+			return true
+		}
+	}
+	return false
+}
+
+// setNegativeAuthority makes out a proper NODATA response: the authority
+// section carries the zone SOA (RFC 2308) instead of the NS set that comes with
+// a positive authoritative answer, which would otherwise look like a referral.
+// An SOA already present is kept; otherwise it is looked up. If none can be
+// found the authority section is left empty.
+func (d *SIIT) setNegativeAuthority(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, out *dns.Msg) {
+	if hasType(out.Ns, dns.TypeSOA) {
+		return
+	}
+	out.Ns = nil
+	if d.Upstream == nil || len(r.Question) == 0 {
+		return
+	}
+	resp, err := d.Upstream.Lookup(markSynthesisLookup(ctx), request.Request{W: w, Req: r}, r.Question[0].Name, dns.TypeSOA)
+	if err != nil || resp == nil {
+		return
+	}
+	for _, sec := range [][]dns.RR{resp.Answer, resp.Ns} { // apex: Answer, elsewhere: NODATA authority
+		for _, rr := range sec {
+			if rr.Header().Rrtype == dns.TypeSOA {
+				out.Ns = []dns.RR{rr}
+				return
+			}
+		}
+	}
 }
 
 // excludeMappedAAAA returns resp without the AAAA records whose address is

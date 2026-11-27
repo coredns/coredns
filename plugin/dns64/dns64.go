@@ -24,6 +24,21 @@ type UpstreamInt interface {
 	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
 }
 
+// synthesisCtxKey marks a context as belonging to dns64's own nested A lookup.
+type synthesisCtxKey struct{}
+
+func markSynthesisLookup(ctx context.Context) context.Context {
+	return context.WithValue(ctx, synthesisCtxKey{}, true)
+}
+
+// IsSynthesisLookup reports whether ctx belongs to the nested A lookup dns64
+// issues while answering an AAAA query. Other translation plugins (siit) use it
+// to stay consistent with dns64.
+func IsSynthesisLookup(ctx context.Context) bool {
+	v, _ := ctx.Value(synthesisCtxKey{}).(bool)
+	return v
+}
+
 // DNS64 performs DNS64.
 type DNS64 struct {
 	Next         plugin.Handler
@@ -119,7 +134,7 @@ func (d *DNS64) responseShouldDNS64(origResponse *dns.Msg) bool {
 // and synthesizes the answer. Returns the response message, or error on internal failure.
 func (d *DNS64) DoDNS64(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, origResponse *dns.Msg) (*dns.Msg, error) {
 	req := request.Request{W: w, Req: r} // req is unused
-	resp, err := d.Upstream.Lookup(ctx, req, req.Name(), dns.TypeA)
+	resp, err := d.Upstream.Lookup(markSynthesisLookup(ctx), req, req.Name(), dns.TypeA)
 	if err != nil {
 		return nil, err
 	}
