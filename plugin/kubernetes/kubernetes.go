@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/flowcontrol"
 	mcsClientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 )
 
@@ -253,14 +254,60 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 		return nil, nil, err
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(config)
+	if k.apiQPS > 0 {
+		config.QPS = k.apiQPS
+	}
+
+	if k.apiBurst > 0 {
+		config.Burst = k.apiBurst
+	} else if k.apiQPS > 0 && config.Burst == 0 {
+		// The clientset requires a burst when QPS is positive.
+		config.Burst = rest.DefaultBurst
+	}
+
+	if k.apiMaxInflight > 0 {
+		config.Wrap(newMaxInflightRoundTripper(k.apiMaxInflight))
+	}
+
+	rateLimitWatches := k.apiQPS > 0 || k.apiBurst > 0
+	newClientConfig := func() *rest.Config {
+		if !rateLimitWatches {
+			return config
+		}
+		clientConfig := rest.CopyConfig(config)
+		if clientConfig.RateLimiter == nil {
+			qps := clientConfig.QPS
+			if qps == 0 {
+				qps = rest.DefaultQPS
+			}
+			if qps > 0 && clientConfig.Burst > 0 {
+				clientConfig.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(qps, clientConfig.Burst)
+			}
+		}
+		// Watch bypasses client-go's limiter. Use the same limiter as list requests.
+		if limiter := clientConfig.RateLimiter; limiter != nil {
+			clientConfig.Wrap(func(next http.RoundTripper) http.RoundTripper {
+				return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+					if r.URL.Query().Get("watch") == "true" {
+						if err := limiter.Wait(r.Context()); err != nil {
+							return nil, err
+						}
+					}
+					return next.RoundTrip(r)
+				})
+			})
+		}
+		return clientConfig
+	}
+
+	kubeClient, err := kubernetes.NewForConfig(newClientConfig())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create kubernetes notification controller: %q", err)
 	}
 
 	var mcsClient mcsClientset.MulticlusterV1alpha1Interface
 	if len(k.opts.multiclusterZones) > 0 {
-		mcsClient, err = mcsClientset.NewForConfig(config)
+		mcsClient, err = mcsClientset.NewForConfig(newClientConfig())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create kubernetes multicluster notification controller: %q", err)
 		}
@@ -282,24 +329,6 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.namespaceLabelSelector, err)
 		}
 		k.opts.namespaceSelector = selector
-	}
-
-	if k.apiQPS > 0 {
-		config.QPS = k.apiQPS
-	}
-
-	if k.apiBurst > 0 {
-		config.Burst = k.apiBurst
-	}
-
-	if k.apiMaxInflight > 0 {
-		existingWrap := config.WrapTransport
-		config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
-			if existingWrap != nil {
-				rt = existingWrap(rt)
-			}
-			return newMaxInflightRoundTripper(rt, k.apiMaxInflight)
-		}
 	}
 
 	k.opts.initPodCache = k.podMode == podModeVerified
@@ -744,20 +773,18 @@ func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
 }
 
-// newMaxInflightRoundTripper returns RoundTripper that limits the number of concurrent requests
-func newMaxInflightRoundTripper(next http.RoundTripper, max int) http.RoundTripper {
-	if max <= 0 {
-		return next
-	}
+// newMaxInflightRoundTripper shares an in-flight request limit across transports.
+func newMaxInflightRoundTripper(max int) func(http.RoundTripper) http.RoundTripper {
 	sem := make(chan struct{}, max)
-
-	return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		select {
-		case sem <- struct{}{}:
-			defer func() { <-sem }()
-			return next.RoundTrip(r)
-		case <-r.Context().Done():
-			return nil, r.Context().Err()
-		}
-	})
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+				return next.RoundTrip(r)
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
+			}
+		})
+	}
 }
