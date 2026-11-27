@@ -280,7 +280,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 
 		if f.nextOnNodata && f.Next != nil {
-			if ret.Rcode == dns.RcodeSuccess && isEmpty(ret) {
+			if ret.Rcode == dns.RcodeSuccess && !ret.Truncated && isEmpty(ret) {
 				if _, ok := f.Next.(*Forward); ok {
 					return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 				}

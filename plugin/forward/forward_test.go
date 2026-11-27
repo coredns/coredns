@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -304,6 +305,121 @@ func TestForward_NextOnNodata(t *testing.T) {
 				if x := len(rec.Msg.Answer); x != 0 {
 					t.Errorf("Expected zero length answer, got %d instead", x)
 				}
+			}
+		})
+	}
+}
+
+// TestForwardTruncatedNodata distinguishes an incomplete reply from a complete
+// empty answer, including replies truncated by the proxy after a UDP overflow.
+func TestForwardTruncatedNodata(t *testing.T) {
+	tests := []struct {
+		name          string
+		options       string
+		tcpClient     bool
+		overflow      bool
+		tcpTruncated  bool
+		tcpAnswer     bool
+		rcode         int
+		wantUDP       int32
+		wantTCP       int32
+		wantNext      int32
+		wantTruncated bool
+		wantAnswers   int
+	}{
+		{name: "udp", wantUDP: 1, wantTruncated: true},
+		{name: "tcp", tcpClient: true, tcpTruncated: true, wantTCP: 1, wantTruncated: true},
+		{name: "udpOverflow", overflow: true, wantUDP: 1, wantTruncated: true},
+		{name: "preferUDPAnswer", options: "prefer_udp", tcpClient: true, tcpAnswer: true, wantUDP: 1, wantTCP: 1, wantAnswers: 1},
+		{name: "preferUDPNodata", options: "prefer_udp", wantUDP: 1, wantTCP: 1, wantNext: 1, wantAnswers: 1},
+		{name: "preferUDPTruncated", options: "prefer_udp", tcpTruncated: true, wantUDP: 1, wantTCP: 1, wantTruncated: true},
+		{name: "preferUDPOverflow", options: "prefer_udp", overflow: true, tcpAnswer: true, wantUDP: 1, wantTCP: 1, wantAnswers: 1},
+		{name: "forceTCP", options: "force_tcp", tcpTruncated: true, wantTCP: 1, wantTruncated: true},
+		{name: "forceTCPOverPreferUDP", options: "force_tcp\nprefer_udp", tcpTruncated: true, wantTCP: 1, wantTruncated: true},
+		{name: "nextNOERROR", options: "next NOERROR", wantUDP: 1, wantNext: 1, wantAnswers: 1},
+		{name: "unmatchedNXDOMAIN", rcode: dns.RcodeNameError, wantUDP: 1, wantTruncated: true},
+		{name: "nextNXDOMAIN", options: "next NXDOMAIN", rcode: dns.RcodeNameError, wantUDP: 1, wantNext: 1, wantAnswers: 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.overflow && runtime.GOOS == "windows" {
+				t.Skip("oversized UDP replies return WSAEMSGSIZE on Windows")
+			}
+			var udp, tcp, next atomic.Int32
+			s1 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+				ret := new(dns.Msg)
+				ret.SetRcode(r, tc.rcode)
+				if _, ok := w.RemoteAddr().(*net.UDPAddr); ok {
+					udp.Add(1)
+					ret.Truncated = !tc.overflow
+					if tc.overflow {
+						// Send more than the client's 512-byte buffer without TC.
+						for range 40 {
+							ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
+						}
+					}
+				} else {
+					tcp.Add(1)
+					ret.Truncated = tc.tcpTruncated
+					if tc.tcpAnswer {
+						ret.Answer = []dns.RR{test.A("example.org. IN A 127.0.0.1")}
+					}
+				}
+				w.WriteMsg(ret)
+			})
+			t.Cleanup(s1.Close)
+			s2 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+				next.Add(1)
+				ret := new(dns.Msg)
+				ret.SetReply(r)
+				ret.Answer = []dns.RR{test.A("example.org. IN A 127.0.0.2")}
+				w.WriteMsg(ret)
+			})
+			t.Cleanup(s2.Close)
+
+			c := caddy.NewTestController("dns", fmt.Sprintf(`
+				forward . %s {
+					max_fails 0
+					next_on_nodata
+					%s
+				}
+				forward . %s {
+					max_fails 0
+				}`, s1.Addr, tc.options, s2.Addr))
+			fs, err := parseForward(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, f := range fs {
+				if err := f.OnStartup(); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { f.OnShutdown() })
+			}
+			f := fs[0]
+			f.Next = fs[1]
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+			id := m.Id
+			rec := dnstest.NewRecorder(&test.ResponseWriter{TCP: tc.tcpClient})
+			if code, err := f.ServeDNS(context.Background(), rec, m); code != 0 || err != nil {
+				t.Fatalf("ServeDNS returned %d, %v; want 0, nil", code, err)
+			}
+			if udp.Load() != tc.wantUDP || tcp.Load() != tc.wantTCP || next.Load() != tc.wantNext {
+				t.Errorf("got exchanges UDP=%d TCP=%d next=%d; want UDP=%d TCP=%d next=%d", udp.Load(), tcp.Load(), next.Load(), tc.wantUDP, tc.wantTCP, tc.wantNext)
+			}
+			if rec.Msg == nil {
+				t.Fatal("no reply written")
+			}
+			wantRcode := tc.rcode
+			if tc.wantNext != 0 {
+				wantRcode = dns.RcodeSuccess
+			}
+			if rec.Msg.Truncated != tc.wantTruncated || len(rec.Msg.Answer) != tc.wantAnswers || rec.Msg.Rcode != wantRcode {
+				t.Errorf("got reply TC=%t answers=%d rcode=%d; want TC=%t answers=%d rcode=%d", rec.Msg.Truncated, len(rec.Msg.Answer), rec.Msg.Rcode, tc.wantTruncated, tc.wantAnswers, wantRcode)
+			}
+			if m.Id != id || rec.Msg.Id != id {
+				t.Errorf("got IDs request=%d reply=%d; want %d", m.Id, rec.Msg.Id, id)
 			}
 		})
 	}
