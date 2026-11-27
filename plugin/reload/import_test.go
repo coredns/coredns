@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha512"
+	"encoding/gob"
 	"fmt"
+	"io"
 	golog "log"
 	"os"
 	"os/exec"
@@ -23,6 +25,9 @@ import (
 	_ "github.com/coredns/coredns/plugin/whoami"
 
 	"github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var registerImportMutation sync.Once
@@ -88,20 +93,22 @@ func TestReloadImportsConverge(t *testing.T) {
 	dir := t.TempDir()
 	importPath := filepath.Join(dir, "answer.conf")
 	nextPath := filepath.Join(dir, "next.conf")
-	writeAnswer := func(path, address string) {
+	writeAnswer := func(path, address string, watch bool) {
 		t.Helper()
 		content := fmt.Sprintf("template IN A {\n answer \"{{.Name}} 60 IN A %s\"\n}\n", address)
+		if watch {
+			content = "reload 2s 0s\n" + content
+		}
 		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	writeAnswer(importPath, "192.0.2.1")
-	writeAnswer(nextPath, "192.0.2.2")
+	writeAnswer(importPath, "192.0.2.1", true)
+	writeAnswer(nextPath, "192.0.2.2", true)
 	input := caddy.CaddyfileInput{
 		Filepath: filepath.Join(dir, "Corefile"),
 		Contents: fmt.Appendf(nil, `.:0 {
     bind 127.0.0.1
-    reload 2s 0s
     import answer.conf
     test_reload_import %q copy %q
 }
@@ -119,10 +126,10 @@ func TestReloadImportsConverge(t *testing.T) {
 			return nil, t.Context().Err()
 		}
 	}))
-	started := make(chan struct{}, 3)
-	caddy.RegisterEventHook("test_reload_import_started", func(event caddy.EventName, _ any) error {
+	started := make(chan *caddy.Instance, 3)
+	caddy.RegisterEventHook("test_reload_import_started", func(event caddy.EventName, info any) error {
 		if event == caddy.InstanceStartupEvent {
-			started <- struct{}{}
+			started <- info.(*caddy.Instance)
 		}
 		return nil
 	})
@@ -156,8 +163,8 @@ func TestReloadImportsConverge(t *testing.T) {
 	unblock()
 	for _, want := range []string{"192.0.2.2", "192.0.2.3"} {
 		if want == "192.0.2.3" {
-			writeAnswer(nextPath, want)
-			writeAnswer(importPath, want)
+			writeAnswer(nextPath, want, true)
+			writeAnswer(importPath, want, true)
 		}
 		for network, address := range addresses {
 			deadline := time.Now().Add(10 * time.Second)
@@ -180,6 +187,55 @@ func TestReloadImportsConverge(t *testing.T) {
 			t.Fatal("reload did not complete the instance handoff")
 		}
 	}
+
+	compareVersion := func(hash [sha512.Size]byte) error {
+		const metricName = "coredns_reload_version_info"
+		version := fmt.Sprintf(`# HELP coredns_reload_version_info A metric with a constant '1' value labeled by hash, and value which type of hash generated.
+# TYPE coredns_reload_version_info gauge
+coredns_reload_version_info{hash="sha512",value="%x"} 1
+`, hash)
+		return testutil.CollectAndCompare(reloadInfo, strings.NewReader(version), metricName)
+	}
+
+	t.Run("failed reload retains version", func(t *testing.T) {
+		parsed, err := parse(input)
+		require.NoError(t, err)
+		version := sha512.Sum512(parsed)
+		require.EventuallyWithT(t, func(t *assert.CollectT) {
+			assert.NoError(t, compareVersion(version))
+		}, 5*time.Second, 20*time.Millisecond)
+
+		failures := testutil.ToFloat64(failedCount)
+		// This parses as a Corefile but is rejected during template setup.
+		require.NoError(t, os.WriteFile(importPath, []byte("template IN A {\n unknown_option\n}\n"), 0600))
+		require.Eventually(t, func() bool {
+			return testutil.ToFloat64(failedCount) > failures
+		}, 5*time.Second, 20*time.Millisecond)
+		require.NoError(t, queryImportAnswer("udp", addresses["udp"], "192.0.2.3"))
+		require.NoError(t, compareVersion(version))
+	})
+
+	t.Run("final reload publishes version", func(t *testing.T) {
+		const answer = "192.0.2.4"
+		// The startup callback copies nextPath over this file after parsing.
+		// The metric should identify the file that was actually executed.
+		writeAnswer(importPath, answer, false)
+		parsed, err := parse(input)
+		require.NoError(t, err)
+		version := sha512.Sum512(parsed)
+		select {
+		case current := <-started:
+			// Graceful binary upgrades transfer the active Corefile via gob.
+			input := current.Caddyfile()
+			require.NoError(t, gob.NewEncoder(io.Discard).Encode(&input))
+		case <-time.After(10 * time.Second):
+			t.Fatal("final reload did not complete the instance handoff")
+		}
+		require.NoError(t, queryImportAnswer("udp", addresses["udp"], answer))
+		require.EventuallyWithT(t, func(t *assert.CollectT) {
+			assert.NoError(t, compareVersion(version))
+		}, 5*time.Second, 20*time.Millisecond)
+	})
 }
 
 func queryImportAnswer(network, address, want string) error {

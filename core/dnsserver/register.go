@@ -50,16 +50,23 @@ var registerServerType = sync.OnceValue(func() error {
 	return nil
 })
 
-func newContext(_i *caddy.Instance) caddy.Context {
-	return &dnsContext{keysToConfigs: make(map[string]*Config)}
+func newContext(instance *caddy.Instance) caddy.Context {
+	return &dnsContext{instance: instance, keysToConfigs: make(map[string]*Config)}
 }
 
 type dnsContext struct {
+	instance      *caddy.Instance
 	keysToConfigs map[string]*Config
 	configHash    [sha512.Size]byte
 
 	// configs is the master list of all site configs.
 	configs []*Config
+}
+
+// GetInstanceConfigHash returns the instance and its parsed Corefile hash to directive callbacks.
+func GetInstanceConfigHash(ctx caddy.Context) (*caddy.Instance, [sha512.Size]byte) {
+	h := ctx.(*dnsContext)
+	return h.instance, h.configHash
 }
 
 func (h *dnsContext) saveConfig(key string, cfg *Config) {

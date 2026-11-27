@@ -100,9 +100,10 @@ CoreDNS v1.7.0 and later does parse the Corefile and supports detecting changes 
  If monitoring is enabled (via the *prometheus* plugin) then the following metric is exported:
 
 * `coredns_reload_failed_total{}` - counts the number of failed reload attempts.
-* `coredns_reload_version_info{hash, value}` - record the hash value during reload.
+* `coredns_reload_version_info{hash, value}` - reports the hash of the running configuration.
 
-Currently the type of `hash` is "sha512", the `value` is the returned hash value.
+The `hash` label is `sha512` and `value` is the hash. A successful automatic reload reports the
+new hash even if it removes the *reload* directive.
 
 ## See Also
 

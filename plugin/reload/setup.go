@@ -15,20 +15,32 @@ import (
 
 var log = clog.NewWithPlugin("reload")
 
-func init() { plugin.Register("reload", setup) }
+func init() {
+	plugin.Register("reload", setup)
+	// A successful reload can remove the directive. Prepare version tracking for
+	// that instance before startup so its shutdown can retire the final hash.
+	caddy.RegisterParsingCallback("dns", "reload", func(ctx caddy.Context) error {
+		reloadForContext(ctx)
+		return nil
+	})
+}
 
 // The event hook is process-global, but reload state belongs to each Caddy instance.
 type reloadStorageKey struct{}
 
-func reloadForController(c *caddy.Controller) *reload {
-	if state, ok := c.Get(reloadStorageKey{}).(*reload); ok {
+func reloadForContext(ctx caddy.Context) *reload {
+	instance, hash := dnsserver.GetInstanceConfigHash(ctx)
+	instance.StorageMu.Lock()
+	defer instance.StorageMu.Unlock()
+	if state, ok := instance.Storage[reloadStorageKey{}].(*reload); ok {
 		return state
 	}
 
 	state := newReload()
-	c.Set(reloadStorageKey{}, state)
+	state.configHash = hash
+	instance.Storage[reloadStorageKey{}] = state
 	// Stop this instance's watcher on both reload and final shutdown.
-	c.OnShutdown(state.shutdown)
+	instance.OnShutdown = append(instance.OnShutdown, state.shutdown)
 	return state
 }
 
@@ -77,8 +89,7 @@ func setup(c *caddy.Controller) error {
 	}
 
 	// prepare info for next onInstanceStartup event
-	state := reloadForController(c)
-	state.configHash = dnsserver.GetConfigHash(c)
+	state := reloadForContext(c.Context())
 	state.setInterval(i)
 	state.setUsage(used)
 	registerEventHook()
