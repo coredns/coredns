@@ -100,10 +100,10 @@ func TestClassifyToAddrs(t *testing.T) {
 			wantDynamic: 1,
 		},
 		{
-			name:        "an existing file not empty but without nameserver is skipped",
+			name:        "an existing file not empty but without nameserver is kept without upstreams",
 			input:       []string{commentedResolv},
 			wantDynamic: 0,
-			wantStatic:  0,
+			wantStatic:  1,
 		},
 	}
 

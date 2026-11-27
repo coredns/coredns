@@ -73,21 +73,27 @@ func setup(c *caddy.Controller) error {
 
 // OnStartup starts a goroutines for all proxies.
 func (f *Forward) OnStartup() (err error) {
-	for _, p := range f.proxies {
-		p.Start(f.hcInterval)
-		if f.startFailed {
-			p.StartFailed()
-		}
+	for _, p := range f.proxyList() {
+		f.startProxy(p)
 	}
+	f.startReload()
 	return nil
 }
 
 // OnShutdown stops all configured proxies.
 func (f *Forward) OnShutdown() error {
-	for _, p := range f.proxies {
+	f.stopReload()
+	for _, p := range f.proxyList() {
 		p.Stop()
 	}
 	return nil
+}
+
+func (f *Forward) startProxy(p *proxy.Proxy) {
+	p.Start(f.hcInterval)
+	if f.startFailed {
+		p.StartFailed()
+	}
 }
 
 func parseForward(c *caddy.Controller) ([]*Forward, error) {
@@ -188,6 +194,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	if len(toHosts) == 0 {
 		return f, fmt.Errorf("no valid upstream addresses found")
 	}
+	f.hosts = toHosts
 
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
@@ -257,23 +264,28 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			}
 		}
 
-		f.proxies[i].SetExpire(f.expire)
-		f.proxies[i].SetMaxAge(f.maxAge)
-		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
-		f.proxies[i].SetReadTimeout(f.readTimeout)
-		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
-		// DoT and DoQ health checkers already use their configured transport.
-		if f.opts.ForceTCP && transports[i] != transport.TLS && transports[i] != transport.QUIC {
-			f.proxies[i].GetHealthchecker().SetTCPTransport()
-		}
-		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
-		if f.sourceAddress != nil {
-			f.proxies[i].SetLocalAddress(f.sourceAddress)
-			f.proxies[i].GetHealthchecker().SetLocalAddress(f.sourceAddress)
-		}
+		f.configureProxy(f.proxies[i], transports[i])
 	}
 
 	return f, nil
+}
+
+// configureProxy applies the transport independent settings of f to p.
+func (f *Forward) configureProxy(p *proxy.Proxy, trans string) {
+	p.SetExpire(f.expire)
+	p.SetMaxAge(f.maxAge)
+	p.SetMaxIdleConns(f.maxIdleConns)
+	p.SetReadTimeout(f.readTimeout)
+	p.GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
+	// DoT and DoQ health checkers already use their configured transport.
+	if f.opts.ForceTCP && trans != transport.TLS && trans != transport.QUIC {
+		p.GetHealthchecker().SetTCPTransport()
+	}
+	p.GetHealthchecker().SetDomain(f.opts.HCDomain)
+	if f.sourceAddress != nil {
+		p.SetLocalAddress(f.sourceAddress)
+		p.GetHealthchecker().SetLocalAddress(f.sourceAddress)
+	}
 }
 
 func parseBlock(c *caddy.Controller, f *Forward) error {
@@ -519,6 +531,21 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			}
 		}
 		f.resolver = args
+	case "reload":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("reload can't be negative: %s", dur)
+		}
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		f.reloadInterval = dur
 	case "source_address":
 		if !c.NextArg() {
 			return c.ArgErr()

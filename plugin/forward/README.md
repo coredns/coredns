@@ -64,6 +64,7 @@ forward FROM TO... {
     failover RCODE_1 [RCODE_2] [RCODE_3...]
     source_address IP
     resolver IP[:PORT] [IP[:PORT]...]
+    reload DURATION
 }
 ~~~
 
@@ -144,6 +145,11 @@ The maximum TLS version, TLS 1.2 cipher suites, and key exchange mechanisms use 
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
 * `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
 * `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints at startup. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy.
+* `reload` **DURATION** re-reads the files (like `/etc/resolv.conf`) given in **TO** every **DURATION** and
+  updates the upstreams when the nameservers in them changed. Upstreams that are still listed keep their
+  connections and health state. If a file can't be read, or no upstreams would be left, the current upstreams
+  are kept. The default is 0, which disables reloading; the files are then only read at startup and when the
+  Corefile is reloaded. Hostnames and IP addresses in **TO** are not affected by this option.
 
 The client certificate, key, and CA configuration is global for one `forward` stanza. For DoT and DoQ,
 use the `%servername` endpoint form when upstreams in the same stanza require different TLS server names.
@@ -261,6 +267,16 @@ Proxy everything except `example.org` using the host's `resolv.conf`'s nameserve
 . {
     forward . /etc/resolv.conf {
         except example.org
+    }
+}
+~~~
+
+Proxy everything to the nameservers in `/etc/resolv.conf` and pick up changes to that file within 10 seconds:
+
+~~~ corefile
+. {
+    forward . /etc/resolv.conf {
+        reload 10s
     }
 }
 ~~~
