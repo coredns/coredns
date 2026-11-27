@@ -175,7 +175,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		// NODATA
 		if len(rrs) == 0 {
-			ret := ap.soa(do)
+			ret := ap.negSOA(do)
 			if do {
 				nsec := typeFromElem(elem, dns.TypeNSEC, do)
 				ret = append(ret, nsec...)
@@ -201,7 +201,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	// Found a wildcard source of synthesis. It may be an empty non-terminal.
 	if wildName != "" && !closerENTExists(tr, qname, wildName) {
 		if wildElem == nil {
-			return nil, ap.soa(do), nil, NoData
+			return nil, ap.negSOA(do), nil, NoData
 		}
 
 		// set metadata value for the wildcard record that synthesized the result
@@ -218,7 +218,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		// NODATA response.
 		if len(rrs) == 0 {
-			ret := ap.soa(do)
+			ret := ap.negSOA(do)
 			if do {
 				nsec := typeFromElem(wildElem, dns.TypeNSEC, do)
 				ret = append(ret, nsec...)
@@ -254,7 +254,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		rcode = Success
 	}
 
-	ret := ap.soa(do)
+	ret := ap.negSOA(do)
 	if do {
 		deny, found := tr.Prev(qname)
 		if !found {
@@ -337,6 +337,28 @@ func (a Apex) soa(do bool) []dns.RR {
 	return []dns.RR{a.SOA}
 }
 
+// negSOA returns the SOA record, and its signatures when do is true, for the authority section of a
+// negative answer. RFC 2308, Section 3, sets the TTL of this SOA to the minimum of its own TTL and its
+// MINIMUM field, as that TTL tells resolvers how long they may cache the negative answer.
+func (a Apex) negSOA(do bool) []dns.RR {
+	ttl := a.SOA.Minttl
+	if a.SOA.Header().Ttl <= ttl {
+		return a.soa(do)
+	}
+
+	soa := dns.Copy(a.SOA)
+	soa.Header().Ttl = ttl
+	ret := []dns.RR{soa}
+	if do {
+		for _, sig := range a.SIGSOA {
+			sig = dns.Copy(sig)
+			sig.Header().Ttl = min(sig.Header().Ttl, ttl)
+			ret = append(ret, sig)
+		}
+	}
+	return ret
+}
+
 func (a Apex) ns(do bool) []dns.RR {
 	if do {
 		ret := append(a.NS, a.SIGNS...)
@@ -350,7 +372,7 @@ func (a Apex) ns(do bool) []dns.RR {
 // required by RFC 2308, and the NS records otherwise.
 func (z *Zone) authority(do bool, result Result) []dns.RR {
 	if result == NameError || result == NoData {
-		return z.soa(do)
+		return z.negSOA(do)
 	}
 	return z.ns(do)
 }
