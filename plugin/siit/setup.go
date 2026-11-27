@@ -64,6 +64,11 @@ func siitParse(c *caddy.Controller) (*SIIT, error) {
 				}
 
 				siit.Eam4[pref[1].String()] = pref[0]
+			case "exclude_aaaa":
+				if len(c.RemainingArgs()) != 0 {
+					return nil, c.ArgErr()
+				}
+				siit.ExcludeAAAA = true
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
