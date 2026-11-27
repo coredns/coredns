@@ -418,6 +418,13 @@ func newEdns0SubnetRule(mode, action, v4BitMaskLen, v6BitMaskLen string, revert 
 
 // fillEcsData sets the subnet data into the ecs option
 func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_SUBNET) error {
+	// Without an address the option cannot be packed, and the query would
+	// fail when it is sent upstream.
+	ip := parseIP(state.IP())
+	if ip == nil {
+		return fmt.Errorf("unable to fill data for EDNS0 subnet due to invalid IP address %q", state.IP())
+	}
+
 	family := state.Family()
 	if (family != 1) && (family != 2) {
 		return fmt.Errorf("unable to fill data for EDNS0 subnet due to invalid IP family")
@@ -426,18 +433,15 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 	ecs.Family = uint16(family)
 	ecs.SourceScope = 0
 
-	ipAddr := state.IP()
 	switch family {
 	case 1:
 		ipv4Mask := net.CIDRMask(int(rule.v4BitMaskLen), 32)
-		ipv4Addr := net.ParseIP(ipAddr)
 		ecs.SourceNetmask = rule.v4BitMaskLen
-		ecs.Address = ipv4Addr.Mask(ipv4Mask).To4()
+		ecs.Address = ip.Mask(ipv4Mask).To4()
 	case 2:
 		ipv6Mask := net.CIDRMask(int(rule.v6BitMaskLen), 128)
-		ipv6Addr := net.ParseIP(ipAddr)
 		ecs.SourceNetmask = rule.v6BitMaskLen
-		ecs.Address = ipv6Addr.Mask(ipv6Mask).To16()
+		ecs.Address = ip.Mask(ipv6Mask).To16()
 	}
 	return nil
 }
