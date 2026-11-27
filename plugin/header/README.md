@@ -28,6 +28,8 @@ header {
     * `aa` - Authoritative(Answer)
     * `ra` - RecursionAvailable
     * `rd` - RecursionDesired
+    * `ad` - AuthenticatedData
+    * `cd` - CheckingDisabled
 
 Multiple *header* directives may appear in a server block. Their rules are combined in configuration
 order, so for the same flag and selector the last rule takes precedence.

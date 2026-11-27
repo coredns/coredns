@@ -63,6 +63,26 @@ func TestHeaderResponseRules(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			handler: Header{
+				ResponseRules: []Rule{{Flag: authenticatedData, State: true}},
+				Next:          next,
+			},
+			got: func(msg *dns.Msg) bool {
+				return msg.AuthenticatedData
+			},
+			expected: true,
+		},
+		{
+			handler: Header{
+				ResponseRules: []Rule{{Flag: checkingDisabled, State: true}},
+				Next:          next,
+			},
+			got: func(msg *dns.Msg) bool {
+				return msg.CheckingDisabled
+			},
+			expected: true,
+		},
 	}
 
 	for i, test := range tests {
