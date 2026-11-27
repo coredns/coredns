@@ -46,14 +46,14 @@ func (h *health) overloaded(ctx context.Context) {
 				return
 			}
 			if err != nil {
-				HealthDuration.Observe(time.Since(start).Seconds())
-				HealthFailures.Inc()
+				healthDuration.Observe(time.Since(start).Seconds())
+				healthFailures.Inc()
 				log.Warningf("Local health request to %q failed: %s", req.URL.String(), err)
 				continue
 			}
 			resp.Body.Close()
 			elapsed := time.Since(start)
-			HealthDuration.Observe(elapsed.Seconds())
+			healthDuration.Observe(elapsed.Seconds())
 			if elapsed > time.Second { // 1s is pretty random, but a *local* scrape taking that long isn't good
 				log.Warningf("Local health request to %q took more than 1s: %s", req.URL.String(), elapsed)
 			}
@@ -65,8 +65,8 @@ func (h *health) overloaded(ctx context.Context) {
 }
 
 var (
-	// HealthDuration is the metric used for exporting how fast we can retrieve the /health endpoint.
-	HealthDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	// healthDuration is the metric used for exporting how fast we can retrieve the /health endpoint.
+	healthDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace:                   plugin.Namespace,
 		Subsystem:                   "health",
 		Name:                        "request_duration_seconds",
@@ -74,8 +74,8 @@ var (
 		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
 		Help:                        "Histogram of the time (in seconds) each request took.",
 	})
-	// HealthFailures is the metric used to count how many times the health request failed
-	HealthFailures = promauto.NewCounter(prometheus.CounterOpts{
+	// healthFailures is the metric used to count how many times the health request failed
+	healthFailures = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "health",
 		Name:      "request_failures_total",

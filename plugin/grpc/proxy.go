@@ -118,9 +118,9 @@ func (p *Proxy) query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
-	RequestCount.WithLabelValues(p.addr).Add(1)
-	RcodeCount.WithLabelValues(rc, p.addr).Add(1)
-	RequestDuration.WithLabelValues(p.addr).Observe(time.Since(start).Seconds())
+	requestCount.WithLabelValues(p.addr).Add(1)
+	rcodeCount.WithLabelValues(rc, p.addr).Add(1)
+	requestDuration.WithLabelValues(p.addr).Observe(time.Since(start).Seconds())
 
 	return ret, nil
 }

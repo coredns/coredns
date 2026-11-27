@@ -94,7 +94,7 @@ func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	if synthesized {
-		RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+		requestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	}
 	w.WriteMsg(msg)
 	return msg.Rcode, nil

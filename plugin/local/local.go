@@ -44,7 +44,7 @@ func (l Local) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	if matchesRFCSubdomain || matchesLegacyPrefix {
 		// Intercept special localhost subdomain queries and return loopback addresses for A/AAAA queries.
 		log.Debugf("Intercepting localhost query for %q %s, from %s", state.Name(), state.Type(), state.IP())
-		LocalhostCount.Inc()
+		localhostCount.Inc()
 		reply := doLocalhost(state)
 		w.WriteMsg(reply)
 		return 0, nil

@@ -71,7 +71,7 @@ RulesCheckLoop:
 		switch action {
 		case actionDrop:
 			{
-				RequestDropCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
+				requestDropCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		case actionBlock:
@@ -79,7 +79,7 @@ RulesCheckLoop:
 				m := new(dns.Msg).SetRcode(r, dns.RcodeRefused)
 				addEDE(r, m, dns.ExtendedErrorCodeBlocked)
 				w.WriteMsg(m)
-				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
+				requestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		case actionAllow:
@@ -91,13 +91,13 @@ RulesCheckLoop:
 				m := new(dns.Msg).SetRcode(r, dns.RcodeSuccess)
 				addEDE(r, m, dns.ExtendedErrorCodeFiltered)
 				w.WriteMsg(m)
-				RequestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
+				requestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		}
 	}
 
-	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx), metrics.WithView(ctx)).Inc()
+	requestAllowCount.WithLabelValues(metrics.WithServer(ctx), metrics.WithView(ctx)).Inc()
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
 }
 
