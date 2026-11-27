@@ -468,6 +468,36 @@ kubernetes cluster.local`,
 	}
 }
 
+func TestKubernetesParseStartupTimeout(t *testing.T) {
+	tests := []struct {
+		option  string
+		timeout time.Duration
+		err     string
+	}{
+		{"", 5 * time.Second, ""},
+		{"startup_timeout 0", 0, "startup_timeout must be greater than zero"},
+		{"startup_timeout -1ns", 0, "startup_timeout must be greater than zero"},
+		{"startup_timeout 1ns", time.Nanosecond, ""},
+	}
+	for _, test := range tests {
+		c := caddy.NewTestController("dns", "kubernetes example.org {\n"+test.option+"\n}")
+		k, err := kubernetesParse(c)
+		if test.err != "" {
+			if err == nil || !strings.Contains(err.Error(), test.err) {
+				t.Errorf("%q: expected error containing %q, got %v", test.option, test.err, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("%q: unexpected error: %v", test.option, err)
+			continue
+		}
+		if k.startupTimeout != test.timeout {
+			t.Errorf("%q: expected startup timeout %v, got %v", test.option, test.timeout, k.startupTimeout)
+		}
+	}
+}
+
 func TestKubernetesParseEndpointPodNames(t *testing.T) {
 	tests := []struct {
 		input                string // Corefile data as string
