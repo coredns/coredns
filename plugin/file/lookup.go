@@ -235,7 +235,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		if do {
 			// An NSEC is needed to say no longer name exists under this wildcard.
 			if deny, found := tr.Prev(qname); found {
-				nsec := typeFromElem(deny, dns.TypeNSEC, do)
+				nsec := typeFromElem(z.nsecOwner(tr, deny), dns.TypeNSEC, do)
 				auth = append(auth, nsec...)
 			}
 
@@ -260,6 +260,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		if !found {
 			goto Out
 		}
+		deny = z.nsecOwner(tr, deny)
 		nsec := typeFromElem(deny, dns.TypeNSEC, do)
 		ret = append(ret, nsec...)
 
@@ -316,6 +317,22 @@ func closerENTExists(tr *tree.Tree, qname, wildcardName string) bool {
 func hasDescendant(tr *tree.Tree, name string) bool {
 	x, found := tr.Next(name)
 	return found && tree.Less(x, name) != 0 && dns.IsSubDomain(name, x.Name())
+}
+
+// nsecOwner returns the element whose NSEC covers the names right after prev in
+// canonical order: prev itself, unless prev is below a zone cut. Glue and other
+// occluded names have no NSEC (RFC 4035, section 2.3), and they sort right after
+// their cut, so the NSEC of the topmost cut above prev is the one that covers them.
+func (z *Zone) nsecOwner(tr *tree.Tree, prev *tree.Elem) *tree.Elem {
+	for i := 1; ; i++ {
+		name, shot := z.nameFromRight(prev.Name(), i)
+		if shot {
+			return prev
+		}
+		if cut, ok := tr.Search(name); ok && cut.Type(dns.TypeNS) != nil {
+			return cut
+		}
+	}
 }
 
 // typeFromElem returns the type tp from e and adds signatures (if they exist) and do is true.

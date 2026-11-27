@@ -609,3 +609,97 @@ func TestLookupRefusedUpstream(t *testing.T) {
 		t.Errorf("Expected a CNAME in the answer, got %s", rec.Msg.Answer[0])
 	}
 }
+
+// In glueNSECTestCases the canonical predecessor of the qname is a name below
+// a zone cut. Those names have no NSEC (RFC 4035, section 2.3), so the NSEC
+// that covers the qname is the one of the cut itself.
+var glueNSECTestCases = []test.Case{
+	{
+		// c.example.org. is an empty non-terminal right after the glue ns.b.example.org.
+		Qname: "c.example.org.", Qtype: dns.TypeA, Do: true,
+		Ns: []dns.RR{
+			test.NSEC("b.example.org.	3600	IN	NSEC	x.c.example.org. NS RRSIG NSEC"),
+			test.SOA("example.org.	3600	IN	SOA	ns.example.net. admin.example.net. 1 7200 3600 1209600 3600"),
+		},
+	},
+	{
+		Qname: "bb.example.org.", Qtype: dns.TypeA, Do: true,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.NSEC("b.example.org.	3600	IN	NSEC	x.c.example.org. NS RRSIG NSEC"),
+			test.NSEC("example.org.	3600	IN	NSEC	b.example.org. NS SOA RRSIG NSEC"),
+			test.SOA("example.org.	3600	IN	SOA	ns.example.net. admin.example.net. 1 7200 3600 1209600 3600"),
+		},
+	},
+	{
+		// Control: the predecessor x.h.example.org. is authoritative and has its own NSEC.
+		Qname: "i.example.org.", Qtype: dns.TypeA, Do: true,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.NSEC("example.org.	3600	IN	NSEC	b.example.org. NS SOA RRSIG NSEC"),
+			test.SOA("example.org.	3600	IN	SOA	ns.example.net. admin.example.net. 1 7200 3600 1209600 3600"),
+			test.NSEC("x.h.example.org.	3600	IN	NSEC	*.w.example.org. A RRSIG NSEC"),
+		},
+	},
+	{
+		// Wildcard expansion: the NSEC proves that b.w.example.org. itself does not exist.
+		// Its predecessor is x.a.w.example.org., a delegation below the cut a.w.
+		Qname: "b.w.example.org.", Qtype: dns.TypeTXT, Do: true,
+		Answer: []dns.RR{
+			test.TXT("b.w.example.org.	3600	IN	TXT	\"wildcard\""),
+		},
+		Ns: []dns.RR{
+			test.NSEC("a.w.example.org.	3600	IN	NSEC	example.org. NS RRSIG NSEC"),
+			test.NS("example.org.	3600	IN	NS	ns.example.net."),
+		},
+	},
+}
+
+func TestLookupNSECAfterGlue(t *testing.T) {
+	const origin = "example.org."
+	zone, err := Parse(strings.NewReader(dbExampleOrgGlueNSEC), origin, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{origin: zone}, Names: []string{origin}}}
+	ctx := context.TODO()
+
+	for _, tc := range glueNSECTestCases {
+		m := tc.Msg()
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if _, err := fm.ServeDNS(ctx, rec, m); err != nil {
+			t.Errorf("Expected no error for %q/%d, got %v", tc.Qname, tc.Qtype, err)
+			continue
+		}
+
+		if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+			t.Errorf("Test %q/%d: %v", tc.Qname, tc.Qtype, err)
+		}
+	}
+}
+
+// dbExampleOrgGlueNSEC links the same names in its NSEC chain as the sign
+// plugin does for these records, skipping the names below b and a.w. The
+// signatures and the DNSKEY records are left out.
+const dbExampleOrgGlueNSEC = `
+example.org.		3600	IN	SOA	ns.example.net. admin.example.net. 1 7200 3600 1209600 3600
+example.org.		3600	IN	NS	ns.example.net.
+example.org.		3600	IN	NSEC	b.example.org. NS SOA RRSIG NSEC
+b.example.org.		3600	IN	NS	ns.b.example.org.
+b.example.org.		3600	IN	NSEC	x.c.example.org. NS RRSIG NSEC
+ns.b.example.org.	3600	IN	A	192.0.2.53
+x.c.example.org.	3600	IN	A	192.0.2.1
+x.c.example.org.	3600	IN	NSEC	h.example.org. A RRSIG NSEC
+h.example.org.		3600	IN	A	192.0.2.2
+h.example.org.		3600	IN	NSEC	x.h.example.org. A RRSIG NSEC
+x.h.example.org.	3600	IN	A	192.0.2.3
+x.h.example.org.	3600	IN	NSEC	*.w.example.org. A RRSIG NSEC
+*.w.example.org.	3600	IN	TXT	"wildcard"
+*.w.example.org.	3600	IN	NSEC	a.w.example.org. TXT RRSIG NSEC
+a.w.example.org.	3600	IN	NS	ns.a.w.example.org.
+a.w.example.org.	3600	IN	NSEC	example.org. NS RRSIG NSEC
+ns.a.w.example.org.	3600	IN	A	192.0.2.54
+x.a.w.example.org.	3600	IN	NS	ns.a.w.example.org.
+`
