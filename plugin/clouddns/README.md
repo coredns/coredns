@@ -36,6 +36,7 @@ clouddns [ZONE:PROJECT_ID:HOSTED_ZONE_NAME...] {
     accessed.
 
 *   `credentials` is used for reading the credential file from **FILENAME** (normally a .json file).
+    The file is read in full during setup; a file larger than 8 MiB is rejected with an error instead of being parsed.
     This field is optional. If this field is not provided then authentication will be done automatically,
     e.g., through environmental variable `GOOGLE_APPLICATION_CREDENTIALS`. Note that CoreDNS validates that the given
     file has a valid credentials type, but does not validate the credentials file for malicious input. Please see
