@@ -25,10 +25,18 @@ Or if you want/need slightly more control:
 log [NAMES...] [FORMAT]
 ~~~
 
-* `NAMES` is the name list to match in order to be logged
+* `NAMES` is the name list to match in order to be logged, if omitted all names (`.`) are logged
 * `FORMAT` is the log format to use (default is Common Log Format), `{common}` is used as a shortcut
   for the Common Log Format. You can also use `{combined}` for a format that adds the query opcode
   `{>opcode}` to the Common Log Format.
+
+Braces are valid in a DNS name, so when `log` has a single argument that contains a `{`, it is only
+taken as the `FORMAT` if it is `{common}` or `{combined}`, a single placeholder such as `{remote}`,
+or a string with white space that contains a placeholder, such as `"{remote} {type} {name}"`. Any
+other single argument, for example `svc{name}.example.`, is a name. To use such a string as a
+format, put a name in front of it (`log . FORMAT`); to use a name that looks like a format, put a
+format after it (`log NAME {common}`). With two or more arguments the last one is the format if it
+contains a `{`.
 
 You can further specify the classes of responses that get logged:
 

@@ -45,6 +45,78 @@ func TestLogParse(t *testing.T) {
 			Format:    CombinedLogFormat,
 			Class:     map[response.Class]struct{}{response.All: {}},
 		}}},
+		// A format without any names applies to all zones, same as `log . FORMAT`.
+		{`log {common}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CommonLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {combined}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CombinedLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log "{remote} {type} {name}"`, false, []Rule{{
+			NameScope: ".",
+			Format:    "{remote} {type} {name}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		// A quoted format keeps a line break or other Unicode white space between placeholders.
+		{"log \"{type}\n{name}\"", false, []Rule{{
+			NameScope: ".",
+			Format:    "{type}\n{name}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{"log \"{type}\u00a0{name}\"", false, []Rule{{
+			NameScope: ".",
+			Format:    "{type}\u00a0{name}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {combined} {
+			class denial
+		}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CombinedLogFormat,
+			Class:     map[response.Class]struct{}{response.Denial: {}},
+		}}},
+		{`log . {combined}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CombinedLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {remote}`, false, []Rule{{
+			NameScope: ".",
+			Format:    "{remote}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		// Braces are valid in a DNS name, so a lone argument that could be a name stays a name.
+		{`log svc{blue}.example.`, false, []Rule{{
+			NameScope: "svc{blue}.example.",
+			Format:    DefaultLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log svc{name}.example.`, false, []Rule{{
+			NameScope: "svc{name}.example.",
+			Format:    DefaultLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {type}.example.`, false, []Rule{{
+			NameScope: "{type}.example.",
+			Format:    DefaultLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log {blue}`, false, []Rule{{
+			NameScope: "{blue}.",
+			Format:    DefaultLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		// With more than one argument the last one is still the format, so a name with
+		// braces can be given before it.
+		{`log svc{blue}.example. {common}`, false, []Rule{{
+			NameScope: "svc{blue}.example.",
+			Format:    CommonLogFormat,
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
 		{`log example.org {host}
 			  log example.org {when}`, false, []Rule{{
 			NameScope: "example.org.",
