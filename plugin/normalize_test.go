@@ -3,7 +3,10 @@ package plugin
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
+
+	"github.com/miekg/dns"
 )
 
 func TestZoneMatches(t *testing.T) {
@@ -31,6 +34,30 @@ func TestZoneNormalize(t *testing.T) {
 	for _, actual := range zones {
 		if actual != expected {
 			t.Errorf("Expected %v, got %v", expected, actual)
+		}
+	}
+}
+
+func TestSubDomainMatchesDNS(t *testing.T) {
+	names := []string{
+		"", ".", "..", "...", "com", "com.", "COM.", "notcom.",
+		"example.org", "example.org.", "Example.ORG.", "www.example.org.",
+		"a..b.", "a.b..", "*.example.org.", "*",
+		`foo\.bar.example.org.`, `foo\046bar.example.org.`, `a\\.b.example.`,
+		"xn--nxasmq6b.example.", "123.example.",
+		"www.com.", "www.com", "b.", "a..b.", "a..b", ".com.", "org", "ORG",
+		"notcom", "com.example.", "example.com.",
+	}
+	for i := range 40 {
+		names = append(names, strings.Repeat("ab.", i)+"example.org.")
+	}
+	for _, parent := range names {
+		for _, child := range names {
+			got := subDomain(parent, child)
+			want := dns.IsSubDomain(parent, child)
+			if got != want {
+				t.Fatalf("subDomain(%q, %q)=%v, dns.IsSubDomain=%v", parent, child, got, want)
+			}
 		}
 	}
 }
