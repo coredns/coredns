@@ -376,6 +376,13 @@ var closerENTWildcardTestCases = []test.Case{
 			test.SOA(`example.org. 3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`),
 		},
 	},
+	// The empty non-terminal itself exists (RFC 4592 section 2.2.2), so the wildcard does not apply to it: the answer is NODATA, not the wildcard record.
+	{
+		Qname: "deeper.example.org.", Qtype: dns.TypeA,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`),
+		},
+	},
 	// No closer empty non-terminal between example.org. and the queried name, so
 	// the wildcard still applies exactly as before.
 	{
