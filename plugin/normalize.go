@@ -25,8 +25,7 @@ type Zones []string
 // signals a not found condition.
 func (z Zones) Matches(qname string) (zone string) {
 	for _, zname := range z {
-		if dns.IsSubDomain(zname, qname) {
-			// We want the *longest* matching zone, otherwise we may end up in a parent
+		if subDomain(zname, qname) {
 			if len(zname) > len(zone) {
 				zone = zname
 			}
@@ -37,8 +36,68 @@ func (z Zones) Matches(qname string) (zone string) {
 
 func (z Zones) Contains(qname string) bool {
 	return slices.ContainsFunc(z, func(zname string) bool {
-		return dns.IsSubDomain(zname, qname)
+		return subDomain(zname, qname)
 	})
+}
+
+// subDomain reports whether child equals parent or is under it. Escaped names use miekg/dns.
+func subDomain(parent, child string) bool {
+	if strings.IndexByte(parent, '\\') >= 0 || strings.IndexByte(child, '\\') >= 0 {
+		return dns.IsSubDomain(parent, child)
+	}
+	if parent == "." {
+		return true
+	}
+	if child == "." {
+		return false
+	}
+	for {
+		ps := labelStart(parent)
+		cs := labelStart(child)
+		if !labelEqual(parent[ps:], child[cs:]) {
+			return false
+		}
+		if ps == 0 {
+			return true
+		}
+		if cs == 0 {
+			return false
+		}
+		parent = parent[:ps]
+		child = child[:cs]
+	}
+}
+
+func labelStart(s string) int {
+	if len(s) < 2 {
+		return 0
+	}
+	for i := len(s) - 2; i >= 0; i-- {
+		if s[i] == '.' {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+func labelEqual(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := len(a) - 1; i >= 0; i-- {
+		ai := a[i]
+		bi := b[i]
+		if ai >= 'A' && ai <= 'Z' {
+			ai |= 'a' - 'A'
+		}
+		if bi >= 'A' && bi <= 'Z' {
+			bi |= 'a' - 'A'
+		}
+		if ai != bi {
+			return false
+		}
+	}
+	return true
 }
 
 // Normalize fully qualifies all zones in z. The zones in Z must be domain names, without
@@ -58,7 +117,7 @@ func (n Name) Matches(child string) bool {
 	if dns.Name(n) == dns.Name(child) {
 		return true
 	}
-	return dns.IsSubDomain(string(n), child)
+	return subDomain(string(n), child)
 }
 
 // Normalize lowercases and makes n fully qualified.
