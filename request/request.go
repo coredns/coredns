@@ -227,18 +227,32 @@ func (r *Request) SizeAndDo(m *dns.Msg) bool {
 	return true
 }
 
-// Scrub scrubs the reply message so that it will fit the client's buffer. It will first
-// check if the reply fits without compression and then *with* compression.
+// Scrub scrubs the reply message so that it will fit the client's buffer. For UDP it will
+// first check if the reply fits without compression and then *with* compression (and
+// compresses replies exceeding IPv4/IPv6 fragmentation limits). For TCP it always enables
+// compression.
 // Note, the TC bit will be set regardless of protocol, even TCP message will
 // get the bit, the client should then retry with pigeons.
 func (r *Request) Scrub(reply *dns.Msg) *dns.Msg {
+	if reply == nil {
+		return nil
+	}
+
 	reply.Truncate(r.Size())
 
 	if reply.Compress {
 		return reply
 	}
 
-	if r.Proto() == "udp" {
+	switch r.Proto() {
+	case "tcp":
+		// Always enable DNS name compression for TCP responses. Even though the
+		// protocol limit is 64 KiB (so Truncate leaves Compress false when the
+		// uncompressed message fits), clients with smaller receive buffers
+		// (such as musl's 768-byte TCP buffer) rely on standard RFC 1035
+		// compression to keep responses compact.
+		reply.Compress = true
+	case "udp":
 		rl := reply.Len()
 		// Last ditch attempt to avoid fragmentation, if the size is bigger than the v4/v6 UDP fragmentation
 		// limit and sent via UDP compress it (in the hope we go under that limit). Limits taken from NSD:

@@ -82,3 +82,34 @@ func TestScrubWriterConnectionStateNilWhenUnsupported(t *testing.T) {
 		t.Errorf("ConnectionState() = %v, want nil when wrapped writer is not a ConnectionStater", got)
 	}
 }
+
+func TestScrubWriterTCPCompress(t *testing.T) {
+	req, resp := cnameChainReply("hop-0.service.us-south-central.example.com.", 8)
+	uncompressedLen := resp.Len()
+	if uncompressedLen <= 768 {
+		t.Fatalf("test setup error: expected uncompressed length > 768, got %d", uncompressedLen)
+	}
+
+	mock := &mockResponseWriter{ResponseWriter: test.ResponseWriter{TCP: true}}
+	sw := NewScrubWriter(req, mock)
+
+	if err := sw.WriteMsg(resp); err != nil {
+		t.Fatalf("WriteMsg failed: %v", err)
+	}
+	if mock.lastMsg == nil {
+		t.Fatal("expected WriteMsg to forward reply")
+	}
+	if !mock.lastMsg.Compress {
+		t.Fatalf("expected ScrubWriter to enable compression for TCP response")
+	}
+	if mock.lastMsg.Truncated {
+		t.Errorf("expected TCP response not to be truncated")
+	}
+	wire, err := mock.lastMsg.Pack()
+	if err != nil {
+		t.Fatalf("Pack compressed TCP reply: %v", err)
+	}
+	if len(wire) >= 768 {
+		t.Errorf("expected compressed TCP wire size < 768 bytes, got %d (uncompressed %d)", len(wire), uncompressedLen)
+	}
+}
