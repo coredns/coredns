@@ -1058,3 +1058,164 @@ func TestCNAMECrossZoneLookupBudgetConcurrent(t *testing.T) {
 		t.Fatalf("expected %d accepted lookups, got %d", maxCnameLookups, got)
 	}
 }
+
+func TestLookupServiceWithHostAndText(t *testing.T) {
+	recordsByName := map[string][]msg.Service{
+		"alias.example.org.": {
+			{Host: "target.example.org.", Text: "heritage=external-dns", Port: 8080, Priority: 10, Mail: true, TTL: 60},
+		},
+		"target.example.org.": {
+			{Host: "1.2.3.4", Text: "v=spf1", TTL: 60},
+			{Host: "2001:db8::1", Text: "v=spf1-v6", TTL: 60},
+		},
+		"onlytxt.example.org.": {
+			{Host: "", Text: "just-txt", TTL: 60},
+		},
+		"txtcname.example.org.": {
+			{Host: "target.example.org.", TTL: 60},
+		},
+	}
+
+	b := &mockBackend{
+		mockServices: func(_ context.Context, state request.Request, _ bool, _ Options) ([]msg.Service, error) {
+			return recordsByName[state.QName()], nil
+		},
+	}
+
+	t.Run("CNAME with Text resolves A", func(t *testing.T) {
+		req := new(dns.Msg)
+		req.SetQuestion("alias.example.org.", dns.TypeA)
+		state := request.Request{Req: req, W: &test.ResponseWriter{}}
+		recs, tc, err := A(context.Background(), b, "example.org.", state, nil, Options{})
+		if err != nil || tc {
+			t.Fatalf("unexpected err=%v tc=%v", err, tc)
+		}
+		if len(recs) != 2 {
+			t.Fatalf("expected 2 records (CNAME+A), got %d: %v", len(recs), recs)
+		}
+		if cn, ok := recs[0].(*dns.CNAME); !ok || cn.Target != "target.example.org." {
+			t.Fatalf("expected CNAME to target.example.org., got %v", recs[0])
+		}
+		if aRec, ok := recs[1].(*dns.A); !ok || !aRec.A.Equal(net.ParseIP("1.2.3.4")) {
+			t.Fatalf("expected A 1.2.3.4, got %v", recs[1])
+		}
+	})
+
+	t.Run("CNAME with Text resolves AAAA", func(t *testing.T) {
+		req := new(dns.Msg)
+		req.SetQuestion("alias.example.org.", dns.TypeAAAA)
+		state := request.Request{Req: req, W: &test.ResponseWriter{}}
+		recs, tc, err := AAAA(context.Background(), b, "example.org.", state, nil, Options{})
+		if err != nil || tc {
+			t.Fatalf("unexpected err=%v tc=%v", err, tc)
+		}
+		if len(recs) != 2 {
+			t.Fatalf("expected 2 records (CNAME+AAAA), got %d: %v", len(recs), recs)
+		}
+		if cn, ok := recs[0].(*dns.CNAME); !ok || cn.Target != "target.example.org." {
+			t.Fatalf("expected CNAME to target.example.org., got %v", recs[0])
+		}
+		if aaaaRec, ok := recs[1].(*dns.AAAA); !ok || !aaaaRec.AAAA.Equal(net.ParseIP("2001:db8::1")) {
+			t.Fatalf("expected AAAA 2001:db8::1, got %v", recs[1])
+		}
+	})
+
+	t.Run("CNAME with Text resolves CNAME", func(t *testing.T) {
+		req := new(dns.Msg)
+		req.SetQuestion("alias.example.org.", dns.TypeCNAME)
+		state := request.Request{Req: req, W: &test.ResponseWriter{}}
+		recs, err := CNAME(context.Background(), b, "example.org.", state, Options{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(recs) != 1 {
+			t.Fatalf("expected 1 CNAME record, got %d: %v", len(recs), recs)
+		}
+		if cn, ok := recs[0].(*dns.CNAME); !ok || cn.Target != "target.example.org." {
+			t.Fatalf("expected CNAME to target.example.org., got %v", recs[0])
+		}
+	})
+
+	t.Run("CNAME with Text resolves TXT directly", func(t *testing.T) {
+		req := new(dns.Msg)
+		req.SetQuestion("alias.example.org.", dns.TypeTXT)
+		state := request.Request{Req: req, W: &test.ResponseWriter{}}
+		recs, tc, err := TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		if err != nil || tc {
+			t.Fatalf("unexpected err=%v tc=%v", err, tc)
+		}
+		if len(recs) != 1 {
+			t.Fatalf("expected 1 TXT record, got %d: %v", len(recs), recs)
+		}
+		if txtRec, ok := recs[0].(*dns.TXT); !ok || len(txtRec.Txt) != 1 || txtRec.Txt[0] != "heritage=external-dns" {
+			t.Fatalf("expected TXT heritage=external-dns, got %v", recs[0])
+		}
+	})
+
+	t.Run("CNAME with Text resolves SRV and MX", func(t *testing.T) {
+		reqSRV := new(dns.Msg)
+		reqSRV.SetQuestion("alias.example.org.", dns.TypeSRV)
+		srvRecs, srvExtra, err := SRV(context.Background(), b, "example.org.", request.Request{Req: reqSRV, W: &test.ResponseWriter{}}, Options{})
+		if err != nil {
+			t.Fatalf("SRV unexpected error: %v", err)
+		}
+		if len(srvRecs) != 1 || len(srvExtra) != 1 {
+			t.Fatalf("expected 1 SRV + 1 extra A, got %d recs / %d extra", len(srvRecs), len(srvExtra))
+		}
+
+		reqMX := new(dns.Msg)
+		reqMX.SetQuestion("alias.example.org.", dns.TypeMX)
+		mxRecs, mxExtra, err := MX(context.Background(), b, "example.org.", request.Request{Req: reqMX, W: &test.ResponseWriter{}}, Options{})
+		if err != nil {
+			t.Fatalf("MX unexpected error: %v", err)
+		}
+		if len(mxRecs) != 1 || len(mxExtra) != 1 {
+			t.Fatalf("expected 1 MX + 1 extra A, got %d recs / %d extra", len(mxRecs), len(mxExtra))
+		}
+	})
+
+	t.Run("IPv4 and IPv6 with Text still serve TXT", func(t *testing.T) {
+		req := new(dns.Msg)
+		req.SetQuestion("target.example.org.", dns.TypeTXT)
+		state := request.Request{Req: req, W: &test.ResponseWriter{}}
+		recs, tc, err := TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		if err != nil || tc {
+			t.Fatalf("unexpected err=%v tc=%v", err, tc)
+		}
+		if len(recs) != 2 {
+			t.Fatalf("expected 2 TXT records, got %d: %v", len(recs), recs)
+		}
+	})
+
+	t.Run("CNAME without Text follows CNAME to target with IP and Text", func(t *testing.T) {
+		req := new(dns.Msg)
+		req.SetQuestion("txtcname.example.org.", dns.TypeTXT)
+		state := request.Request{Req: req, W: &test.ResponseWriter{}}
+		recs, tc, err := TXT(context.Background(), b, "example.org.", state, nil, Options{})
+		if err != nil || tc {
+			t.Fatalf("unexpected err=%v tc=%v", err, tc)
+		}
+		if len(recs) != 3 {
+			t.Fatalf("expected 3 records (CNAME+2 TXT), got %d: %v", len(recs), recs)
+		}
+		if _, ok := recs[0].(*dns.CNAME); !ok {
+			t.Fatalf("expected first record CNAME, got %T", recs[0])
+		}
+	})
+
+	t.Run("pure TXT does not serve CNAME", func(t *testing.T) {
+		reqTXT := new(dns.Msg)
+		reqTXT.SetQuestion("onlytxt.example.org.", dns.TypeTXT)
+		txtRecs, _, err := TXT(context.Background(), b, "example.org.", request.Request{Req: reqTXT, W: &test.ResponseWriter{}}, nil, Options{})
+		if err != nil || len(txtRecs) != 1 {
+			t.Fatalf("expected 1 TXT record, got len=%d err=%v", len(txtRecs), err)
+		}
+
+		reqCNAME := new(dns.Msg)
+		reqCNAME.SetQuestion("onlytxt.example.org.", dns.TypeCNAME)
+		cnRecs, err := CNAME(context.Background(), b, "example.org.", request.Request{Req: reqCNAME, W: &test.ResponseWriter{}}, Options{})
+		if err != nil || len(cnRecs) != 0 {
+			t.Fatalf("expected 0 CNAME records for pure TXT service, got %d (err=%v): %v", len(cnRecs), err, cnRecs)
+		}
+	})
+}
