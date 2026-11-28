@@ -451,7 +451,7 @@ func CNAME(ctx context.Context, b ServiceBackend, _zone string, state request.Re
 
 	if len(services) > 0 {
 		serv := services[0]
-		if ip := net.ParseIP(serv.Host); ip == nil {
+		if what, _ := serv.HostType(); what == dns.TypeCNAME {
 			records = append(records, serv.NewCNAME(state.QName(), serv.Host))
 		}
 	}
@@ -473,80 +473,81 @@ func txt(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 	var budget *cnameLookupBudget
 
 	for _, serv := range services {
-		what, _ := serv.HostType()
-
-		switch what {
-		case dns.TypeCNAME:
-			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
-				// x CNAME x is a direct loop, don't add those
-				// in etcd/skydns w.x CNAME x is also direct loop due to the "recursive" nature of search results
-				continue
-			}
-
-			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > maxCnameChainLength {
-				// don't add it, and just continue
-				continue
-			}
-			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
-				continue
-			}
-			if isCnameAncestor(ctx, newRecord.Target) {
-				continue
-			}
-			if cnames == nil {
-				ctx, budget = cnameBudget(ctx)
-				cnames = make(cnameVisitSet)
-			}
-			if !cnames.first(newRecord.Target) {
-				continue
-			}
-			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
-				state1 := state.NewWithQuestion(serv.Host, state.QType())
-				state1.Zone = zone
-				nextRecords, tc, err := txt(ctx, b, zone, state1, append(previousRecords, newRecord), opt, cnames)
-				if err == errMaxCnameLookups {
-					return nil, false, err
-				}
-				if tc {
-					truncated = true
-				}
-				if err == nil {
-					// Not only have we found something we should add the CNAME and the IP addresses.
-					if len(nextRecords) > 0 {
-						records = append(records, newRecord)
-						records = append(records, nextRecords...)
-					}
-				}
-				continue
-			}
-			// This means we can not complete the CNAME, try to look else where.
-			target := newRecord.Target
-			if budget == nil {
-				ctx, budget = cnameBudget(ctx)
-			}
-			if !budget.take() {
-				return nil, false, errMaxCnameLookups
-			}
-			// Lookup
-			m1, e1 := b.Lookup(withCnameAncestor(ctx, state.Name()), state, target, state.QType())
-			if budget.exhausted() {
-				return nil, false, errMaxCnameLookups
-			}
-			if e1 != nil || m1 == nil {
-				continue
-			}
-			// Len(m1.Answer) > 0 here is well?
-			records = append(records, newRecord)
-			records = append(records, m1.Answer...)
-			continue
-
-		case dns.TypeTXT:
+		if serv.Text != "" {
 			if _, ok := dup[serv.Text]; !ok {
 				dup[serv.Text] = struct{}{}
 				records = append(records, serv.NewTXT(state.QName()))
 			}
+			continue
 		}
+
+		what, _ := serv.HostType()
+		if what != dns.TypeCNAME {
+			continue
+		}
+
+		if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
+			// x CNAME x is a direct loop, don't add those
+			// in etcd/skydns w.x CNAME x is also direct loop due to the "recursive" nature of search results
+			continue
+		}
+
+		newRecord := serv.NewCNAME(state.QName(), serv.Host)
+		if len(previousRecords) > maxCnameChainLength {
+			// don't add it, and just continue
+			continue
+		}
+		if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
+			continue
+		}
+		if isCnameAncestor(ctx, newRecord.Target) {
+			continue
+		}
+		if cnames == nil {
+			ctx, budget = cnameBudget(ctx)
+			cnames = make(cnameVisitSet)
+		}
+		if !cnames.first(newRecord.Target) {
+			continue
+		}
+		if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
+			state1 := state.NewWithQuestion(serv.Host, state.QType())
+			state1.Zone = zone
+			nextRecords, tc, err := txt(ctx, b, zone, state1, append(previousRecords, newRecord), opt, cnames)
+			if err == errMaxCnameLookups {
+				return nil, false, err
+			}
+			if tc {
+				truncated = true
+			}
+			if err == nil {
+				// Not only have we found something we should add the CNAME and the IP addresses.
+				if len(nextRecords) > 0 {
+					records = append(records, newRecord)
+					records = append(records, nextRecords...)
+				}
+			}
+			continue
+		}
+		// This means we can not complete the CNAME, try to look else where.
+		target := newRecord.Target
+		if budget == nil {
+			ctx, budget = cnameBudget(ctx)
+		}
+		if !budget.take() {
+			return nil, false, errMaxCnameLookups
+		}
+		// Lookup
+		m1, e1 := b.Lookup(withCnameAncestor(ctx, state.Name()), state, target, state.QType())
+		if budget.exhausted() {
+			return nil, false, errMaxCnameLookups
+		}
+		if e1 != nil || m1 == nil {
+			continue
+		}
+		// Len(m1.Answer) > 0 here is well?
+		records = append(records, newRecord)
+		records = append(records, m1.Answer...)
 	}
 
 	return records, truncated, nil

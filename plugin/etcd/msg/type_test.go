@@ -12,13 +12,18 @@ func TestType(t *testing.T) {
 		expectedType uint16
 	}{
 		{Service{Host: "example.org"}, dns.TypeCNAME},
+		{Service{Host: "example.org", Text: "heritage=external-dns"}, dns.TypeCNAME},
+		{Service{Host: "example.org", Mail: true, Text: "a"}, dns.TypeCNAME},
 		{Service{Host: "127.0.0.1"}, dns.TypeA},
 		{Service{Host: "2000::3"}, dns.TypeAAAA},
+		{Service{Host: "2000::3", Text: "v=spf1"}, dns.TypeAAAA},
 		{Service{Host: "2000..3"}, dns.TypeCNAME},
 		{Service{Host: "127.0.0.257"}, dns.TypeCNAME},
 		{Service{Host: "127.0.0.252", Mail: true}, dns.TypeA},
 		{Service{Host: "127.0.0.252", Mail: true, Text: "a"}, dns.TypeA},
 		{Service{Host: "127.0.0.254", Mail: false, Text: "a"}, dns.TypeA},
+		{Service{Host: "", Text: "just-txt"}, dns.TypeTXT},
+		{Service{Host: "", Text: ""}, dns.TypeNone},
 	}
 
 	for i, tc := range tests {
