@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	mcsClientsetFake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 )
 
 var extCases = []struct {
@@ -85,6 +90,20 @@ func TestExternal(t *testing.T) {
 				t.Errorf("Test %d, expected key %s, got %s", i, x, s.Key)
 			}
 		}
+	}
+}
+
+func TestExternalServicesNamespaceFilter(t *testing.T) {
+	k := New([]string{"cluster.local."})
+	k.APIConn = &external{}
+	k.Namespaces = map[string]struct{}{"otherns": {}}
+
+	services, headless := k.ExternalServices("example.org.", true)
+	if len(services) != 0 {
+		t.Errorf("Expected no services, got %d", len(services))
+	}
+	if len(headless) != 0 {
+		t.Errorf("Expected no headless services, got %d", len(headless))
 	}
 }
 
@@ -199,4 +218,57 @@ func (external) ServiceList() []*object.Service {
 func testRequest(name string) request.Request {
 	m := new(dns.Msg).SetQuestion(name, dns.TypeA)
 	return request.Request{W: &test.ResponseWriter{}, Req: m, Zone: "example.org."}
+}
+
+func TestExternalSerialNamespaceMembership(t *testing.T) {
+	const staleSerial = int64(100)
+
+	waitSerialChange := func(t *testing.T, c *dnsControl, action string) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if c.Modified(ModifiedExternal) != staleSerial {
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+		t.Errorf("external serial not updated after namespace %s", action)
+	}
+
+	setup := func(t *testing.T) (*dnsControl, kubernetes.Interface) {
+		t.Helper()
+		client := fake.NewClientset()
+		c := newdnsController(context.Background(), client, mcsClientsetFake.NewSimpleClientset().MulticlusterV1alpha1(), dnsControlOpts{
+			zones: []string{"cluster.local."},
+		})
+		go c.Run()
+		t.Cleanup(func() { c.Stop() })
+		for !c.HasSynced() {
+			time.Sleep(time.Millisecond)
+		}
+		return c, client
+	}
+	ns := &api.Namespace{ObjectMeta: meta.ObjectMeta{Name: "testns"}}
+
+	t.Run("namespace enters selector", func(t *testing.T) {
+		c, client := setup(t)
+		c.extModified.Store(staleSerial)
+		if _, err := client.CoreV1().Namespaces().Create(context.Background(), ns, meta.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		waitSerialChange(t, c, "added")
+	})
+
+	t.Run("namespace leaves selector", func(t *testing.T) {
+		c, client := setup(t)
+		if _, err := client.CoreV1().Namespaces().Create(context.Background(), ns, meta.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		waitSerialChange(t, c, "added")
+		c.extModified.Store(staleSerial)
+		if err := client.CoreV1().Namespaces().Delete(context.Background(), ns.Name, meta.DeleteOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		waitSerialChange(t, c, "deleted")
+	})
 }
