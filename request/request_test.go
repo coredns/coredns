@@ -402,6 +402,348 @@ func TestRequestScrubAnswerExact(t *testing.T) {
 	}
 }
 
+func cnameChainReply(qname string, hops int) (*dns.Msg, *dns.Msg) {
+	const suffix = "service.us-south-central.example.com."
+	req := new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+
+	reply := new(dns.Msg)
+	reply.SetReply(req)
+	owner := qname
+	for i := 1; i <= hops; i++ {
+		target := fmt.Sprintf("hop-%d.%s", i, suffix)
+		reply.Answer = append(reply.Answer, &dns.CNAME{
+			Hdr:    dns.RR_Header{Name: owner, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: 60},
+			Target: target,
+		})
+		owner = target
+	}
+	reply.Answer = append(reply.Answer, &dns.A{
+		Hdr: dns.RR_Header{Name: owner, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60},
+		A:   net.IPv4(10, 20, 30, 40),
+	})
+	return req, reply
+}
+
+func TestRequestScrubTCPCompress(t *testing.T) {
+	const qname = "hop-0.service.us-south-central.example.com."
+
+	t.Run("cname chain compresses below musl 768-byte buffer", func(t *testing.T) {
+		m, reply := cnameChainReply(qname, 8)
+		uncompressedWire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack uncompressed reply: %v", err)
+		}
+		if len(uncompressedWire) <= 768 {
+			t.Fatalf("test setup error: expected uncompressed wire size > 768, got %d", len(uncompressedWire))
+		}
+
+		req := Request{W: &test.ResponseWriter{TCP: true}, Req: m}
+		got := req.Scrub(reply)
+		if got != reply {
+			t.Fatalf("Scrub returned unexpected message pointer")
+		}
+		if !reply.Compress {
+			t.Fatalf("expected reply.Compress = true for TCP response")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply.Truncated = false for TCP CNAME chain")
+		}
+		if len(reply.Answer) != 9 {
+			t.Errorf("expected all 9 answer RRs preserved, got %d", len(reply.Answer))
+		}
+
+		wire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack compressed reply: %v", err)
+		}
+		if len(wire) >= 768 {
+			t.Errorf("expected compressed TCP wire size < 768 bytes, got %d (uncompressed %d)", len(wire), len(uncompressedWire))
+		}
+		if len(wire) >= len(uncompressedWire) {
+			t.Errorf("expected compression to shrink wire size: compressed=%d uncompressed=%d", len(wire), len(uncompressedWire))
+		}
+
+		var unpacked dns.Msg
+		if err := unpacked.Unpack(wire); err != nil {
+			t.Fatalf("Unpack compressed reply: %v", err)
+		}
+		if len(unpacked.Answer) != len(reply.Answer) {
+			t.Fatalf("unpacked answer count = %d, want %d", len(unpacked.Answer), len(reply.Answer))
+		}
+		aRec, ok := unpacked.Answer[len(unpacked.Answer)-1].(*dns.A)
+		if !ok || !aRec.A.Equal(net.IPv4(10, 20, 30, 40)) {
+			t.Errorf("unexpected final A record after unpack: %v", unpacked.Answer[len(unpacked.Answer)-1])
+		}
+	})
+
+	t.Run("wrapped and ipv6 tcp addresses compress", func(t *testing.T) {
+		writers := []struct {
+			name string
+			w    dns.ResponseWriter
+		}{
+			{"wrapped ipv4 tcp", &unwrapAddrWriter{addr: wrappedAddr{inner: &net.TCPAddr{IP: net.ParseIP("10.240.0.1"), Port: 40212}}}},
+			{"plain ipv6 tcp", &test.ResponseWriter6{ResponseWriter: test.ResponseWriter{TCP: true}}},
+			{"wrapped ipv6 tcp", &unwrapAddrWriter{addr: wrappedAddr{inner: &net.TCPAddr{IP: net.ParseIP("2001:db8::1"), Port: 40212}}}},
+		}
+		for _, tc := range writers {
+			t.Run(tc.name, func(t *testing.T) {
+				m, reply := cnameChainReply(qname, 8)
+				uncompressedLen := reply.Len()
+				req := Request{W: tc.w, Req: m}
+				req.Scrub(reply)
+				if !reply.Compress {
+					t.Fatalf("expected reply.Compress = true for %s", tc.name)
+				}
+				if reply.Truncated {
+					t.Errorf("expected reply.Truncated = false for %s", tc.name)
+				}
+				if gotLen := reply.Len(); gotLen >= 768 || gotLen >= uncompressedLen {
+					t.Errorf("expected compressed length < 768 and < %d, got %d", uncompressedLen, gotLen)
+				}
+			})
+		}
+	})
+
+	t.Run("small tcp reply enables compression", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		reply := new(dns.Msg)
+		reply.SetReply(m)
+		reply.Answer = append(reply.Answer, test.A("example.com. 10 IN A 10.0.0.1"))
+
+		uncompressedWire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack uncompressed reply: %v", err)
+		}
+
+		req := Request{W: &test.ResponseWriter{TCP: true}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Fatalf("expected reply.Compress = true for small TCP reply")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply.Truncated = false")
+		}
+		wire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack compressed reply: %v", err)
+		}
+		if len(wire) >= len(uncompressedWire) {
+			t.Errorf("expected compressed wire size < %d, got %d", len(uncompressedWire), len(wire))
+		}
+	})
+
+	t.Run("already compressed tcp reply stays compressed", func(t *testing.T) {
+		m, reply := cnameChainReply(qname, 4)
+		reply.Compress = true
+
+		req := Request{W: &test.ResponseWriter{TCP: true}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Fatalf("expected reply.Compress to remain true on TCP reply")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply.Truncated = false")
+		}
+	})
+
+	t.Run("tcp reply exceeding MaxMsgSize uncompressed fits when compressed", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("large.subdomain.k8s.example.com.", dns.TypeA)
+		reply := new(dns.Msg)
+		reply.SetReply(m)
+		const count = 1500
+		for i := range count {
+			reply.Answer = append(reply.Answer, &dns.A{
+				Hdr: dns.RR_Header{Name: "large.subdomain.k8s.example.com.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 10},
+				A:   net.IPv4(10, byte(i>>8), byte(i&0xff), 1),
+			})
+		}
+		if uncompressedLen := reply.Len(); uncompressedLen <= dns.MaxMsgSize {
+			t.Fatalf("test setup error: expected uncompressed length > %d, got %d", dns.MaxMsgSize, uncompressedLen)
+		}
+
+		req := Request{W: &test.ResponseWriter{TCP: true}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Fatalf("expected reply.Compress = true")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply.Truncated = false when compressed reply fits in MaxMsgSize")
+		}
+		if len(reply.Answer) != count {
+			t.Errorf("expected all %d answers preserved, got %d", count, len(reply.Answer))
+		}
+		wire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack compressed reply: %v", err)
+		}
+		if len(wire) > dns.MaxMsgSize {
+			t.Errorf("expected wire size <= %d, got %d", dns.MaxMsgSize, len(wire))
+		}
+	})
+
+	t.Run("tcp reply exceeding MaxMsgSize even compressed truncates", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("large.subdomain.k8s.example.com.", dns.TypeA)
+		reply := new(dns.Msg)
+		reply.SetReply(m)
+		for i := range 5000 {
+			reply.Answer = append(reply.Answer, &dns.A{
+				Hdr: dns.RR_Header{Name: "large.subdomain.k8s.example.com.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 10},
+				A:   net.IPv4(10, byte(i>>8), byte(i&0xff), 1),
+			})
+		}
+
+		req := Request{W: &test.ResponseWriter{TCP: true}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Fatalf("expected reply.Compress = true")
+		}
+		if !reply.Truncated {
+			t.Errorf("expected reply.Truncated = true when even compressed size exceeds MaxMsgSize")
+		}
+		wire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack truncated TCP reply: %v", err)
+		}
+		if len(wire) > dns.MaxMsgSize {
+			t.Errorf("expected wire size <= %d, got %d", dns.MaxMsgSize, len(wire))
+		}
+	})
+
+	t.Run("nil reply returns nil", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		req := Request{W: &test.ResponseWriter{TCP: true}, Req: m}
+		if got := req.Scrub(nil); got != nil {
+			t.Fatalf("expected nil reply, got %v", got)
+		}
+	})
+}
+
+func TestRequestScrubUDPCompressionUnchanged(t *testing.T) {
+	const qname = "hop-0.service.us-south-central.example.com."
+
+	t.Run("small udp reply stays uncompressed", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		reply := new(dns.Msg)
+		reply.SetReply(m)
+		reply.Answer = append(reply.Answer, test.A("example.com. 10 IN A 10.0.0.1"))
+
+		req := Request{W: &test.ResponseWriter{}, Req: m}
+		req.Scrub(reply)
+		if reply.Compress {
+			t.Errorf("expected small UDP reply to stay uncompressed")
+		}
+		if reply.Truncated {
+			t.Errorf("expected small UDP reply not to be truncated")
+		}
+	})
+
+	t.Run("udp edns0 ipv4 below 1480 stays uncompressed", func(t *testing.T) {
+		m, reply := cnameChainReply(qname, 8)
+		m.SetEdns0(4096, false)
+		if reply.Len() >= 1480 {
+			t.Fatalf("test setup error: expected uncompressed length < 1480, got %d", reply.Len())
+		}
+
+		req := Request{W: &test.ResponseWriter{}, Req: m}
+		req.Scrub(reply)
+		if reply.Compress {
+			t.Errorf("expected IPv4 UDP EDNS0 reply < 1480 bytes to stay uncompressed")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply not to be truncated")
+		}
+	})
+
+	t.Run("udp edns0 ipv4 above 1480 compresses without truncation", func(t *testing.T) {
+		m, reply := cnameChainReply(qname, 16)
+		m.SetEdns0(4096, false)
+		if l := reply.Len(); l <= 1480 || l > 4096 {
+			t.Fatalf("test setup error: expected uncompressed length in (1480, 4096], got %d", l)
+		}
+
+		req := Request{W: &test.ResponseWriter{}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Errorf("expected IPv4 UDP EDNS0 reply > 1480 bytes to be compressed")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply not to be truncated")
+		}
+	})
+
+	t.Run("udp edns0 ipv6 above 1220 compresses without truncation", func(t *testing.T) {
+		m, reply := cnameChainReply(qname, 13)
+		m.SetEdns0(4096, false)
+		if l := reply.Len(); l <= 1220 || l > 1480 {
+			t.Fatalf("test setup error: expected uncompressed length in (1220, 1480], got %d", l)
+		}
+
+		req := Request{W: &test.ResponseWriter6{}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Errorf("expected IPv6 UDP EDNS0 reply > 1220 bytes to be compressed")
+		}
+		if reply.Truncated {
+			t.Errorf("expected reply not to be truncated")
+		}
+	})
+
+	t.Run("udp without edns0 above 512 compresses to fit without truncation", func(t *testing.T) {
+		m, reply := cnameChainReply(qname, 8)
+		if reply.Len() <= dns.MinMsgSize {
+			t.Fatalf("test setup error: expected uncompressed length > %d, got %d", dns.MinMsgSize, reply.Len())
+		}
+
+		req := Request{W: &test.ResponseWriter{}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Errorf("expected UDP reply > 512 bytes to be compressed")
+		}
+		if reply.Truncated {
+			t.Errorf("expected compressed UDP reply fitting in 512 bytes not to be truncated")
+		}
+		wire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack compressed UDP reply: %v", err)
+		}
+		if len(wire) > dns.MinMsgSize {
+			t.Errorf("expected compressed UDP wire size <= %d, got %d", dns.MinMsgSize, len(wire))
+		}
+	})
+
+	t.Run("udp exceeding buffer size even after compression sets TC", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("large.example.com.", dns.TypeA)
+		reply := new(dns.Msg)
+		reply.SetReply(m)
+		for i := range 100 {
+			reply.Answer = append(reply.Answer, test.A(fmt.Sprintf("large.example.com. 10 IN A 10.0.0.%d", i+1)))
+		}
+
+		req := Request{W: &test.ResponseWriter{}, Req: m}
+		req.Scrub(reply)
+		if !reply.Compress {
+			t.Errorf("expected truncated UDP reply to be compressed")
+		}
+		if !reply.Truncated {
+			t.Errorf("expected reply.Truncated = true")
+		}
+		wire, err := reply.Pack()
+		if err != nil {
+			t.Fatalf("Pack truncated UDP reply: %v", err)
+		}
+		if len(wire) > dns.MinMsgSize {
+			t.Errorf("expected wire size <= %d, got %d", dns.MinMsgSize, len(wire))
+		}
+	})
+}
+
 func TestRequestMatch(t *testing.T) {
 	st := testRequest()
 	reply := new(dns.Msg)
